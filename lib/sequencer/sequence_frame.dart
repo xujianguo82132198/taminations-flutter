@@ -25,8 +25,6 @@ import 'package:flutter/services.dart' as fs;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart' as pp;
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:speech_to_text/speech_to_text.dart';
-import 'package:speech_to_text/speech_to_text_provider.dart';
 
 import '../common_flutter.dart';
 import '../pages/calls_page.dart';
@@ -34,6 +32,7 @@ import '../pages/page.dart';
 import 'abbreviations_model.dart';
 import 'sequencer_model.dart';
 import 'words.dart';
+import 'xfyun_speech_to_text.dart';
 
 class SequenceFrame extends fm.StatefulWidget {
   @override
@@ -135,7 +134,8 @@ class SequencerEditLine extends fm.StatefulWidget {
   _SequencerEditLineState createState() => _SequencerEditLineState();
 }
 
-class _SequencerEditLineState extends fm.State<SequencerEditLine> {
+class _SequencerEditLineState extends fm.State<SequencerEditLine>
+    with fm.WidgetsBindingObserver {
 
   fm.TextEditingController textFieldController = fm.TextEditingController();
   final focusNode = fm.FocusNode();
@@ -148,19 +148,38 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine> {
   @override
   void initState() {
     super.initState();
+    fm.WidgetsBinding.instance.addObserver(this);
     if (!TamUtils.isTouchDevice)
       later(() {
         focusNode.requestFocus();
       });
-    speechProvider = SpeechToTextProvider(SpeechToText());
+    speechProvider = SpeechToTextProvider();
   }
 
   @override
   void dispose() {
+    fm.WidgetsBinding.instance.removeObserver(this);
+    //  延迟到微任务里销毁语音监听,避免在 dispose 过程中
+    //  notifyListeners 触发已卸载的组件重建
+    Future.microtask(() {
+      speechProvider.cancel();
+      speechProvider.dispose();
+    });
     textFieldController.dispose();
     fs.SystemChannels.textInput.invokeMethod('TextInput.hide');
     focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(fm.AppLifecycleState state) {
+    //  切到后台/应用被销毁时,直接停止语音监听并释放麦克风,
+    //  回到前台后需要重新点击麦克风开启
+    if (state == fm.AppLifecycleState.paused ||
+        state == fm.AppLifecycleState.hidden ||
+        state == fm.AppLifecycleState.detached) {
+      speechProvider.cancel();
+    }
   }
 
   @override
@@ -181,14 +200,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine> {
         later(() {
           fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
               backgroundColor: Color.RED,
-              duration: Duration(seconds: 2),
+              duration: Duration(seconds: 5),
               content: fm.Text(_lastError,
                   style: GoogleFonts.roboto(fontSize: 20))
           ));
         });
         //  After the same duration as the SnackBar reset the last error
         //  so the user will see another messoage on repeating the same error
-        afterDelay(() { _lastError = ''; },Duration(seconds:2));
+        afterDelay(() { _lastError = ''; },Duration(seconds:5));
       }
       //  Process any results from the speech recognizer
       if (speech.hasResults) {
@@ -211,28 +230,22 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine> {
           }
         }
         if (!found) {
-          final message = speech.lastResult!.alternates.isNotEmpty
-              ? 'Unable to parse, best guess is ${speech.lastResult!.alternates.first.recognizedWords}.'
-              : 'Sorry, not able to recognize that.';
-          later(() {
-            fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-                backgroundColor: Color.RED,
-                duration: Duration(seconds: 2),
-                content: fm.Text(message,
-                    style: GoogleFonts.roboto(fontSize: 20))
-            ));
-          });
+          //  没有完全匹配词表的候选:直接把第一候选(best guess)送给
+          //  序列器解析,由 loadOneCall 决定接受或给出错误提示,
+          //  而不是只弹提示不做任何事
+          if (speech.lastResult!.alternates.isNotEmpty) {
+            final guess = speech.lastResult!.alternates.first
+                .recognizedWords.replaceAll('\\W'.r, ' ');
+            later(() {
+              _isVoiceCall = true;
+              _sendOneLine(model, guess);
+            });
+          }
         }
-        later((){
-          speech.stop();
-          speech.listen(
-              localeId: 'en_US',
-              partialResults: false,
-              soundLevel: true,
-              listenFor: Duration(seconds: 10),
-              pauseFor: Duration(seconds: 5)
-          );
-        });
+        //  持续监听模式下 Provider 会自动开始下一轮识别,
+        //  这里不再需要手动 stop + listen 重启
+        //  处理完一条结果后立即清空,防止 build 重复消费同一结果
+        speech.clearResults();
       }
 
       return fm.Container(
@@ -308,7 +321,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine> {
                       } else {
                         fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
                             backgroundColor: Color.BLUE,
-                            duration: Duration(seconds: 2),
+                            duration: Duration(seconds: 5),
                             content: fm.Text('Sorry, speech recognition not available on this device.',
                                 style: GoogleFonts.roboto(fontSize: 20))));
                       }

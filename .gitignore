@@ -51,3 +51,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+#  讯飞开放平台凭据,不入库
+lib/sequencer/xfyun_keys.dart
+
+#  一键构建脚本(含签名密码)
+build_release.sh

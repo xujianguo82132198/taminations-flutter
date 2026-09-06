@@ -74,6 +74,9 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
 
   @override
   fm.Widget build(fm.BuildContext context) {
+    //  Cell height must grow with the user's system font scale
+    //  so enlarged (accessibility) text is never clipped vertically
+    final textScale = fm.MediaQuery.textScalerOf(context).scale(16) / 16;
     return pp.ChangeNotifierProvider.value(
       value: callsModel,
       child: pp.Consumer<SequencerCallsModel>(
@@ -81,9 +84,9 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
           return fm.Column(children: [
               fm.Expanded(child: fm.GridView.builder(
                 gridDelegate: fm.SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 200,
+                    maxCrossAxisExtent: 240,
                     mainAxisSpacing: 1,
-                    childAspectRatio: 8
+                    mainAxisExtent: 40 * textScale
                 ),
                 itemCount: callsModel.callsSelected.length,
                 itemBuilder: (_,index) =>
@@ -91,8 +94,15 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
                 child: fm.Material(
                 //  Color the item according the the level
                 color: LevelData.find(callsModel.callsSelected[index].link)!.color,
-                child: fm.Text(callsModel.callsSelected[index].title,
-                    style: fm.TextStyle(fontSize: 16))
+                child: fm.Container(
+                    alignment: fm.Alignment.centerLeft,
+                    padding: fm.EdgeInsets.only(left: 6, right: 6),
+                    child: AutoSizeText(callsModel.callsSelected[index].title,
+                        maxLines: 2,
+                        minFontSize: 12,
+                        overflow: fm.TextOverflow.ellipsis,
+                        style: fm.TextStyle(fontSize: 16)),
+                ),
                 )
                 )
 
