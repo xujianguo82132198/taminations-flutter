@@ -57,3 +57,6 @@ lib/sequencer/xfyun_keys.dart
 
 #  一键构建脚本(含签名密码)
 build_release.sh
+
+#  发布安装包成品
+*.apk
