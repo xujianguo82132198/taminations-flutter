@@ -74,7 +74,7 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    //  Cell height must grow with the user's system font scale
+    //  Cell height = 1.3 x font height, growing with the user's font scale
     //  so enlarged (accessibility) text is never clipped vertically
     final textScale = fm.MediaQuery.textScalerOf(context).scale(16) / 16;
     return pp.ChangeNotifierProvider.value(
@@ -86,7 +86,7 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
                 gridDelegate: fm.SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 240,
                     mainAxisSpacing: 1,
-                    mainAxisExtent: 40 * textScale
+                    mainAxisExtent: 16 * 1.3 * textScale
                 ),
                 itemCount: callsModel.callsSelected.length,
                 itemBuilder: (_,index) =>
