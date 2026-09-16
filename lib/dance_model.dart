@@ -95,7 +95,24 @@ class DanceModel extends fm.ChangeNotifier {
   double get practiceScore => _practiceScore;
   List<Dancer> dancers = [];
   PracticeDancer? practiceDancer;
-  double get speed =>  speedNames[Settings.speed] ?? NORMALSPEED;
+  //  速度来源:音乐节拍模式(Settings.speed 形如 "BPM 128")时
+  //  按节拍换算(每拍毫秒数 = 60000/节拍数),否则用档位表
+  double get speed {
+    final s = Settings.speed;
+    if (s.startsWith('BPM ')) {
+      final bpm = double.tryParse(s.substring(4));
+      if (bpm != null && bpm > 0)
+        return 60000.0 / bpm;
+    }
+    return speedNames[s] ?? NORMALSPEED;
+  }
+
+  ///  速度变化后立即生效(仅当动画正在播放;
+  ///  否则下次 doPlay 时自然应用新速度)
+  void applySpeedNow() {
+    if (beater.isRunning)
+      beater.setSpeed(speed);
+  }
   var _geometryType = Geometry.SQUARE;
   final _asymmetric = false;
   var _randomColors = false;

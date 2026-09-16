@@ -312,15 +312,26 @@ class DancerSpeedSettingWidget extends fm.StatelessWidget {
       builder: (context,settings,child) => fm.Column(
           crossAxisAlignment: fm.CrossAxisAlignment.stretch,
           children: [
-        _SettingTitle('Dancer Speed'),
-        _SettingRadioGroup(
-            groupName: 'Dancer Speed',
-            groupValue: Settings.speed,
-            values: ['Slow', 'Normal', 'Fast'],
-            onChanged: (value) {
-              Settings.speed = value;
-            }),
-      ]),
+            _SettingTitle('Dancer Speed'),
+            //  音乐节拍模式:速度由检测到的节拍临时接管,识别结束后恢复
+            if (Settings.speed.startsWith('BPM '))
+              fm.Container(
+                  color: fm.Colors.white,
+                  padding: fm.EdgeInsets.only(top: 4, left: 12),
+                  child: fm.Row(children: [
+                    fm.Icon(fm.Icons.music_note, color: fm.Colors.blue),
+                    fm.Text(
+                        '音乐节拍 ${Settings.speed.substring(4)}bpm(自动)',
+                        style: fm.TextStyle(fontSize: 20, color: fm.Colors.blue))
+                  ])),
+            _SettingRadioGroup(
+                groupName: 'Dancer Speed',
+                groupValue: Settings.speed,
+                values: ['Slow', 'Normal', 'Fast'],
+                onChanged: (value) {
+                  Settings.speed = value;
+                }),
+          ]),
     );
   }
 }

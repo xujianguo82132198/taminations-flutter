@@ -19,19 +19,28 @@
 */
 
 
+import 'dart:async';
+
 import 'package:auto_size_text/auto_size_text.dart';
+import 'dart:io' as io;
+
+import 'package:file_picker/file_picker.dart' as fp;
+import 'package:flutter_file_dialog/flutter_file_dialog.dart' as ffd;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart' as fm;
 import 'package:flutter/services.dart' as fs;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart' as pp;
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../common_flutter.dart';
 import '../pages/calls_page.dart';
 import '../pages/page.dart';
 import 'abbreviations_model.dart';
+import 'caller_store.dart';
 import 'sequencer_model.dart';
-import 'words.dart';
+import 'voice_flow.dart';
 import 'xfyun_speech_to_text.dart';
 
 class SequenceFrame extends fm.StatefulWidget {
@@ -52,6 +61,11 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
              builder: (context,constraints) => fm.Column(
                children: [
                  SequencerEditLine(),
+                 //  音乐功能开关(可选):开启后小人按播放音乐的节拍跳舞
+                 if (TamUtils.canListen)
+                   MusicDanceButton(),
+                 //  全程显示当前口令员映射表的全部记录,便于核对正确与否
+                 CallerTablePanel(),
                  if (!isSmallAndCompact(context))
                    fm.Expanded(
                        child: ScrollablePositionedList.builder(
@@ -128,6 +142,347 @@ class SequenceEditButtons extends fm.StatelessWidget {
   }
 }
 
+///  "按播放音乐节拍跳舞"开关按钮(音乐功能可选项)
+///  未按下(默认):小人按系统原设定节拍跳,无任何音乐检测;
+///  按下:出现"请播放背景音乐"提示 → 节拍检测(麦克风按钮蓝色闪烁)
+///  → 节拍显示并接管 Dance Speed → 音乐停止检测;
+///  再次按下:停止上述功能并恢复系统原设定节拍。
+///  语音识别不受此按钮影响。未登录时按下无效。
+class MusicDanceButton extends fm.StatefulWidget {
+  @override
+  _MusicDanceButtonState createState() => _MusicDanceButtonState();
+}
+
+class _MusicDanceButtonState extends fm.State<MusicDanceButton> {
+
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    flow.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    //  未登录(流程未启动)时不显示该按钮
+    if (!flow.isActive)
+      return fm.SizedBox.shrink();
+    final enabled = flow.musicEnabled;
+    final color = enabled ? Color.WHITE : Color.BLACK;
+    //  所有提示都显示在按钮上,不另占屏幕空间:
+    //  音乐模式中:请播放音乐 / 节拍检测中 / N bpm,开始喊口令 / 音乐已停止
+    //  音乐模式关闭:按下 则以外来音乐节拍跳舞 再按退出
+    String? prompt;
+    if (flow.phase == 'awaiting')
+      prompt = '请播放音乐';
+    else if (flow.phase == 'detecting')
+      prompt = flow.bpm > 0 ? '节拍检测中·上次${flow.bpm}bpm' : '节拍检测中…';
+    else if (flow.phase == 'ready')
+      prompt = flow.musicStoppedDuringCall
+          ? '音乐已停止,重播将重新检测节拍'
+          : '${flow.bpm}bpm,开始喊口令';
+    return fm.Padding(
+      padding: fm.EdgeInsets.fromLTRB(4, 2, 4, 2),
+      child: fm.Material(
+        elevation: 4.0,
+        color: Color(0),
+        shape: fm.RoundedRectangleBorder(
+            borderRadius: fm.BorderRadius.circular(10)),
+        child: fm.Semantics(
+          button: true,
+          enabled: true,
+          label: prompt ?? '按下则以外来音乐节拍跳舞再按退出',
+          identifier: '按播放音乐节拍跳舞',
+          child: fm.InkWell(
+            onTap: () => flow.toggleMusic(),
+            child: fm.Container(
+              width: double.infinity,
+              decoration: fm.ShapeDecoration(
+                  shape: fm.RoundedRectangleBorder(
+                      side: fm.BorderSide(
+                          color: enabled ? Color.BLUE : Color.GRAY.darker()),
+                      borderRadius: fm.BorderRadius.circular(10)),
+                  gradient: fm.LinearGradient(
+                      begin: fm.Alignment.topCenter,
+                      end: fm.Alignment.bottomCenter,
+                      colors: enabled
+                          ? [fm.Colors.blue, fm.Colors.blue.shade800]
+                          : [Color.WHITE, Color(0xffa0a0a0)])),
+              //  高度约为原来的 2/3:垂直内边距压缩
+              padding: fm.EdgeInsets.fromLTRB(8, 1, 8, 1),
+              child: fm.Center(
+                child: prompt != null
+                    ? fm.Text(prompt,
+                        maxLines: 1,
+                        overflow: fm.TextOverflow.ellipsis,
+                        style: fm.TextStyle(
+                            fontWeight: fm.FontWeight.bold,
+                            fontSize: 20,
+                            color: color))
+                    : fm.Text.rich(
+                        fm.TextSpan(
+                            style: fm.TextStyle(
+                                fontWeight: fm.FontWeight.bold,
+                                fontSize: 20,
+                                color: color),
+                            children: [
+                              fm.TextSpan(text: '按下'),
+                              fm.TextSpan(
+                                  text: '则以外来音乐节拍跳舞',
+                                  //  说明文字字高取 2/3
+                                  style: fm.TextStyle(fontSize: 20 * 2 / 3)),
+                              fm.TextSpan(text: '再按退出'),
+                            ]),
+                        maxLines: 1,
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+}
+
+///  当前口令员映射表面板:流程期间全程显示表内全部记录,
+///  四列依次为 序号 / 语音识别结果 / 标准口令 / 口令所属级别,
+///  记录增删时实时刷新(经 VoiceFlow 转发 CallerTable 的变更通知)
+class CallerTablePanel extends fm.StatefulWidget {
+  @override
+  _CallerTablePanelState createState() => _CallerTablePanelState();
+}
+
+class _CallerTablePanelState extends fm.State<CallerTablePanel> {
+
+  final flow = VoiceFlow.instance;
+  final itemScrollController = ItemScrollController();
+
+  ///  极小化:只留标题行,节省画面占用;后台工作不受影响
+  var minimized = false;
+  CallerRow? _lastScrolledCandidate;
+  CallerRow? _lastScrolledPending;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    flow.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (!mounted) return;
+    setState(() {});
+    _scrollToCenterIfNeeded();
+  }
+
+  //  需要居中显示的记录,按优先级:
+  //  1) 录入时新插入的待补全记录(先插入,排序,居中显示,高亮)
+  //  2) 语音查表的候选记录
+  void _scrollToCenterIfNeeded() {
+    final table = flow.callerTable;
+    if (table == null || minimized) return;
+    CallerRow? target;
+    //  录入新插入的待补全记录
+    final pending = flow.pendingRecord;
+    if (pending != null && !identical(pending, _lastScrolledPending)) {
+      _lastScrolledPending = pending;
+      target = pending;
+    }
+    //  语音查表的候选记录
+    final candidate = flow.lastCandidate;
+    if (target == null && candidate != null &&
+        !identical(candidate, _lastScrolledCandidate)) {
+      _lastScrolledCandidate = candidate;
+      target = candidate;
+    }
+    if (target == null) return;
+    final index = table.rows.indexWhere((r) => identical(r, target));
+    if (index < 0) return;
+    later(() {
+      itemScrollController.scrollTo(
+          index: index, alignment: 0.5, duration: Duration(milliseconds: 300));
+    });
+  }
+
+  //  口令员删除所选记录(带确认)
+  Future<void> _deleteRow(CallerRow row) async {
+    final table = flow.callerTable;
+    if (table == null) return;
+    final confirmed = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text('删除记录'),
+          content: fm.Text(
+              '确定删除第${row.seq}条?\n${row.recognized} → '
+              '${row.standardCall.isBlank ? '(待补全)' : row.standardCall}',
+              style: fm.TextStyle(fontSize: 20)),
+          actions: [
+            fm.TextButton(onPressed: () => fm.Navigator.of(ctx).pop(false),
+                child: fm.Text('取消')),
+            fm.TextButton(onPressed: () => fm.Navigator.of(ctx).pop(true),
+                child: fm.Text('删除')),
+          ],
+        ));
+    if (confirmed == true)
+      await table.removeRow(row.seq);
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final table = flow.callerTable;
+    //  流程未激活或尚无表时不占空间
+    if (!flow.isActive || table == null)
+      return fm.SizedBox.shrink();
+    //  极小化:只显示标题行
+    if (minimized)
+      return fm.InkWell(
+        onTap: () {
+          setState(() => minimized = false);
+          //  展开后把待补全/候选记录居中
+          _lastScrolledPending = null;
+          _lastScrolledCandidate = null;
+          _scrollToCenterIfNeeded();
+        },
+        child: fm.Container(
+          width: double.infinity,
+          color: Color.FLOOR,
+          padding: fm.EdgeInsets.only(left: 12, top: 3, bottom: 3),
+          child: fm.Row(children: [
+            fm.Icon(fm.Icons.unfold_more, size: 20),
+            fm.SizedBox(width: 6),
+            fm.Text(
+                '口令员 ${flow.callerName} 映射表(${table.rows.length}条) ▸',
+                style: fm.TextStyle(
+                    fontWeight: fm.FontWeight.bold, fontSize: 16)),
+          ]),
+        ),
+      );
+    //  展开时固定高度(150),不自动扩大,不影响跳舞区域
+    return fm.Container(
+      height: 150,
+      color: Color.WHITE,
+      child: fm.Column(
+        crossAxisAlignment: fm.CrossAxisAlignment.start,
+        children: [
+          fm.Container(
+            width: double.infinity,
+            color: Color.FLOOR,
+            padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
+            child: fm.Row(children: [
+              fm.Expanded(
+                child: fm.Text(
+                    '口令员 ${flow.callerName} 映射表(${table.rows.length}条)',
+                    style: fm.TextStyle(
+                        fontWeight: fm.FontWeight.bold, fontSize: 16)),
+              ),
+              //  极小化按钮:关闭显示,后台工作不受影响
+              fm.InkWell(
+                onTap: () => setState(() => minimized = true),
+                child: fm.Padding(
+                  padding: fm.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  child: fm.Icon(fm.Icons.unfold_less, size: 20),
+                ),
+              ),
+            ]),
+          ),
+          fm.Expanded(
+            child: table.rows.isEmpty
+                ? fm.Container(
+                    alignment: fm.Alignment.center,
+                    child: fm.Text('(空表,语音识别将进入记录初始化)',
+                        style: fm.TextStyle(fontSize: 18, color: Color.BLACK)))
+                : ScrollablePositionedList.builder(
+                    itemScrollController: itemScrollController,
+                    padding: fm.EdgeInsets.zero,
+                    itemCount: table.rows.length,
+                    itemBuilder: (context, index) {
+                      final row = table.rows[index];
+                      //  待补全的记录(第三列为空)黄色;
+                      //  语音查表的候选记录蓝色边框突出显示
+                      final pending =
+                          row.standardCall.isBlank &&
+                          identical(flow.pendingRecord, row);
+                      final isCandidate =
+                          identical(flow.lastCandidate, row);
+                      return fm.InkWell(
+                        onTap: () => _deleteRow(row),
+                        child: fm.Container(
+                          color: pending
+                              ? Color.YELLOW
+                              : (isCandidate ? Color(0xffe0f0ff) : null),
+                          decoration: pending || isCandidate ? null : fm.BoxDecoration(
+                              border: fm.Border(
+                                  bottom: fm.BorderSide(
+                                      width: 1, color: Color.LIGHTGREY))),
+                          padding: fm.EdgeInsets.only(
+                              left: 12, right: 8, top: 3, bottom: 3),
+                          child: fm.Row(
+                            crossAxisAlignment: fm.CrossAxisAlignment.start,
+                            children: [
+                              fm.SizedBox(
+                                  width: 30,
+                                  child: fm.Padding(
+                                    padding: fm.EdgeInsets.only(top: 2),
+                                    child: fm.Text('${row.seq}',
+                                        style: fm.TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: isCandidate
+                                                ? fm.FontWeight.bold : null)),
+                                  )),
+                              fm.Expanded(
+                                  flex: 5,
+                                  child: fm.Text(row.recognized,
+                                      maxLines: 3,
+                                      overflow: fm.TextOverflow.ellipsis,
+                                      style: fm.TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: isCandidate
+                                              ? fm.FontWeight.bold : null))),
+                              fm.Padding(
+                                padding: fm.EdgeInsets.only(top: 2),
+                                child: fm.Text('→',
+                                    style: fm.TextStyle(fontSize: 16)),
+                              ),
+                              fm.Expanded(
+                                  flex: 5,
+                                  child: fm.Text(
+                                      row.standardCall.isBlank ? '(待补全)' : row.standardCall,
+                                      maxLines: 3,
+                                      overflow: fm.TextOverflow.ellipsis,
+                                      style: fm.TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: fm.FontWeight.bold))),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+}
+
 
 class SequencerEditLine extends fm.StatefulWidget {
   @override
@@ -135,7 +490,7 @@ class SequencerEditLine extends fm.StatefulWidget {
 }
 
 class _SequencerEditLineState extends fm.State<SequencerEditLine>
-    with fm.WidgetsBindingObserver {
+    with fm.WidgetsBindingObserver, fm.SingleTickerProviderStateMixin {
 
   fm.TextEditingController textFieldController = fm.TextEditingController();
   final focusNode = fm.FocusNode();
@@ -144,6 +499,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   late SpeechToTextProvider speechProvider;
   var _lastError = '';
   var _isVoiceCall = false;
+
+  //  ---- 背景音乐/节拍/语音识别流程 ----
+  //  流程状态(含口令员姓名/映射表)由 VoiceFlow 单例持有
+  //  (输入行会因键盘开合被销毁重建,状态放在 State 里会被打断),
+  //  这里只负责 UI 展示与交互
+  final flow = VoiceFlow.instance;
+  fm.AnimationController? _blinkController;
+  var _blinkOn = false;
 
   @override
   void initState() {
@@ -154,17 +517,97 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         focusNode.requestFocus();
       });
     speechProvider = SpeechToTextProvider();
+    flow.attach(speechProvider);
+    flow.addListener(_onFlowChanged);
+    //  供音乐按钮在未登录时触发的"登录并打开映射表"回调
+    flow.loginRequest = _loginAndOpenTable;
+    //  麦克风按钮蓝色闪烁动画:250ms 一个周期,亮/暗各 125ms = 4 次/秒
+    _blinkController = fm.AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 250))
+      ..addListener(() {
+        final on = _blinkController!.value < 0.5;
+        if (on != _blinkOn && mounted)
+          setState(() => _blinkOn = on);
+      });
+  }
+
+  //  PTT"按下说话,抬起停止"提示浮层(按下显示,抬起消失)
+  fm.OverlayEntry? _pttHint;
+
+  void _showPttHint() {
+    _hidePttHint();
+    _pttHint = fm.OverlayEntry(builder: (ctx) => fm.Positioned(
+        bottom: 120, left: 0, right: 0,
+        child: fm.IgnorePointer(
+          child: fm.Center(
+            child: fm.Container(
+              color: Color.BLUE,
+              padding: const fm.EdgeInsets.symmetric(
+                  vertical: 10, horizontal: 24),
+              child: const fm.Text('按下说话,抬起停止',
+                  style: fm.TextStyle(fontSize: 24, color: Color.WHITE)),
+            ),
+          ),
+        )));
+    fm.Overlay.of(context).insert(_pttHint!);
+  }
+
+  void _hidePttHint() {
+    _pttHint?.remove();
+    _pttHint = null;
+  }
+
+  //  流程状态变化 → 刷新 UI,并驱动闪烁与动画即时变速
+  void _onFlowChanged() {
+    if (!mounted) return;
+    //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
+    final selection = flow.callSelection;
+    if (selection != null) {
+      flow.callSelection = null;
+      textFieldController.text = selection;
+      focusNode.requestFocus();
+      setState(() {
+        virtualKeyboardSetVisible(true);
+      });
+    }
+    if (flow.phase == 'detecting')
+      _blinkController?.repeat();
+    else {
+      _blinkController?.stop();
+      if (_blinkOn) _blinkOn = false;
+    }
+    _showFlowError();
+    setState(() {});
+    //  速度变化(接管/恢复)时,若动画在播立即应用
+    _applyDancerSpeed();
+  }
+
+  //  触摸设备上弹出输入键盘
+  void virtualKeyboardSetVisible(bool visible) {
+    try {
+      pp.Provider.of<VirtualKeyboardVisible>(context, listen: false)
+          .isVisible = visible;
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     fm.WidgetsBinding.instance.removeObserver(this);
+    //  只断开 UI 监听,流程本体由 VoiceFlow 单例继续;
+    //  若 5 秒后没有新的输入行接入(真正离开页面)则自动回收
+    flow.removeListener(_onFlowChanged);
+    flow.detach();
+    //  登录回调若仍指向本实例则清除(输入行重建时新实例已重新注册)
+    if (flow.loginRequest == _loginAndOpenTable)
+      flow.loginRequest = null;
     //  延迟到微任务里销毁语音监听,避免在 dispose 过程中
     //  notifyListeners 触发已卸载的组件重建
     Future.microtask(() {
       speechProvider.cancel();
       speechProvider.dispose();
     });
+    _hidePttHint();
+    _blinkController?.dispose();
     textFieldController.dispose();
     fs.SystemChannels.textInput.invokeMethod('TextInput.hide');
     focusNode.dispose();
@@ -179,6 +622,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         state == fm.AppLifecycleState.hidden ||
         state == fm.AppLifecycleState.detached) {
       speechProvider.cancel();
+      flow.stop();
     }
   }
 
@@ -211,36 +655,58 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       }
       //  Process any results from the speech recognizer
       if (speech.hasResults) {
-        //print('Looking for ${speech.lastResult.recognizedWords}');
-        var found = false;
-        for (var i=0; i<speech.lastResult!.alternates.length; i++) {
-          //  Look through all the alternatives for one that has
-          //  all square dance words
-          var call = speech.lastResult!.alternates[i].recognizedWords.replaceAll('\\W'.r, ' ');
-          var words = call.split('\\s+'.r)
-              .map((w) => normalizeCall(w).toLowerCase());
-          if (words.every((word) => Words.words.contains(word))) {
-            //print('Found call in alternative $i: $call');
-            later( () {
-              _isVoiceCall = true;
-              _sendOneLine(model, call);
+        //  0) PTT 采样结果(按下说话/抬起出结果):专用于映射表
+        //     口令语音采集——识别句直接进入记录初始化
+        if (flow.pttActive) {
+          final sample = speech.lastResult!.alternates
+              .map((a) => a.recognizedWords.replaceAll('\\W'.r, ' ').trim())
+              .firstWhere((st) => st.isNotBlank, orElse: () => '');
+          flow.consumeSample();
+          if (sample.isNotBlank) {
+            later(() async {
+              final row = await flow.startRecordInit(sample);
+              if (row == null || !mounted) return;
+              fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+                  backgroundColor: Color.BLUE,
+                  duration: const Duration(seconds: 4),
+                  content: fm.Text(
+                      '已采集"$sample":请键盘输入正确口令,'
+                      '执行正确后自动存表。',
+                      style: GoogleFonts.roboto(fontSize: 20))));
             });
-            found = true;
-            break;
+          }
+          speech.clearResults();
+        }
+        //  1) 口令员映射表顺序查找:对每个候选识别句,
+        //     误差最小的候选记录居中突出显示,误差小于阈值
+        //     命中则直接取该记录的第三列(标准口令)输出给系统
+        var tableMatched = false;
+        final table = flow.callerTable;
+        if (table != null && flow.isActive) {
+          for (var i = 0;
+              i < speech.lastResult!.alternates.length && !tableMatched;
+              i++) {
+            final sentence = speech.lastResult!.alternates[i]
+                .recognizedWords.replaceAll('\\W'.r, ' ').trim();
+            if (sentence.isBlank) continue;
+            final row = flow.lookupInTable(sentence);
+            if (row != null) {
+              debugPrint('VoiceFlow table hit: "$sentence" '
+                  '(err=${flow.lastCandidateError.toStringAsFixed(2)}) '
+                  '-> "${row.standardCall}"');
+              later(() {
+                _isVoiceCall = true;
+                _sendOneLine(model, row.standardCall);
+              });
+              tableMatched = true;
+            }
           }
         }
-        if (!found) {
-          //  没有完全匹配词表的候选:直接把第一候选(best guess)送给
-          //  序列器解析,由 loadOneCall 决定接受或给出错误提示,
-          //  而不是只弹提示不做任何事
-          if (speech.lastResult!.alternates.isNotEmpty) {
-            final guess = speech.lastResult!.alternates.first
-                .recognizedWords.replaceAll('\\W'.r, ' ');
-            later(() {
-              _isVoiceCall = true;
-              _sendOneLine(model, guess);
-            });
-          }
+        if (!tableMatched) {
+          //  喊口令时映射表未查到:不予理睬(完全忽略,不执行)。
+          //  映射表可通过"补全"预写入全部口令,或用"按下说话"
+          //  采样按钮补充口令员自己的说法
+          debugPrint('VoiceFlow table miss -> ignored');
         }
         //  持续监听模式下 Provider 会自动开始下一轮识别,
         //  这里不再需要手动 stop + listen 重启
@@ -251,8 +717,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       return fm.Container(
         color: Color.WHITE,
         padding: fm.EdgeInsets.only(left: 10),
-        child: fm.Row(
+        child: fm.Column(
+          mainAxisSize: fm.MainAxisSize.min,
           children: [
+
+            fm.Row(
+              children: [
 
             //   Accept keyboard input if web site
             //  or if user has tapped box on a device
@@ -277,11 +747,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       errorText: model.errorString.isEmpty ? null : model.errorString),
                   enableSuggestions: true,
                   style: fm.TextStyle(fontSize: 24),
-                  //  Code to run when user presses Enter
-                  onSubmitted: (value) {
-                    _isVoiceCall = false;
-                    _sendOneLine(model, value);
-                  },
+                      //  Code to run when user presses Enter
+                      onSubmitted: (value) {
+                        //  空文本直接忽略(包括语音输出后注入的回车
+                        //  触发的重复提交)
+                        if (value.isBlank) return;
+                        _isVoiceCall = false;
+                        _sendOneLine(model, value);
+                      },
                 ),
               )
 
@@ -306,32 +779,70 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               ),
 
             //  Mic icon for touch devices to do voice input
+            //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
+            //  该口令员的映射表,之后才开始语音识别
             if (TamUtils.canListen)
-              fm.TextButton(onPressed: () {
-                    speechProvider.initialize().whenComplete(() {
-                      if (speechProvider.isAvailable) {
-                        setState(() {
-                          speechProvider.listen(
-                              localeId: 'en_US',
-                              partialResults: false,
-                              listenFor: Duration(seconds: 10),
-                              pauseFor: Duration(seconds: 5)
-                          );
-                        });
-                      } else {
-                        fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-                            backgroundColor: Color.BLUE,
-                            duration: Duration(seconds: 5),
-                            content: fm.Text('Sorry, speech recognition not available on this device.',
-                                style: GoogleFonts.roboto(fontSize: 20))));
-                      }
-                    } );
+              //  Mic icon for touch devices to do voice input
+              //  点击麦克风:登录(姓名下拉选择已有表)→ 打开口令员表
+              //  → 直接进入语音识别(音乐功能默认关闭)
+              //  流程进行中再点 = 结束语音呼叫并恢复原 Dance Speed
+              //  PTT 采样按钮(映射表口令语音采集):
+              //  需要先打开映射表(未打开时按下进入映射表选择);
+              //  手指触其显示"按下说话,抬起停止"提示,
+              //  按下说话,抬起结束并给出识别结果,
+              //  结果直接进入记录初始化(写入映射表第二列)
+              if (TamUtils.canListen)
+                fm.Listener(
+                  onPointerDown: (_) async {
+                    if (!flow.isActive) {
+                      //  需要先打开映射表:进入映射表选择
+                      _hidePttHint();
+                      await _loginAndOpenTable();
+                      return;
+                    }
+                    if (flow.startSample())
+                      _showPttHint();
+                  },
+                  onPointerUp: (_) {
+                    _hidePttHint();
+                    flow.endSample();
+                  },
+                  onPointerCancel: (_) {
+                    _hidePttHint();
+                    flow.endSample();
+                  },
+                  child: fm.Container(
+                    padding: fm.EdgeInsets.all(4),
+                    child: fm.Icon(
+                      //  采样中蓝色(按住);平时黑色
+                      fm.Icons.record_voice_over,
+                      color: flow.pttActive ? fm.Colors.blue : Color.BLACK,
+                      size: 28),
+                  ),
+                ),
+              if (TamUtils.canListen)
+                fm.TextButton(onPressed: () async {
+                    if (flow.isActive) {
+                      flow.stop();
+                      speechProvider.cancel();
+                      return;
+                    }
+                    //  登录(姓名下拉选择已有表)→ 打开映射表
+                    //  → 直接进入语音识别(音乐功能默认关闭)
+                    if (!await _loginAndOpenTable()) return;
+                    flow.start();
                   }, child: fm.Icon(
                   fm.Icons.mic,
-                  color: speechProvider.isListening ? Color.RED : Color.BLACK,
+                  //  语音识别过程中保持红色(流程未结束);节拍检测中
+                  //  蓝色闪烁(4次/秒);流程退出后恢复黑色
+                  color: flow.phase == 'detecting'
+                      ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
+                      : (flow.isActive ? Color.RED : Color.BLACK),
                   size: 32
-              )
-              )
+                  )
+                  )
+              ]
+            )
           ]
         )
       );
@@ -340,8 +851,477 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     );
   }
 
+  //  口令员登录弹窗:姓名从下拉列表选择已有映射表(也可输入新姓名
+  //  新建表),再输入密码,两者都填写后才能确认
+  //  返回 true 表示用户已确认,姓名会记住供下次预填
+  //  按钮状态由 controller listener 驱动,不依赖 onChanged,
+  //  任何输入途径(键盘/输入法/程序写入)都能可靠触发
+  // ------------------------------------------------ 映射表管理
+
+  fm.Widget _tableMgmtButton(fm.BuildContext ctx, bool enabled,
+      String label, Future<void> Function() action) =>
+    fm.TextButton(
+        onPressed: enabled ? () => action() : null,
+        style: fm.TextButton.styleFrom(
+            padding: fm.EdgeInsets.symmetric(horizontal: 8),
+            minimumSize: fm.Size(48, 32),
+            textStyle: fm.TextStyle(fontSize: 16)),
+        child: fm.Text(label));
+
+  Future<String?> _inputDialog(String title, String hint,
+      {String initial = ''}) async {
+    final controller = fm.TextEditingController()..text = initial;
+    final result = await fm.showDialog<String>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text(title),
+          content: fm.TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: fm.InputDecoration(
+                hintText: hint, labelStyle: fm.TextStyle(fontSize: 20)),
+            style: fm.TextStyle(fontSize: 24),
+          ),
+          actions: [
+            fm.TextButton(onPressed: () => fm.Navigator.of(ctx).pop(),
+                child: fm.Text('取消')),
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop(controller.text),
+                child: fm.Text('确定')),
+          ],
+        ));
+    controller.dispose();
+    final value = result?.trim();
+    return (value == null || value.isBlank) ? null : value;
+  }
+
+  Future<void> _refreshTableNames(
+      SharedPreferences prefs, List<String> tableNames) async {
+    tableNames.clear();
+    tableNames.addAll(CallerTable.listTableNames(prefs));
+  }
+
+  //  删除映射表
+  Future<void> _manageDeleteTable(SharedPreferences prefs,
+      List<String> tableNames, String name) async {
+    final confirmed = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text('删除映射表'),
+          content: fm.Text('确定删除"$name"的映射表?不可恢复。',
+              style: fm.TextStyle(fontSize: 20)),
+          actions: [
+            fm.TextButton(onPressed: () => fm.Navigator.of(ctx).pop(false),
+                child: fm.Text('取消')),
+            fm.TextButton(onPressed: () => fm.Navigator.of(ctx).pop(true),
+                child: fm.Text('删除')),
+          ],
+        ));
+    if (confirmed == true) {
+      await CallerTable.deleteTable(prefs, name);
+      await _refreshTableNames(prefs, tableNames);
+    }
+  }
+
+  //  重命名映射表,成功返回新表名
+  Future<String?> _manageRenameTable(SharedPreferences prefs,
+      List<String> tableNames, String oldName) async {
+    final newName = await _inputDialog('重命名映射表', '新表名', initial: oldName);
+    if (newName == null || newName == oldName) return null;
+    final ok = await CallerTable.renameTable(prefs, oldName, newName);
+    if (ok) {
+      await _refreshTableNames(prefs, tableNames);
+      return newName;
+    }
+    _mgmtSnackBar('重命名失败:新表名已存在');
+    return null;
+  }
+
+  //  另存为:复制当前表到新表名
+  Future<void> _manageSaveTableAs(SharedPreferences prefs,
+      List<String> tableNames, String sourceName) async {
+    final targetName = await _inputDialog('另存为', '新表名', initial: sourceName);
+    if (targetName == null || targetName == sourceName) return;
+    final ok = await CallerTable.saveTableAs(prefs, sourceName, targetName);
+    if (ok)
+      await _refreshTableNames(prefs, tableNames);
+    else
+      _mgmtSnackBar('另存失败:目标表名已存在');
+  }
+
+  //  导入 ysb 文件(经文件管理器选择位置),成功返回导入的表名
+  Future<String?> _manageImportYsb(SharedPreferences prefs,
+      List<String> tableNames) async {
+    fp.FilePickerResult? picked;
+    try {
+      picked = await fp.FilePicker.pickFiles(
+          type: fp.FileType.custom,
+          allowedExtensions: ['ysb', 'YSB', 'Ysb']);
+    } catch (e) {
+      _mgmtSnackBar('打开文件选择器失败:$e');
+      return null;
+    }
+    final path = picked?.files.single.path;
+    if (path == null) return null;
+    String content;
+    try {
+      content = await io.File(path).readAsString();
+    } catch (e) {
+      _mgmtSnackBar('读取文件失败:$e');
+      return null;
+    }
+    final defaultName = io.File(path)
+        .uri.pathSegments.last.replaceFirst('(?i)\\.ysb\$'.r, '');
+    final targetName = await _inputDialog('导入为映射表', '表名',
+        initial: defaultName);
+    if (targetName == null) return null;
+    final ok = await CallerTable.importYsb(prefs, targetName, content);
+    if (ok) {
+      await _refreshTableNames(prefs, tableNames);
+      _mgmtSnackBar('已导入"$targetName"');
+      return targetName;
+    }
+    _mgmtSnackBar('导入失败:文件格式无效');
+    return null;
+  }
+
+  //  导出 ysb 文件:先写临时文件,再经系统"文件管理器"
+  //  (SAF 另存为对话框)由口令员选择保存位置。
+  //  file_picker 的 saveFile 不支持 Android,故用 flutter_file_dialog
+  Future<void> _manageExportYsb(SharedPreferences prefs, String name) async {
+    final content = CallerTable.exportYsb(prefs, name);
+    if (content == null) return;
+    try {
+      final tmp = io.File('${io.Directory.systemTemp.path}/$name.ysb');
+      await tmp.writeAsString(content, flush: true);
+      final saved = await ffd.FlutterFileDialog.saveFile(
+          params: ffd.SaveFileDialogParams(
+              sourceFilePath: tmp.path,
+              fileName: '$name.ysb'));
+      if (saved != null && saved.isNotBlank)
+        _mgmtSnackBar('已导出 $saved');
+    } catch (e) {
+      _mgmtSnackBar('导出失败:$e');
+    }
+  }
+
+  void _mgmtSnackBar(String message) {
+    if (!mounted) return;
+    fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+        backgroundColor: Color.BLUE,
+        duration: Duration(seconds: 3),
+        content: fm.Text(message, style: fm.TextStyle(fontSize: 18))));
+  }
+
+  //  映射表选择画面(点麦克风后弹出):
+  //  第一行为空行(光标在此,可键入新表名),其下为全部映射表列表
+  //  (初始光标指向第一个);菜单区初始只有"导入"可用,选择某个表后
+  //  其他按钮可用而"导入"变不可用;点"打开"(或"删除"验令后)才要求
+  //  输入口令;被选择的表名高亮
+  Future<bool> _showCallerLogin(fm.BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    //  可变列表:表管理(删除/重命名/导入)后即时刷新
+    final tableNames = CallerTable.listTableNames(prefs);
+    final nameController = fm.TextEditingController();
+    final passwordController = fm.TextEditingController();
+    final passwordFocus = fm.FocusNode();
+    var selected = '';   //  选中的表名(空表示未选)
+    var opened = false;
+    //  口令阶段:点"打开"或"删除"后,在同一个对话框内切换到
+    //  口令输入(不弹新对话框——部分系统不允许新对话框自动弹键盘),
+    //  口令框出现即聚焦,键盘直接打开
+    var passwordMode = '';
+    var passwordShown = false;
+    await fm.showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => fm.StatefulBuilder(
+          builder: (ctx, setState) {
+            final text = nameController.text.trim();
+            final canOpen = selected.isNotBlank || text.isNotBlank;
+            //  口令阶段:标题与内容切换为口令输入
+            if (passwordMode.isNotBlank) {
+              if (!passwordShown) {
+                passwordShown = true;
+                fm.WidgetsBinding.instance.addPostFrameCallback((_) {
+                  passwordFocus.requestFocus();
+                  fs.SystemChannels.textInput
+                      .invokeMethod('TextInput.show');
+                });
+              }
+              //  口令确认:回车或"确定"触发
+              void doConfirm() {
+                final pwd = passwordController.text;
+                if (pwd.isBlank) return;
+                flow.callerPassword = pwd;
+                if (passwordMode == '打开') {
+                  flow.callerName = selected.isNotBlank
+                      ? selected : nameController.text.trim();
+                  opened = true;
+                  fm.Navigator.of(ctx).pop();
+                } else if (passwordMode == '删除') {
+                  _manageDeleteTable(prefs, tableNames, selected);
+                  setState(() {
+                    passwordMode = '';
+                    selected = '';
+                    passwordController.clear();
+                    passwordShown = false;
+                  });
+                }
+              }
+              return fm.AlertDialog(
+                title: fm.Text('$passwordMode - 请输入口令'),
+                content: fm.TextField(
+                  controller: passwordController,
+                  focusNode: passwordFocus,
+                  autofocus: true,
+                  obscureText: true,
+                  decoration: fm.InputDecoration(
+                      labelText: '口令',
+                      labelStyle: fm.TextStyle(fontSize: 20)),
+                  style: fm.TextStyle(fontSize: 24),
+                  onSubmitted: (_) => doConfirm(),
+                ),
+                actions: [
+                  fm.TextButton(onPressed: () {
+                    setState(() {
+                      passwordMode = '';
+                      passwordController.clear();
+                      passwordShown = false;
+                    });
+                  }, child: fm.Text('返回')),
+                  fm.TextButton(onPressed: doConfirm,
+                      child: fm.Text('确定')),
+                ],
+              );
+            }
+            return fm.AlertDialog(
+              title: fm.Text('映射表选择'),
+              content: fm.Column(
+                mainAxisSize: fm.MainAxisSize.min,
+                children: [
+                  //  第一行:空行,光标在此(可键入新表名新建映射表)
+                  fm.TextField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: fm.InputDecoration(
+                        hintText: '(输入新表名或从下方选择)',
+                        hintStyle: fm.TextStyle(fontSize: 18)),
+                    style: fm.TextStyle(fontSize: 24),
+                    onChanged: (_) => setState(() { selected = ''; }),
+                  ),
+                  fm.SizedBox(height: 6),
+                  //  全部映射表列表,初始光标指向第一个
+                  fm.Container(
+                    constraints: fm.BoxConstraints(maxHeight: 220),
+                    width: double.infinity,
+                    decoration: fm.BoxDecoration(
+                        border: fm.Border.all(color: Color.LIGHTGREY)),
+                    child: tableNames.isEmpty
+                        ? fm.Padding(
+                            padding: fm.EdgeInsets.all(10),
+                            child: fm.Text('(暂无映射表,可导入或输入新表名)',
+                                style: fm.TextStyle(fontSize: 18)))
+                        : fm.ListView.builder(
+                            shrinkWrap: true,
+                            padding: fm.EdgeInsets.zero,
+                            itemCount: tableNames.length,
+                            itemBuilder: (lctx, index) {
+                              final name = tableNames[index];
+                              final isSelected = name == selected;
+                              //  未选时初始光标指向第一个
+                              final isFocusedFirst =
+                                  selected.isBlank && index == 0;
+                              return fm.InkWell(
+                                //  选中只以列表高亮显示,
+                                //  不把表名回填到上面的输入行
+                                onTap: () => setState(() {
+                                  selected = name;
+                                }),
+                                child: fm.Container(
+                                  color: isSelected
+                                      ? Color.BLUE
+                                      : (isFocusedFirst
+                                          ? Color(0xffe0e0ff)
+                                          : null),
+                                  padding: fm.EdgeInsets.only(
+                                      left: 12, top: 8, bottom: 8),
+                                  child: fm.Text(name,
+                                      style: fm.TextStyle(
+                                          fontSize: 22,
+                                          color: isSelected
+                                              ? Color.WHITE
+                                              : Color.BLACK,
+                                          fontWeight: isSelected
+                                              ? fm.FontWeight.bold : null)),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  fm.SizedBox(height: 6),
+                  //  菜单区:未选表时只有"导入"可用;
+                  //  选中表后其他按钮可用,"导入"变不可用
+                  fm.Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _tableMgmtButton(ctx, selected.isNotBlank, '删除',
+                          () async {
+                        //  删除要求先输入口令(同框切换到口令阶段)
+                        passwordController.clear();
+                        setState(() { passwordMode = '删除'; });
+                      }),
+                      _tableMgmtButton(ctx, selected.isNotBlank, '重命名',
+                          () async {
+                        final newName = await _manageRenameTable(
+                            prefs, tableNames, selected);
+                        if (newName != null)
+                          setState(() { selected = newName; });
+                      }),
+                      _tableMgmtButton(ctx, selected.isNotBlank, '另存为',
+                          () async {
+                        await _manageSaveTableAs(prefs, tableNames, selected);
+                        setState(() {});
+                      }),
+                      _tableMgmtButton(ctx, selected.isBlank, '导入',
+                          () async {
+                        final imported = await _manageImportYsb(
+                            prefs, tableNames);
+                        if (imported != null)
+                          setState(() { selected = imported; });
+                      }),
+                      _tableMgmtButton(ctx, selected.isNotBlank, '导出',
+                          () async {
+                        await _manageExportYsb(prefs, selected);
+                      }),
+                      //  表补全:把口令库全部口令预写入映射表,
+                      //  使喊口令时标准说法即可命中
+                      _tableMgmtButton(ctx, selected.isNotBlank, '补全',
+                          () async {
+                        final ok = await fm.showDialog<bool>(
+                            context: context,
+                            builder: (dctx) => fm.AlertDialog(
+                              title: fm.Text('补全映射表'),
+                              content: fm.Text(
+                                  '把口令库中全部口令写入"$selected"的映射表?'
+                                  '\n(已存在的识别句不会重复)',
+                                  style: fm.TextStyle(fontSize: 20)),
+                              actions: [
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(dctx).pop(false),
+                                    child: fm.Text('取消')),
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(dctx).pop(true),
+                                    child: fm.Text('补全')),
+                              ],
+                            ));
+                        if (ok != true || !mounted) return;
+                        //  打开表并补全
+                        final t = await flow.openCallerTable(selected);
+                        final added = await t.populateAllCalls();
+                        _mgmtSnackBar('补全完成:新增 $added 条,'
+                            '共 ${t.rows.length} 条');
+                        setState(() {});
+                      }),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                fm.TextButton(onPressed: () {
+                  fm.Navigator.of(ctx).pop();
+                }, child: fm.Text('取消')),
+                //  "确定"改为"打开":选中表或输入新表名后可用,
+                //  打开时才要求输入口令
+                fm.TextButton(
+                    onPressed: canOpen ? () async {
+                      //  打开要求输入口令(同框切换到口令阶段)
+                      passwordController.clear();
+                      setState(() { passwordMode = '打开'; });
+                    } : null,
+                    child: fm.Text('打开')),
+              ],
+            );
+          },
+        ));
+    nameController.dispose();
+    passwordController.dispose();
+    passwordFocus.dispose();
+    return opened;
+  }
+
+  //  登录并打开映射表(登录取消返回 false)
+  //  麦克风按钮与音乐按钮(未登录时)共用
+  Future<bool> _loginAndOpenTable() async {
+    if (!await _showCallerLogin(context)) return false;
+    await _openCallerTable(context);
+    return true;
+  }
+
+  //  打开(或新建)当前口令员的映射表,并以 SnackBar 告知结果
+  Future<void> _openCallerTable(fm.BuildContext context) async {
+    final table = await flow.openCallerTable(flow.callerName);
+    final created = table.wasCreated;
+    if (!mounted) return;
+    fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+        backgroundColor: Color.BLUE,
+        duration: Duration(seconds: 2),
+        content: fm.Text(
+            created ? '已新建口令员 ${flow.callerName} 的数据表'
+                    : '已打开口令员 ${flow.callerName} 的数据表',
+            style: GoogleFonts.roboto(fontSize: 20))));
+  }
+
+  //  ---- 背景音乐/节拍/语音识别流程(逻辑在 VoiceFlow 单例) ----
+  //  登录确认后进入:提示播放音乐 → 监听到音乐(关提示,蓝闪)→ 节拍检测
+  //  → 显示 N/分钟并接管 Dance Speed → 自动进入语音识别 →
+  //  期间只监测音乐停止,停止后重新播放则重新检测节拍
+
+  //  若动画正在播放,让当前速度立即生效
+  void _applyDancerSpeed() {
+    if (!mounted) return;
+    try {
+      pp.Provider.of<SequencerModel>(context, listen: false)
+          .animation.applySpeedNow();
+    } catch (_) {
+      //  动画模型尚不可用时忽略,下次播放自然应用
+    }
+  }
+
+  //  流程错误提示(麦克风/识别不可用)
+  void _showFlowError() {
+    final err = flow.lastError;
+    flow.lastError = null;
+    if (err == null || !mounted) return;
+    later(() {
+      fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+          backgroundColor: err == 'mic' ? Color.RED : Color.BLUE,
+          duration: Duration(seconds: 5),
+          content: fm.Text(
+              err == 'mic' ? '无法访问麦克风,请检查权限后重试。'
+                  : 'Sorry, speech recognition not available on this device.',
+              style: GoogleFonts.roboto(fontSize: 20))));
+    });
+  }
+
+  //  若 Calls 画面(或其子口令显示)开着则关闭
+  void _closeCallsPageIfOpen() {
+    if (!mounted) return;
+    try {
+      final tamState = pp.Provider.of<TamState>(context, listen: false);
+      if (tamState.detailPage == DetailPage.CALLS)
+        tamState.change(detailPage: DetailPage.NONE);
+    } catch (_) {}
+  }
+
   void _sendOneLine(SequencerModel model, String value) async {
     var hasError = false;
+    //  与手动键入一致:先把口令显示到输入行,再提交
+    //  (等效"键入+回车",在禁止注入按键的设备上也能看到完整过程)
+    textFieldController.text = value;
     //  Process the call
     if (!(model.loadOneCall(value))) {
       hasError = true;
@@ -355,6 +1335,19 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     //  that the user might want to fix
     if (!hasError)
       textFieldController.clear();
+    //  记录初始化:口令执行正确,把整个口令一起存入映射表记录,
+    //  并恢复语音识别;执行失败(hasError)则保持待补全,
+    //  口令员可继续修改输入再试
+    if (!hasError && flow.pendingRecord != null) {
+      await flow.completeRecordInit(value);
+      //  口令输入完成:关闭 Calls 画面(及其子口令显示)回到序列器
+      _closeCallsPageIfOpen();
+    }
+    //  语音识别的输出:向系统完成输出后再发送回车键
+    //  (原生注入;系统禁止注入时静默忽略,上方"填入+提交"
+    //  已实现等效的回车语义)
+    if (_isVoiceCall)
+      flow.sendEnterKey();
     //  And get the focus back for the next call
     //  Android needs a double postpone
     later(() {

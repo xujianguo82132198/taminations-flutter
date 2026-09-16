@@ -75,11 +75,17 @@ class SpeechToTextProvider extends ChangeNotifier {
   //  环境噪音/远场语音通常低于 -35dB
   static const double _speechGateDb = -30.0;
 
+  //  采样会话(按下说话/抬起出结果的PTT采集):
+  //  单轮识别,不做音量门限(口令员按下即为刻意语音)
+  bool _sampleSession = false;
+  bool get isSampleSession => _sampleSession;
+
   //  句尾静音判定:检测到讲话后连续静音超过此时长,暂停并收尾本轮
   static const Duration _utteranceEndSilence = Duration(seconds: 2);
 
   double _sessionPeak = -60.0;
   bool _sessionHadSpeech = false;
+  bool _sessionSampled = false;
   DateTime? _lastSpeechAt;
 
   XfyunIatClient? _client;
@@ -180,11 +186,36 @@ class SpeechToTextProvider extends ChangeNotifier {
     _lastLevel = 0;
     _partialResults = partialResults;
     _continuous = true;
+    _sampleSession = false;
     _paused = false;
     _consecutiveFailures = 0;
     _endSilence = pauseFor ?? const Duration(seconds: 5);
     _localeId = localeId;
     _soundLevel = soundLevel;
+    unawaited(_startSession());
+  }
+
+  ///  采样模式(PTT 按下说话):单轮识别,抬起(调用 stop)后
+  ///  立即收尾给出最终结果;不做音量门限,不自动开下一轮
+  void sample({
+    bool partialResults = false,
+    String? localeId,
+  }) {
+    if (_isListening || _client != null) {
+      _log('sample: ignored (already listening)');
+      return;
+    }
+    _log('sample: start (push-to-talk)');
+    _lastResult = null;
+    _lastError = null;
+    _lastLevel = 0;
+    _partialResults = partialResults;
+    _continuous = false;
+    _sampleSession = true;
+    _paused = false;
+    _consecutiveFailures = 0;
+    _endSilence = const Duration(seconds: 5);
+    _localeId = localeId;
     unawaited(_startSession());
   }
 
@@ -205,6 +236,7 @@ class SpeechToTextProvider extends ChangeNotifier {
   void cancel() {
     _log('cancel: isListening=$_isListening');
     _continuous = false;
+    _sampleSession = false;
     _paused = false;
     _stopRecording();
     _client?.abort();
@@ -324,6 +356,7 @@ class SpeechToTextProvider extends ChangeNotifier {
       _onIatError(session, -1, 'microphone error: $error');
       return;
     }
+    _sessionSampled = _sampleSession;
     _recycleTimer = Timer(_sessionRecycle, () {
       _log('session: $_sessionRecycle recycle time reached -> wrap up');
       stop();
@@ -334,6 +367,11 @@ class SpeechToTextProvider extends ChangeNotifier {
   //  音量回调:记录峰值、判定刻意讲话、检测句尾静音
   void _onAmplitude(double level, XfyunIatClient session) {
     if (level > _sessionPeak) _sessionPeak = level;
+    //  采样会话(PTT)视为刻意语音,不受音量门限限制
+    if (_sessionSampled) {
+      _sessionHadSpeech = true;
+      _lastSpeechAt = DateTime.now();
+    }
     if (level > _speechGateDb) {
       if (!_sessionHadSpeech) {
         _log('amplitude: speech detected, level=${level.toStringAsFixed(1)}dB');

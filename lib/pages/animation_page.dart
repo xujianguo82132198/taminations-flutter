@@ -381,7 +381,13 @@ class _BeatText extends fm.StatelessWidget {
 class _SpeedText extends fm.StatelessWidget {
   @override
   fm.Widget build(fm.BuildContext context) {
-    var speedText = Settings.speed.replaceFirst('Normal( Speed)?'.r,'');
+    var speedText = Settings.speed;
+    //  音乐节拍接管模式(Settings.speed 形如 "BPM 125")不在
+    //  动画角标显示,避免污染原有的速度档位/节拍计数显示
+    if (speedText.startsWith('BPM '))
+      speedText = '';
+    else
+      speedText = speedText.replaceFirst('Normal( Speed)?'.r,'');
     return fm.Text(speedText,style:fm.TextStyle(fontSize:24));
   }
 }
