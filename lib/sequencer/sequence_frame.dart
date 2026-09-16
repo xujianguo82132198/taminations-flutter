@@ -175,8 +175,9 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton> {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    //  未登录(流程未启动)时不显示该按钮
-    if (!flow.isActive)
+    //  未登录(流程未启动)或表管理模式(采样/增删记录)时
+    //  不显示音乐节拍按钮
+    if (!flow.isActive || flow.tableMode)
       return fm.SizedBox.shrink();
     final enabled = flow.musicEnabled;
     final color = enabled ? Color.WHITE : Color.BLACK;
@@ -674,6 +675,16 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   content: fm.Text(
                       '已采集"$sample":请键盘输入正确口令,'
                       '执行正确后自动存表。',
+                      style: GoogleFonts.roboto(fontSize: 20))));
+            });
+          } else {
+            //  空结果也要有反应:提示正确的采样方式
+            later(() {
+              if (!mounted) return;
+              fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+                  backgroundColor: Color.RED,
+                  duration: const Duration(seconds: 4),
+                  content: fm.Text('未采集到语音:请按住按钮说话,说完再抬起。',
                       style: GoogleFonts.roboto(fontSize: 20))));
             });
           }

@@ -319,8 +319,10 @@ class SpeechToTextProvider extends ChangeNotifier {
     }
     _log('session: websocket connected');
     //  连接建立期间可能已被取消/销毁(切后台、退出页面),
-    //  直接废弃本会话,不再启动录音
-    if (_disposed || !_continuous) {
+    //  直接废弃本会话,不再启动录音。
+    //  注意:采样模式(_sampleSession)本身就是单轮(_continuous=false),
+    //  不属于"被取消",要放行
+    if (_disposed || (!_continuous && !_sampleSession)) {
       _log('session: cancelled while connecting, abort');
       client.abort();
       return;
@@ -384,8 +386,11 @@ class SpeechToTextProvider extends ChangeNotifier {
       _notify();
     }
     //  句尾判定:检测到讲话后连续静音超过阈值 -> 暂停收尾,
-    //  停麦后环境噪音不会再进入本轮识别
-    if (_sessionHadSpeech &&
+    //  停麦后环境噪音不会再进入本轮识别。
+    //  采样(PTT)模式例外:采样时长由按钮按住状态决定,
+    //  按住期间一直取样(可能说几遍),只在抬起时收尾
+    if (!_sessionSampled &&
+        _sessionHadSpeech &&
         _client == session &&
         _lastSpeechAt != null &&
         DateTime.now().difference(_lastSpeechAt!) > _utteranceEndSilence) {

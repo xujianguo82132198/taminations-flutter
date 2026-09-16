@@ -229,6 +229,8 @@ class VoiceFlow extends ChangeNotifier {
     musicStoppedDuringCall = false;
     playbackWasActive = false;
     musicEnabled = withMusic;
+    if (listen)
+      tableMode = false;   //  检索(喊口令)模式
     //  麦克风检索模式不需要显示映射表;表管理模式要显示
     panelMinimized = listen;
     if (withMusic) {
@@ -244,9 +246,20 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  表管理模式(新按钮打开映射表):显示面板,不启动连续识别,
-  ///  用采样按钮增加记录、点行删除、自动排序;麦克风钮另起检索
+  ///  用采样按钮增加记录、点行删除、自动排序;麦克风钮另起检索。
+  ///  表管理模式下不启动(也不显示)音乐节拍检测环节
+  bool tableMode = false;
+
   Future<void> startTableMode() async {
+    //  保险:强制停掉可能残留的音乐监测环节,
+    //  表管理模式下绝不启动音乐节拍检测
+    musicEnabled = false;
+    musicMonitor.stopMicMonitor();
+    musicMonitor.stopPlaybackWatch();
+    restoreDancerSpeed();
     await start(listen: false);
+    tableMode = true;
+    _notify();
   }
 
   //  映射表面板显隐(麦克风检索模式默认收起,表管理模式默认展开;
@@ -291,6 +304,7 @@ class VoiceFlow extends ChangeNotifier {
   //  音乐模式中 - 再按下 = 停止上述功能并恢复系统原设定节拍,
   //                     语音识别不受影响
   Future<void> toggleMusic() async {
+    if (tableMode) return;   //  表管理模式不启动音乐节拍环节
     if (phase == 'idle') {
       //  未登录:走登录流程后直接以音乐模式启动
       await loginAndStart(withMusic: true);
