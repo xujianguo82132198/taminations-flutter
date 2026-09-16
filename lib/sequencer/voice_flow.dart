@@ -220,14 +220,17 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   //  登录确认后启动。withMusic=true 直接进入音乐模式(音乐按钮
-  //  在未登录时按下),否则直接语音识别(麦克风按钮登录)
-  Future<void> start({bool withMusic = false}) async {
-    debugPrint('VoiceFlow.start withMusic=$withMusic');
+  //  在未登录时按下);listen=false 为表管理模式(新按钮打开映射表,
+  //  只做记录的增删排序,不启动连续识别)
+  Future<void> start({bool withMusic = false, bool listen = true}) async {
+    debugPrint('VoiceFlow.start withMusic=$withMusic listen=$listen');
     _musicSub ??= musicMonitor.events.listen(_onEvent);
     lastError = null;
     musicStoppedDuringCall = false;
     playbackWasActive = false;
     musicEnabled = withMusic;
+    //  麦克风检索模式不需要显示映射表;表管理模式要显示
+    panelMinimized = listen;
     if (withMusic) {
       phase = 'awaiting';
       _notify();
@@ -235,8 +238,24 @@ class VoiceFlow extends ChangeNotifier {
     } else {
       phase = 'calling';
       _notify();
-      startListening();
+      if (listen)
+        startListening();
     }
+  }
+
+  ///  表管理模式(新按钮打开映射表):显示面板,不启动连续识别,
+  ///  用采样按钮增加记录、点行删除、自动排序;麦克风钮另起检索
+  Future<void> startTableMode() async {
+    await start(listen: false);
+  }
+
+  //  映射表面板显隐(麦克风检索模式默认收起,表管理模式默认展开;
+  //  口令员随时可手动切换,不影响后台)
+  bool panelMinimized = false;
+  void setPanelMinimized(bool value) {
+    if (panelMinimized == value) return;
+    panelMinimized = value;
+    _notify();
   }
 
   ///  登录(如需要)并启动流程;登录取消返回 false

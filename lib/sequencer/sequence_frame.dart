@@ -269,10 +269,12 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   final flow = VoiceFlow.instance;
   final itemScrollController = ItemScrollController();
 
-  ///  极小化:只留标题行,节省画面占用;后台工作不受影响
-  var minimized = false;
   CallerRow? _lastScrolledCandidate;
   CallerRow? _lastScrolledPending;
+
+  //  显隐状态由 VoiceFlow 持有(检索模式自动收起,表管理模式展开,
+  //  手动切换随时可用,输入行重建不丢)
+  bool get minimized => flow.panelMinimized;
 
   @override
   void initState() {
@@ -354,7 +356,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     if (minimized)
       return fm.InkWell(
         onTap: () {
-          setState(() => minimized = false);
+          flow.setPanelMinimized(false);
           //  展开后把待补全/候选记录居中
           _lastScrolledPending = null;
           _lastScrolledCandidate = null;
@@ -394,7 +396,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               ),
               //  极小化按钮:关闭显示,后台工作不受影响
               fm.InkWell(
-                onTap: () => setState(() => minimized = true),
+                onTap: () => flow.setPanelMinimized(true),
                 child: fm.Padding(
                   padding: fm.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   child: fm.Icon(fm.Icons.unfold_less, size: 20),
@@ -795,9 +797,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 fm.Listener(
                   onPointerDown: (_) async {
                     if (!flow.isActive) {
-                      //  需要先打开映射表:进入映射表选择
+                      //  需要先打开映射表:选择后进入表管理模式
+                      //  (显示面板,只做记录增删排序,不启动连续识别)
                       _hidePttHint();
-                      await _loginAndOpenTable();
+                      if (await _loginAndOpenTable())
+                        flow.startTableMode();
                       return;
                     }
                     if (flow.startSample())
@@ -822,22 +826,33 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 ),
               if (TamUtils.canListen)
                 fm.TextButton(onPressed: () async {
+                    //  采样中不响应
+                    if (flow.pttActive) return;
                     if (flow.isActive) {
-                      flow.stop();
-                      speechProvider.cancel();
+                      if (speechProvider.isListening) {
+                        //  流式检索中:点击结束
+                        flow.stop();
+                        speechProvider.cancel();
+                      } else {
+                        //  表管理模式:点击开始流式检索
+                        //  (只查表执行,面板自动收起)
+                        flow.startListening();
+                        flow.setPanelMinimized(true);
+                      }
                       return;
                     }
-                    //  登录(姓名下拉选择已有表)→ 打开映射表
-                    //  → 直接进入语音识别(音乐功能默认关闭)
+                    //  登录(映射表选择)→ 直接进入流式检索
                     if (!await _loginAndOpenTable()) return;
                     flow.start();
                   }, child: fm.Icon(
                   fm.Icons.mic,
-                  //  语音识别过程中保持红色(流程未结束);节拍检测中
-                  //  蓝色闪烁(4次/秒);流程退出后恢复黑色
+                  //  红色仅表示流式识别进行中(采样/表管理模式不红,
+                  //  流式与间歇重合即为错误);节拍检测中蓝色闪烁;
+                  //  平时黑色
                   color: flow.phase == 'detecting'
                       ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
-                      : (flow.isActive ? Color.RED : Color.BLACK),
+                      : ((speechProvider.isListening && !flow.pttActive)
+                          ? Color.RED : Color.BLACK),
                   size: 32
                   )
                   )
