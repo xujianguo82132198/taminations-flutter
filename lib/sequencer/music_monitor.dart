@@ -34,8 +34,10 @@ class MusicEvent {
 
   final String type;
   final int? value;
+  final double? level;
+  final List<int>? audio;
 
-  const MusicEvent(this.type, this.value);
+  const MusicEvent(this.type, this.value, {this.level, this.audio});
 
 }
 
@@ -57,9 +59,12 @@ class MusicMonitor {
       if (call.method == 'event') {
         final args = call.arguments;
         if (args is Map) {
+          final data = args['data'];
           _events.add(MusicEvent(
               args['type']?.toString() ?? '',
-              args['value'] is int ? args['value'] as int : null));
+              args['value'] is int ? args['value'] as int : null,
+              level: args['value'] is double ? args['value'] as double : null,
+              audio: data is List ? List<int>.from(data) : null));
         }
       }
     });
@@ -80,6 +85,14 @@ class MusicMonitor {
   ///  注入一个回车键事件(语音识别输出完成后发送)
   Future<void> sendEnterKey() async =>
       await _invoke('sendEnterKey');
+
+  ///  原生语音采集(44.1k MIC 源重采样 16k 推流),
+  ///  替代 record 插件在本机采集静音的问题
+  Future<void> startSpeechCapture() async =>
+      await _invoke('startSpeechCapture');
+
+  Future<void> stopSpeechCapture() async =>
+      await _invoke('stopSpeechCapture');
 
   Future<void> _invoke(String method) async {
     try {

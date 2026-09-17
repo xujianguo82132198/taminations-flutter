@@ -14,6 +14,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlin.concurrent.thread
 import kotlin.math.abs
+import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -53,6 +54,8 @@ class MainActivity : FlutterActivity() {
             "startPlaybackWatch" -> startPlaybackWatch(result)
             "stopPlaybackWatch" -> { stopPlaybackWatch(); result.success(null) }
             "sendEnterKey" -> { sendEnterKey(); result.success(null) }
+            "startSpeechCapture" -> startSpeechCapture(result)
+            "stopSpeechCapture" -> { stopSpeechCapture(); result.success(null) }
             else -> result.notImplemented()
           }
         }
@@ -370,6 +373,128 @@ class MainActivity : FlutterActivity() {
   private fun stopPlaybackWatch() {
     playbackPolling = false
     playbackHandler.removeCallbacksAndMessages(null)
+  }
+
+  // ------------------------------------------------ 语音采集(供讯飞识别)
+  //  record 插件在本机采集为静音,而原生 AudioRecord(音乐监测
+  //  同款路径)采集正常。这里直接用原生采集,重采样到 16k 后
+  //  推给 Dart 侧喂给讯飞,并周期上报振幅(dB)。
+  private var speechThread: Thread? = null
+
+  @Volatile
+  private var speechRunning = false
+
+  @Suppress("MissingPermission")
+  private fun startSpeechCapture(result: MethodChannel.Result) {
+    if (speechRunning) { result.success(null); return }
+    val srcRate = 44100
+    val dstRate = 16000
+    val minBuf = AudioRecord.getMinBufferSize(srcRate,
+        AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+    if (minBuf <= 0) { result.error("no_mic", "AudioRecord unavailable", null); return }
+    val record = try {
+      AudioRecord(MediaRecorder.AudioSource.MIC, srcRate,
+          AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+          maxOf(minBuf, srcRate * 2))
+    } catch (e: Exception) {
+      result.error("no_mic", e.message, null); return
+    }
+    if (record.state != AudioRecord.STATE_INITIALIZED) {
+      record.release(); result.error("no_mic", "init failed", null); return
+    }
+    speechRunning = true
+    speechThread = thread(name = "taminations-speech-capture") {
+      try {
+        record.startRecording()
+        //  线性插值流式重采样 44.1k -> 16k
+        val ratio = srcRate.toDouble() / dstRate   //  2.75625
+        var prevSample = 0.0
+        var frac = 0.0
+        //  每轮读 ~3528 样本(80ms@44.1k),产出 ~1280 样本(2560B)
+        val inChunk = 3528
+        val input = ShortArray(inChunk)
+        val out = ShortArray(inChunk)   //  上限:输出数 <= 输入数
+        var ampFrames = 0
+        var ampSumSq = 0.0
+        var ampLastAt = System.currentTimeMillis()
+        while (speechRunning) {
+          val n = record.read(input, 0, inChunk)
+          if (n <= 0) break
+          var outLen = 0
+          var t = frac
+          var cur = prevSample
+          for (i in 0 until n) {
+            val next = input[i].toDouble()
+            while (t <= 1.0) {
+              out[outLen++] = (cur + (next - cur) * t).toInt().toShort()
+              t += ratio
+            }
+            t -= 1.0
+            cur = next
+          }
+          prevSample = cur
+          frac = t
+          if (outLen > 0) {
+            val bytes = ByteArray(outLen * 2)
+            for (i in 0 until outLen) {
+              val v = out[i].toInt()
+              bytes[i * 2] = (v and 0xff).toByte()
+              bytes[i * 2 + 1] = ((v shr 8) and 0xff).toByte()
+            }
+            sendBytes("speech_audio", bytes)
+            //  振幅:RMS -> dB,约每 100ms 上报一次
+            for (i in 0 until outLen) {
+              val v = out[i] / 32768.0
+              ampSumSq += v * v
+            }
+            ampFrames += outLen
+            val now = System.currentTimeMillis()
+            if (now - ampLastAt >= 100 && ampFrames > 0) {
+              val rms = sqrt(ampSumSq / ampFrames)
+              val db = if (rms > 0) 20 * log10(rms) else -100.0
+              sendEvent("speech_amplitude", db)
+              ampFrames = 0; ampSumSq = 0.0; ampLastAt = now
+            }
+          }
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "speech capture failed", e)
+        sendEvent("speech_error")
+      } finally {
+        try { record.stop() } catch (_: Exception) {}
+        record.release()
+      }
+    }
+    result.success(null)
+  }
+
+  private fun stopSpeechCapture() {
+    speechRunning = false
+    speechThread?.interrupt()
+    speechThread = null
+  }
+
+  //  Double 值事件(振幅等)
+  private fun sendEvent(type: String, value: Double) {
+    val engine = flutterEngine ?: return
+    val args = HashMap<String, Any>()
+    args["type"] = type
+    args["value"] = value
+    mainHandler.post {
+      MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+          .invokeMethod("event", args)
+    }
+  }
+
+  private fun sendBytes(type: String, data: ByteArray) {
+    val engine = flutterEngine ?: return
+    val args = HashMap<String, Any>()
+    args["type"] = type
+    args["data"] = data
+    mainHandler.post {
+      MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+          .invokeMethod("event", args)
+    }
   }
 
   //  向本应用注入一个回车键事件(语音识别输出完成后发送,

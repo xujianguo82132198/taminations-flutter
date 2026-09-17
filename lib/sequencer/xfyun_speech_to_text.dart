@@ -22,8 +22,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:record/record.dart';
 
+import 'music_monitor.dart';
 import 'xfyun_iat_client.dart';
 import 'xfyun_keys.dart';
 
@@ -50,8 +50,6 @@ class SpeechRecognitionResult {
 }
 
 class SpeechToTextProvider extends ChangeNotifier {
-
-  final AudioRecorder _recorder = AudioRecorder();
 
   bool _isAvailable = false;
   bool _isListening = false;
@@ -86,11 +84,15 @@ class SpeechToTextProvider extends ChangeNotifier {
   double _sessionPeak = -60.0;
   bool _sessionHadSpeech = false;
   bool _sessionSampled = false;
+  //  每会话前 10 个音量采样打日志,用于诊断采集是否静音
+  int _sessionAmpLogged = 0;
   DateTime? _lastSpeechAt;
 
   XfyunIatClient? _client;
-  StreamSubscription<Uint8List>? _audioSubscription;
-  StreamSubscription<Amplitude>? _amplitudeSubscription;
+  StreamSubscription<MusicEvent>? _nativeAudioSub;
+  //  record 插件在本机(MIUI)采集静音,改用原生 AudioRecord 采集
+  //  (与音乐监测同款有效路径),44.1k 重采样 16k 后推流
+  final musicMonitor = MusicMonitor();
   Timer? _recycleTimer;
   Duration _endSilence = const Duration(seconds: 5);
   String? _localeId;
@@ -122,13 +124,9 @@ class SpeechToTextProvider extends ChangeNotifier {
           'see lib/sequencer/xfyun_keys_template.dart');
       return false;
     }
-    try {
-      _log('initialize: requesting mic permission ...');
-      _isAvailable = await _recorder.hasPermission();
-    } catch (error) {
-      _log('initialize: mic permission request THREW: $error');
-      _isAvailable = false;
-    }
+    //  录音走原生 AudioRecord(见 _startSession),权限由系统
+    //  在首次采集时授予/校验;此前已授予 RECORD_AUDIO
+    _isAvailable = XfyunKeys.configured;
     _log('initialize: done, isAvailable=$_isAvailable');
     _notify();
     return _isAvailable;
@@ -273,7 +271,6 @@ class SpeechToTextProvider extends ChangeNotifier {
     _stopRecording();
     _client?.abort();
     _client = null;
-    unawaited(_recorder.dispose());
     super.dispose();
   }
 
@@ -332,25 +329,23 @@ class SpeechToTextProvider extends ChangeNotifier {
     _isListening = true;
     _notify();
     try {
-      //  recorder.stop 可重入,先确保上一轮录音已完全停止
-      _log('session: stopping previous recording ...');
-      await _recorder.stop();
-      _log('session: starting pcm 16k mono stream ...');
-      final stream = await _recorder.startStream(const RecordConfig(
-        encoder: AudioEncoder.pcm16bits,
-        sampleRate: 16000,
-        numChannels: 1,
-      ));
-      _log('session: recording started');
-      _audioSubscription = stream.listen(
-          (chunk) => session.sendAudio(chunk),
-          onError: (Object error) =>
-              _onIatError(session, -1, 'audio stream error: $error'));
-      //  音量监测始终开启:用于句尾判定和噪音门限,
-      //  soundLevel 参数只决定是否把音量暴露给调用方
-      _amplitudeSubscription = _recorder
-          .onAmplitudeChanged(const Duration(milliseconds: 100))
-          .listen((amplitude) => _onAmplitude(amplitude.current, session));
+      //  原生采集:AudioRecord(MIC) 44.1k -> 16k 推流,
+      //  同时按 100ms 上报振幅(dB)
+      _log('session: starting native speech capture ...');
+      _nativeAudioSub?.cancel();
+      await musicMonitor.stopSpeechCapture();
+      _nativeAudioSub = musicMonitor.events.listen((event) {
+        if (event.type == 'speech_audio' && event.audio != null) {
+          session.sendAudio(Uint8List.fromList(event.audio!));
+        } else if (event.type == 'speech_amplitude' &&
+            event.level != null) {
+          _onAmplitude(event.level!, session);
+        } else if (event.type == 'speech_error') {
+          _onIatError(session, -1, 'native capture failed');
+        }
+      });
+      await musicMonitor.startSpeechCapture();
+      _log('session: native capture started');
       _log('session: amplitude monitoring on '
           '(gate=$_speechGateDb endSilence=$_utteranceEndSilence)');
     } catch (error) {
@@ -359,6 +354,7 @@ class SpeechToTextProvider extends ChangeNotifier {
       return;
     }
     _sessionSampled = _sampleSession;
+    _sessionAmpLogged = 0;
     _recycleTimer = Timer(_sessionRecycle, () {
       _log('session: $_sessionRecycle recycle time reached -> wrap up');
       stop();
@@ -368,6 +364,11 @@ class SpeechToTextProvider extends ChangeNotifier {
 
   //  音量回调:记录峰值、判定刻意讲话、检测句尾静音
   void _onAmplitude(double level, XfyunIatClient session) {
+    if (_sessionAmpLogged < 10) {
+      _sessionAmpLogged++;
+      _log('amplitude #$_sessionAmpLogged '
+          'level=${level.toStringAsFixed(1)}dB');
+    }
     if (level > _sessionPeak) _sessionPeak = level;
     //  采样会话(PTT)视为刻意语音,不受音量门限限制
     if (_sessionSampled) {
@@ -477,14 +478,12 @@ class SpeechToTextProvider extends ChangeNotifier {
   }
 
   void _stopRecording() {
+    _nativeAudioSub?.cancel();
+    _nativeAudioSub = null;
+    musicMonitor.stopSpeechCapture();
     _log('stopRecording: timers/subscriptions teardown');
     _recycleTimer?.cancel();
     _recycleTimer = null;
-    _audioSubscription?.cancel();
-    _audioSubscription = null;
-    _amplitudeSubscription?.cancel();
-    _amplitudeSubscription = null;
-    unawaited(_recorder.stop());
   }
 
   //  本应用的语音输入只有英文口令,固定使用讯飞英文听写,

@@ -75,11 +75,15 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
   final callsModel = SequencerCallsModel();
   final flow = VoiceFlow.instance;
 
-  //  口令包含的子口令(变体)标题
+  //  口令包含的子口令(变体)标题。
+  //  注意不过滤 notForSequencer:该标记只影响序列器索引,
+  //  像 Run 的变体(Boys Run / Girls Run / Centers Run / Ends Run)
+  //  全部带此标记但口令员可以喊、也需可选;选中的标题进入
+  //  输入行后由序列器解析执行
   List<String> subCallTitles(CallEntry entry) {
     final titles = <String>[];
     for (var call in flattenAnimatedCallList(entry.calls)) {
-      if (!call.notForSequencer && !titles.contains(call.title))
+      if (!titles.contains(call.title))
         titles.add(call.title);
     }
     return titles;

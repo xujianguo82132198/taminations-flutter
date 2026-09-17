@@ -1262,7 +1262,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 }, child: fm.Text('取消')),
                 //  "确定"改为"打开":选中表或输入新表名后可用,
                 //  打开时才要求输入口令
+                //  选中映射表后"打开"按钮高亮,提示下一步操作
                 fm.TextButton(
+                    style: selected.isNotBlank
+                        ? fm.TextButton.styleFrom(
+                            backgroundColor: Color.BLUE,
+                            foregroundColor: Color.WHITE)
+                        : null,
                     onPressed: canOpen ? () async {
                       //  打开要求输入口令(同框切换到口令阶段)
                       passwordController.clear();
