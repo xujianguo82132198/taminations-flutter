@@ -808,9 +808,17 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 fm.Listener(
                   onPointerDown: (_) async {
                     if (!flow.isActive) {
-                      //  需要先打开映射表:选择后进入表管理模式
-                      //  (显示面板,只做记录增删排序,不启动连续识别)
                       _hidePttHint();
+                      //  已有打开的映射表:直接进入表管理模式
+                      //  并立即开始采样(本次按住即说话)
+                      if (flow.callerTable != null) {
+                        flow.startTableMode();
+                        if (flow.startSample())
+                          _showPttHint();
+                        return;
+                      }
+                      //  无表:选择后进入表管理模式
+                      //  (显示面板,只做记录增删排序,不启动连续识别)
                       if (await _loginAndOpenTable())
                         flow.startTableMode();
                       return;
@@ -852,10 +860,23 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       }
                       return;
                     }
-                    //  登录(映射表选择)→ 直接进入流式检索
+                    //  已有打开的映射表:直接利用此表进入
+                    //  流式检索,不再进入映射表选择
+                    if (flow.callerTable != null) {
+                      flow.start();
+                      return;
+                    }
+                    //  无表:登录(映射表选择)→ 进入流式检索
                     if (!await _loginAndOpenTable()) return;
                     flow.start();
-                  }, child: fm.Icon(
+                  },
+                  //  长按麦克风:强制重新选择映射表(换表用)
+                  onLongPress: () async {
+                    if (flow.pttActive || flow.isActive) return;
+                    if (!await _loginAndOpenTable()) return;
+                    flow.start();
+                  },
+                  child: fm.Icon(
                   fm.Icons.mic,
                   //  红色仅表示流式识别进行中(采样/表管理模式不红,
                   //  流式与间歇重合即为错误);节拍检测中蓝色闪烁;

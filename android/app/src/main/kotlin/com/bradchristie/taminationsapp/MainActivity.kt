@@ -385,19 +385,36 @@ class MainActivity : FlutterActivity() {
   private var speechRunning = false
 
   @Suppress("MissingPermission")
+  private fun makeRecord(source: Int, sampleRate: Int,
+      minBuf: Int): AudioRecord? = try {
+    val r = AudioRecord(source, sampleRate,
+        AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+        maxOf(minBuf, sampleRate * 2))
+    if (r.state == AudioRecord.STATE_INITIALIZED) r else {
+      r.release(); null
+    }
+  } catch (e: Exception) { null }
+
+  @Suppress("MissingPermission")
   private fun startSpeechCapture(result: MethodChannel.Result) {
     if (speechRunning) { result.success(null); return }
-    val srcRate = 44100
-    val dstRate = 16000
-    val minBuf = AudioRecord.getMinBufferSize(srcRate,
+    //  直接以 16kHz 采集(语音识别标准采样率,设备原生支持)。
+    //  不做 44.1k 重采样——线性插值无抗混叠低通,高频折叠会
+    //  严重劣化识别准确率
+    val sampleRate = 16000
+    val minBuf = AudioRecord.getMinBufferSize(sampleRate,
         AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
     if (minBuf <= 0) { result.error("no_mic", "AudioRecord unavailable", null); return }
-    val record = try {
-      AudioRecord(MediaRecorder.AudioSource.MIC, srcRate,
-          AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
-          maxOf(minBuf, srcRate * 2))
-    } catch (e: Exception) {
-      result.error("no_mic", e.message, null); return
+    //  VOICE_RECOGNITION 源:为语音识别优化,多数设备自带
+    //  增益与降噪;部分设备若不可用则退回 MIC
+    var source = MediaRecorder.AudioSource.VOICE_RECOGNITION
+    var record = makeRecord(source, sampleRate, minBuf)
+    if (record == null) {
+      source = MediaRecorder.AudioSource.MIC
+      record = makeRecord(source, sampleRate, minBuf)
+    }
+    if (record == null) {
+      result.error("no_mic", "AudioRecord init failed", null); return
     }
     if (record.state != AudioRecord.STATE_INITIALIZED) {
       record.release(); result.error("no_mic", "init failed", null); return
@@ -406,55 +423,36 @@ class MainActivity : FlutterActivity() {
     speechThread = thread(name = "taminations-speech-capture") {
       try {
         record.startRecording()
-        //  线性插值流式重采样 44.1k -> 16k
-        val ratio = srcRate.toDouble() / dstRate   //  2.75625
-        var prevSample = 0.0
-        var frac = 0.0
-        //  每轮读 ~3528 样本(80ms@44.1k),产出 ~1280 样本(2560B)
-        val inChunk = 3528
-        val input = ShortArray(inChunk)
-        val out = ShortArray(inChunk)   //  上限:输出数 <= 输入数
+        //  每块 1280 样本 = 80ms = 2560 字节
+        val chunk = ShortArray(1280)
         var ampFrames = 0
         var ampSumSq = 0.0
         var ampLastAt = System.currentTimeMillis()
         while (speechRunning) {
-          val n = record.read(input, 0, inChunk)
+          val n = record.read(chunk, 0, chunk.size)
           if (n <= 0) break
-          var outLen = 0
-          var t = frac
-          var cur = prevSample
+          //  软件增益 x6(约+15dB):部分设备采集增益过低,
+          //  讯飞听不清;放大并防截幅
+          val gain = 6.0f
+          val bytes = ByteArray(n * 2)
+          var sumSq = 0.0
           for (i in 0 until n) {
-            val next = input[i].toDouble()
-            while (t <= 1.0) {
-              out[outLen++] = (cur + (next - cur) * t).toInt().toShort()
-              t += ratio
-            }
-            t -= 1.0
-            cur = next
+            var v = (chunk[i] * gain).toInt()
+            if (v > 32767) v = 32767 else if (v < -32768) v = -32768
+            bytes[i * 2] = (v and 0xff).toByte()
+            bytes[i * 2 + 1] = ((v shr 8) and 0xff).toByte()
+            val d = v / 32768.0
+            sumSq += d * d
           }
-          prevSample = cur
-          frac = t
-          if (outLen > 0) {
-            val bytes = ByteArray(outLen * 2)
-            for (i in 0 until outLen) {
-              val v = out[i].toInt()
-              bytes[i * 2] = (v and 0xff).toByte()
-              bytes[i * 2 + 1] = ((v shr 8) and 0xff).toByte()
-            }
-            sendBytes("speech_audio", bytes)
-            //  振幅:RMS -> dB,约每 100ms 上报一次
-            for (i in 0 until outLen) {
-              val v = out[i] / 32768.0
-              ampSumSq += v * v
-            }
-            ampFrames += outLen
-            val now = System.currentTimeMillis()
-            if (now - ampLastAt >= 100 && ampFrames > 0) {
-              val rms = sqrt(ampSumSq / ampFrames)
-              val db = if (rms > 0) 20 * log10(rms) else -100.0
-              sendEvent("speech_amplitude", db)
-              ampFrames = 0; ampSumSq = 0.0; ampLastAt = now
-            }
+          sendBytes("speech_audio", bytes)
+          ampSumSq += sumSq
+          ampFrames += n
+          val now = System.currentTimeMillis()
+          if (now - ampLastAt >= 100 && ampFrames > 0) {
+            val rms = sqrt(ampSumSq / ampFrames)
+            val db = if (rms > 0) 20 * log10(rms) else -100.0
+            sendEvent("speech_amplitude", db)
+            ampFrames = 0; ampSumSq = 0.0; ampLastAt = now
           }
         }
       } catch (e: Exception) {
