@@ -23,6 +23,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../common_flutter.dart';
+import '../dance_model.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
 import 'xfyun_speech_to_text.dart';
@@ -82,8 +83,6 @@ class VoiceFlow extends ChangeNotifier {
   ///  本机播放监测是否已见过"正在播放"(外部音源时不误报停止)
   bool playbackWasActive = false;
 
-  ///  音乐节拍接管 Dance Speed 前的原设置
-  String? savedDancerSpeed;
 
   ///  最近一次错误('mic' 麦克风不可用,'speech' 识别不可用),UI 负责提示
   String? lastError;
@@ -431,27 +430,15 @@ class VoiceFlow extends ChangeNotifier {
     });
   }
 
-  //  用检测到的节拍临时接管 Dance Speed,原设置保存待恢复
+  //  用检测到的节拍临时接管跳舞速度(覆盖通道):
+  //  全程不修改用户的速度设定,动态小人按节拍跳;
+  //  退出时清除覆盖,原速度选择自动继续生效
   void takeOverDancerSpeed(int value) {
-    try {
-      if (savedDancerSpeed == null && !Settings.speed.startsWith('BPM '))
-        savedDancerSpeed = Settings.speed;
-      Settings.speed = 'BPM $value';
-    } catch (err) {
-      debugPrint('takeOverDancerSpeed failed: $err');
-    }
+    DanceModel.musicBpmOverride = value;
   }
 
   void restoreDancerSpeed() {
-    final saved = savedDancerSpeed;
-    if (saved != null) {
-      savedDancerSpeed = null;
-      try {
-        Settings.speed = saved;
-      } catch (err) {
-        debugPrint('restoreDancerSpeed failed: $err');
-      }
-    }
+    DanceModel.musicBpmOverride = null;
   }
 
   void _notify() => notifyListeners();

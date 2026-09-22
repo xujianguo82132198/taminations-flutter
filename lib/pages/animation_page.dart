@@ -379,9 +379,7 @@ class _BpmModeText extends fm.StatelessWidget {
   @override
   fm.Widget build(fm.BuildContext context) {
     final flow = VoiceFlow.instance;
-    final mode = Settings.speed.startsWith('BPM ')
-        ? 'Music'
-        : Settings.speed;
+    final mode = flow.musicDancing ? 'Music' : Settings.speed;
     //  bpm 始终显示:音乐模式用检测值;固定档位换算
     //  (每拍毫秒数 -> 每分钟拍数,如 Normal=500ms -> 120bpm)
     final int bpm;
