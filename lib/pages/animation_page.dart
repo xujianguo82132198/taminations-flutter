@@ -382,9 +382,16 @@ class _BpmModeText extends fm.StatelessWidget {
     final mode = Settings.speed.startsWith('BPM ')
         ? 'Music'
         : Settings.speed;
-    //  bpm 仅在节拍生效期间显示;退出即消失(缓存仍保留)
-    final bpm = flow.musicDancing ? flow.cachedBpm : 0;
-    final text = bpm > 0 ? '$bpm bpm $mode' : mode;
+    //  bpm 始终显示:音乐模式用检测值;固定档位换算
+    //  (每拍毫秒数 -> 每分钟拍数,如 Normal=500ms -> 120bpm)
+    final int bpm;
+    if (flow.musicDancing)
+      bpm = flow.cachedBpm;
+    else {
+      final msPerBeat = speedNames[Settings.speed] ?? NORMALSPEED;
+      bpm = (60000 / msPerBeat).round();
+    }
+    final text = '$bpm bpm $mode';
     return fm.Text(text,
         style: fm.TextStyle(fontSize: 16, fontWeight: fm.FontWeight.bold));
   }
