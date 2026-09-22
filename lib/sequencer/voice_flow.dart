@@ -41,7 +41,11 @@ import 'xfyun_speech_to_text.dart';
 ///    ready     - 节拍已显示并接管 Dance Speed,语音识别进行中
 class VoiceFlow extends ChangeNotifier {
 
-  VoiceFlow._();
+  VoiceFlow._() {
+    //  音乐监测事件监听:音乐按钮独立于语音流程,
+    //  不能依赖 start() 才挂载
+    _musicSub ??= musicMonitor.events.listen(_onEvent);
+  }
   static final VoiceFlow instance = VoiceFlow._();
 
   final musicMonitor = MusicMonitor();
@@ -293,7 +297,10 @@ class VoiceFlow extends ChangeNotifier {
     bpm = 0;
     lastCandidate = null;
     lastCandidateError = 1.0;
-    phase = 'idle';
+    //  音乐节拍取样中不改阶段:口令员常切到音乐应用播放音乐,
+    //  切后台触发的 stop 不应丢弃在途的节拍检测结果
+    if (phase != 'awaiting' && phase != 'detecting')
+      phase = 'idle';
     musicStoppedDuringCall = false;
     _notify();
   }
@@ -361,7 +368,8 @@ class VoiceFlow extends ChangeNotifier {
         }
         break;
       case 'bpm':
-        if (phase == 'detecting') {
+        //  取样激活即接收(期间 phase 可能因切后台被 stop 干扰)
+        if (!musicDancing) {
           //  取样完成:节拍生效(接管速度,监测音乐停止)
           _musicOn(e.value ?? 0);
         }

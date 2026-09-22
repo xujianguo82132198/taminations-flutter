@@ -388,9 +388,10 @@ class _BpmModeText extends fm.StatelessWidget {
   @override
   fm.Widget build(fm.BuildContext context) {
     final flow = VoiceFlow.instance;
+    //  Normal 等设定档位直接显示,不再隐藏
     final mode = Settings.speed.startsWith('BPM ')
         ? 'Music'
-        : Settings.speed.replaceFirst('Normal( Speed)?'.r,'');
+        : Settings.speed;
     final text = flow.musicDancing
         ? '${flow.cachedBpm}bpm $mode'
         : (mode.isBlank ? '' : mode);

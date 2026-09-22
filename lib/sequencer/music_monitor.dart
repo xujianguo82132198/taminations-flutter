@@ -20,6 +20,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
 
 ///  原生侧音乐监测事件
@@ -97,8 +98,9 @@ class MusicMonitor {
   Future<void> _invoke(String method) async {
     try {
       await _channel.invokeMethod(method);
-    } on PlatformException {
-      //  平台不支持时静默失败,由 UI 层的提示条兜底
+    } on PlatformException catch (e) {
+      //  平台不支持/资源占用时记录,由 UI 层的提示条兜底
+      debugPrint('MusicMonitor.$method failed: ${e.code} ${e.message}');
     }
   }
 

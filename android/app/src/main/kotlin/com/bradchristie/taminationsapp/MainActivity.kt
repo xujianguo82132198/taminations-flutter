@@ -49,12 +49,19 @@ class MainActivity : FlutterActivity() {
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         .setMethodCallHandler { call, result ->
           when (call.method) {
-            "startMicMonitor" -> startMicMonitor(result)
+            "startMicMonitor" -> {
+              //  互斥:先停语音采集,避免双 AudioRecord 抢占失败
+              stopSpeechCapture()
+              startMicMonitor(result)
+            }
             "stopMicMonitor" -> { stopMicMonitor(); result.success(null) }
             "startPlaybackWatch" -> startPlaybackWatch(result)
             "stopPlaybackWatch" -> { stopPlaybackWatch(); result.success(null) }
             "sendEnterKey" -> { sendEnterKey(); result.success(null) }
-            "startSpeechCapture" -> startSpeechCapture(result)
+            "startSpeechCapture" -> {
+              stopMicMonitor()
+              startSpeechCapture(result)
+            }
             "stopSpeechCapture" -> { stopSpeechCapture(); result.success(null) }
             else -> result.notImplemented()
           }
@@ -88,18 +95,24 @@ class MainActivity : FlutterActivity() {
     val sampleRate = 44100
     val minBuf = AudioRecord.getMinBufferSize(sampleRate,
         AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-    if (minBuf <= 0) { sendEvent("error"); result.error("no_mic", "AudioRecord unavailable", null); return }
+    if (minBuf <= 0) {
+      Log.e(TAG, "mic monitor: minBuf=$minBuf unavailable")
+      sendEvent("error"); result.error("no_mic", "AudioRecord unavailable", null); return
+    }
     val record = try {
       AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate,
           AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
           maxOf(minBuf, sampleRate * 2))  //  2 秒缓冲
     } catch (e: Exception) {
+      Log.e(TAG, "mic monitor: AudioRecord ctor failed", e)
       sendEvent("error"); result.error("no_mic", e.message, null); return
     }
     if (record.state != AudioRecord.STATE_INITIALIZED) {
+      Log.e(TAG, "mic monitor: init failed state=${record.state}")
       record.release(); sendEvent("error")
       result.error("no_mic", "AudioRecord init failed", null); return
     }
+    Log.i(TAG, "mic monitor: started 44.1k")
     micRunning = true
     micThread = thread(name = "taminations-music-monitor") {
       try {
