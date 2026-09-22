@@ -22,6 +22,29 @@ import kotlin.math.sqrt
 
 class MainActivity : FlutterActivity() {
 
+  //  自动化测试通道:以
+  //  am start ... --ez tam_auto_music true
+  //  启动时,Flutter 就绪后发送 auto_music 事件,
+  //  Dart 侧等同按下"音乐节拍"按钮(免按键远程自测)
+  private fun maybeAutoTrigger(intent: android.content.Intent?) {
+    if (intent?.getBooleanExtra("tam_auto_music", false) == true) {
+      mainHandler.postDelayed({
+        Log.i(TAG, "auto trigger: auto_music")
+        sendEvent("auto_music")
+      }, 2000)
+    }
+  }
+
+  override fun onCreate(savedInstanceState: android.os.Bundle?) {
+    super.onCreate(savedInstanceState)
+    maybeAutoTrigger(intent)
+  }
+
+  override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    maybeAutoTrigger(intent)
+  }
+
   companion object {
     private const val TAG = "TamMusic"
     private const val CHANNEL = "taminations/music"

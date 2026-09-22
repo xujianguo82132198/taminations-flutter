@@ -50,12 +50,18 @@ class MusicMonitor {
 
   static const _channel = MethodChannel('taminations/music');
 
+  //  单例:平台通道的回调是全局唯一的,多实例会互相抢夺
+  //  事件回调(后创建的实例收走事件,先创建实例的订阅落空)。
+  //  VoiceFlow 与语音识别共用一个实例。
+  static final MusicMonitor instance = MusicMonitor._();
+  factory MusicMonitor() => instance;
+
   final _events = StreamController<MusicEvent>.broadcast();
 
   ///  原生事件流(broadcast,可多处订阅)
   Stream<MusicEvent> get events => _events.stream;
 
-  MusicMonitor() {
+  MusicMonitor._() {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'event') {
         final args = call.arguments;

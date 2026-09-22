@@ -323,16 +323,19 @@ class VoiceFlow extends ChangeNotifier {
       _musicOn(cachedBpm);
       return;
     }
-    //  无缓存:现场取样。先让出麦克风(停流式识别)
-    speech?.cancel();
+    //  无缓存:现场取样。先暂停流式识别让出麦克风
+    //  (暂停接口会收尾当前轮并送出结果,取样完自动恢复)
+    speech?.pause();
     musicEnabled = true;
     phase = 'awaiting';
     _notify();
     await musicMonitor.startMicMonitor();
   }
 
-  //  节拍生效:接管速度,并开启音乐停止检测
+  //  节拍生效:接管速度,并开启音乐停止检测;
+  //  若此前为取样暂停了流式识别,现在自动恢复
   void _musicOn(int bpm) {
+    speech?.resume();
     cachedBpm = bpm;
     takeOverDancerSpeed(bpm);
     musicMonitor.stopMicMonitor();
@@ -345,8 +348,10 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  //  节拍停用:恢复原设定速度(缓存保留)
+  //  节拍停用:恢复原设定速度(缓存保留);
+  //  若流式识别此前被暂停,自动恢复喊口令
   void _musicOff() {
+    speech?.resume();
     restoreDancerSpeed();
     musicMonitor.stopMicMonitor();
     musicMonitor.stopPlaybackWatch();
@@ -358,6 +363,11 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   Future<void> _onEvent(MusicEvent e) async {
+    //  自动化测试触发:等同按下音乐节拍按钮
+    if (e.type == 'auto_music') {
+      await toggleMusic();
+      return;
+    }
     //  音乐功能已关闭时不处理(可能有关闭瞬间在途的事件)
     if (!musicEnabled) return;
     switch (e.type) {
