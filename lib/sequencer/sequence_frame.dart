@@ -190,8 +190,7 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton> {
       prompt = '节拍检测中…';
     else if (flow.musicDancing)
       prompt = '${flow.cachedBpm}bpm 再按退出';
-    else if (flow.cachedBpm > 0)
-      prompt = '按下则以外来音乐节拍跳舞(有${flow.cachedBpm}bpm)';
+    //  退出后恢复默认文案(缓存保留但静默,再按直接生效)
     return fm.Padding(
       padding: fm.EdgeInsets.fromLTRB(4, 2, 4, 2),
       child: fm.Material(

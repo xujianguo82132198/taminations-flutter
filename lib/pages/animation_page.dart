@@ -382,8 +382,8 @@ class _BpmModeText extends fm.StatelessWidget {
     final mode = Settings.speed.startsWith('BPM ')
         ? 'Music'
         : Settings.speed;
-    final bpm = flow.musicDancing || flow.cachedBpm > 0
-        ? flow.cachedBpm : 0;
+    //  bpm 仅在节拍生效期间显示;退出即消失(缓存仍保留)
+    final bpm = flow.musicDancing ? flow.cachedBpm : 0;
     final text = bpm > 0 ? '$bpm bpm $mode' : mode;
     return fm.Container(
       color: Color.LIGHTGRAY,
