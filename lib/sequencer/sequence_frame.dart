@@ -175,24 +175,23 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton> {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    //  未登录(流程未启动)或表管理模式(采样/增删记录)时
-    //  不显示音乐节拍按钮
-    if (!flow.isActive || flow.tableMode)
-      return fm.SizedBox.shrink();
-    final enabled = flow.musicEnabled;
+    //  常显(独立于语音流程/表管理模式)
+    final enabled = flow.musicDancing || flow.phase == 'awaiting'
+        || flow.phase == 'detecting';
     final color = enabled ? Color.WHITE : Color.BLACK;
-    //  所有提示都显示在按钮上,不另占屏幕空间:
-    //  音乐模式中:请播放音乐 / 节拍检测中 / N bpm,开始喊口令 / 音乐已停止
-    //  音乐模式关闭:按下 则以外来音乐节拍跳舞 再按退出
+    //  所有提示都显示在按钮上:
+    //  取样中:请播放音乐 / 节拍检测中
+    //  生效中:N bpm 再按退出;停用但有缓存:按下则…(有N bpm)
+    //  默认:按下 则以外来音乐节拍跳舞 再按退出
     String? prompt;
     if (flow.phase == 'awaiting')
       prompt = '请播放音乐';
     else if (flow.phase == 'detecting')
-      prompt = flow.bpm > 0 ? '节拍检测中·上次${flow.bpm}bpm' : '节拍检测中…';
-    else if (flow.phase == 'ready')
-      prompt = flow.musicStoppedDuringCall
-          ? '音乐已停止,重播将重新检测节拍'
-          : '${flow.bpm}bpm,开始喊口令';
+      prompt = '节拍检测中…';
+    else if (flow.musicDancing)
+      prompt = '${flow.cachedBpm}bpm 再按退出';
+    else if (flow.cachedBpm > 0)
+      prompt = '按下则以外来音乐节拍跳舞(有${flow.cachedBpm}bpm)';
     return fm.Padding(
       padding: fm.EdgeInsets.fromLTRB(4, 2, 4, 2),
       child: fm.Material(
@@ -845,8 +844,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 ),
               if (TamUtils.canListen)
                 fm.TextButton(onPressed: () async {
-                    //  采样中不响应
+                    //  采样中/音乐节拍取样中不响应
                     if (flow.pttActive) return;
+                    if (flow.phase == 'awaiting' ||
+                        flow.phase == 'detecting')
+                      return;
                     if (flow.isActive) {
                       if (speechProvider.isListening) {
                         //  流式检索中:点击结束

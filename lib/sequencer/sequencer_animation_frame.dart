@@ -96,15 +96,31 @@ class BasicSequencerAnimation extends fm.StatelessWidget {
         child: fm.Stack(
             children: [
               AnimationFrame(),
-              //  Show current call at top
+              //  上部两行:当前所跳口令(小一号 24),
+              //  其下为下一条将要跳的口令(比上一行大一号 28);
+              //  没有下一条口令时显示为空,不报错
               fm.Positioned(
-                  top: 6, left:12, right:12,
+                  top: 4, left:12, right:12,
                   child: pp.Consumer<SequencerModel>(
-                      builder: (context,model,_) =>
-                          AutoSizeText(model.currentCall < 0 ? ''
-                              : model.calls[model.currentCall].name,
-                              maxLines: 2,
-                              style: fm.TextStyle(fontSize: 28))
+                      builder: (context,model,_) {
+                        final current = model.currentCall < 0 ? ''
+                            : model.calls[model.currentCall].name;
+                        final nextIndex = model.currentCall + 1;
+                        final next = (model.currentCall >= 0 &&
+                                nextIndex < model.calls.length)
+                            ? model.calls[nextIndex].name
+                            : (model.currentCall < 0 && model.calls.isNotEmpty
+                                ? model.calls[0].name : '');
+                        return fm.Column(crossAxisAlignment:
+                            fm.CrossAxisAlignment.start, children: [
+                          AutoSizeText(current, maxLines: 1,
+                              style: fm.TextStyle(fontSize: 24)),
+                          AutoSizeText(next, maxLines: 1,
+                              style: fm.TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: fm.FontWeight.bold)),
+                        ]);
+                      }
                   )
               )
             ]

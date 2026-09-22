@@ -58,6 +58,12 @@ class VoiceFlow extends ChangeNotifier {
   ///  idle / awaiting / detecting / ready / calling
   String phase = 'idle';
 
+  //  ---- 音乐节拍(独立于语音流程,常显按钮控制) ----
+  ///  节拍正在生效(舞者按音乐节拍跳)
+  bool musicDancing = false;
+  ///  已取样的节拍缓存:再次按下直接采用,不必重新取样
+  int cachedBpm = 0;
+
   ///  音乐功能(播放提示/节拍检测/节拍接管/停止检测)开关。
   ///  默认关闭:登录后直接语音识别,动态小人按系统原设定节拍跳。
   ///  屏幕上的音乐按钮可随时开/关。
@@ -280,60 +286,68 @@ class VoiceFlow extends ChangeNotifier {
     return true;
   }
 
-  //  结束流程(含人工退出):停止一切监测,恢复 Dance Speed,
-  //  外部音乐节拍即刻截止使用,其节拍显示也随之消失
+  //  结束语音流程(麦克风退出):停止语音相关监测。
+  //  音乐节拍独立于语音流程,不受此影响(由其按钮单独控制)
   void stop() {
     debugPrint('VoiceFlow.stop (phase=$phase)');
-    musicEnabled = false;
-    musicMonitor.stopMicMonitor();
-    musicMonitor.stopPlaybackWatch();
-    restoreDancerSpeed();
-    bpm = 0;                        //  节拍清零,显示随之消失
-    lastCandidate = null;           //  面板候选高亮清除
+    bpm = 0;
+    lastCandidate = null;
     lastCandidateError = 1.0;
     phase = 'idle';
     musicStoppedDuringCall = false;
-    playbackWasActive = false;
     _notify();
   }
 
-  //  音乐功能开关(屏幕上的"按下则以外来音乐节拍跳舞"按钮):
-  //  未登录  - 按下 = 登录并直接进入音乐模式
-  //  识别中(calling) - 按下 = 开启音乐功能,出现"请播放音乐"提示,
-  //                     开始监听/节拍检测/节拍接管/停止检测
-  //  音乐模式中 - 再按下 = 停止上述功能并恢复系统原设定节拍,
-  //                     语音识别不受影响
+  //  音乐节拍按钮(屏幕常显):
+  //  第 1 次按下:取音乐节拍并发送给系统,舞者按此节奏跳;
+  //  第 2 次按下:停止采用节拍,恢复原设定速度(节拍缓存保留,
+  //              音乐没停也只停止采用,不重新取样);
+  //  音乐停止(系统检测到):等同第 2 次按下,自动恢复;
+  //  第 3 次按下:直接输出原来的取样节拍,不必重新取样
   Future<void> toggleMusic() async {
-    if (tableMode) return;   //  表管理模式不启动音乐节拍环节
-    if (phase == 'idle') {
-      //  未登录:走登录流程后直接以音乐模式启动
-      await loginAndStart(withMusic: true);
+    if (musicDancing) {
+      _musicOff();
       return;
     }
-    if (!musicEnabled) {
-      musicEnabled = true;
-      if (phase == 'calling') {
-        //  先停止语音识别释放麦克风,再启动音乐监测
-        speech?.cancel();
-        phase = 'awaiting';
-        _notify();
-        await musicMonitor.startMicMonitor();
-      }
-      //  awaiting/detecting/ready:音乐功能已在运行,无需额外动作
-    } else {
-      musicEnabled = false;
-      musicMonitor.stopMicMonitor();
-      musicMonitor.stopPlaybackWatch();
-      restoreDancerSpeed();
-      if (phase != 'calling') {
-        phase = 'calling';
-        _notify();
-        //  若语音识别尚未开始(原先在等音乐/检测节拍),现在直接开始
-        if (!(speech?.isListening ?? false))
-          startListening();
-      }
-      _notify();
+    if (phase == 'awaiting' || phase == 'detecting')
+      return;   //  正在取样中
+    //  有缓存:直接采用,不必重新取样
+    if (cachedBpm > 0) {
+      _musicOn(cachedBpm);
+      return;
     }
+    //  无缓存:现场取样。先让出麦克风(停流式识别)
+    speech?.cancel();
+    musicEnabled = true;
+    phase = 'awaiting';
+    _notify();
+    await musicMonitor.startMicMonitor();
+  }
+
+  //  节拍生效:接管速度,并开启音乐停止检测
+  void _musicOn(int bpm) {
+    cachedBpm = bpm;
+    takeOverDancerSpeed(bpm);
+    musicMonitor.stopMicMonitor();
+    musicMonitor.startPlaybackWatch();
+    playbackWasActive = false;
+    musicDancing = true;
+    //  恢复基础阶段(语音未登录则 idle)
+    if (phase == 'awaiting' || phase == 'detecting')
+      phase = callerTable != null ? 'calling' : 'idle';
+    _notify();
+  }
+
+  //  节拍停用:恢复原设定速度(缓存保留)
+  void _musicOff() {
+    restoreDancerSpeed();
+    musicMonitor.stopMicMonitor();
+    musicMonitor.stopPlaybackWatch();
+    musicDancing = false;
+    musicEnabled = false;
+    if (phase == 'awaiting' || phase == 'detecting')
+      phase = callerTable != null ? 'calling' : 'idle';
+    _notify();
   }
 
   Future<void> _onEvent(MusicEvent e) async {
@@ -348,51 +362,33 @@ class VoiceFlow extends ChangeNotifier {
         break;
       case 'bpm':
         if (phase == 'detecting') {
-          musicMonitor.stopMicMonitor();
-          musicMonitor.startPlaybackWatch();
-          playbackWasActive = false;
-          bpm = e.value ?? 0;
-          phase = 'ready';
-          _notify();
-          if (bpm > 0)
-            takeOverDancerSpeed(bpm);
-          //  稍等原生 AudioRecord 完全释放后再启动语音识别
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (phase != 'ready') return;
-          startListening();
+          //  取样完成:节拍生效(接管速度,监测音乐停止)
+          _musicOn(e.value ?? 0);
         }
         break;
       case 'music_stopped':
-        //  节拍检测阶段音乐消失(重试窗口中),回到等待
+        //  取样阶段音乐消失(重试窗口中),回到等待
         if (phase == 'detecting') {
           phase = 'awaiting';
           _notify();
         }
         break;
       case 'playback_stopped':
-        //  仅在确认过本机播放后生效,外部音源无法跟踪不误报
-        if (phase == 'ready' && playbackWasActive) {
+        //  节拍生效期间外部音乐停止:等同再次按下按钮,
+        //  自动停用节拍并恢复原设定速度(仅本机播放可检测)
+        if (musicDancing && playbackWasActive) {
           playbackWasActive = false;
-          musicStoppedDuringCall = true;
-          _notify();
+          _musicOff();
         }
         break;
       case 'playback_started':
-        if (phase == 'ready') {
+        //  节拍生效期间音乐继续/重播:不重新取样,直接沿用
+        if (musicDancing)
           playbackWasActive = true;
-          //  音乐停止后又重新播放:取消识别,重新走节拍检测
-          if (musicStoppedDuringCall) {
-            musicStoppedDuringCall = false;
-            speech?.cancel();
-            musicMonitor.stopPlaybackWatch();
-            musicMonitor.startMicMonitor();
-            _notify();
-          }
-        }
         break;
       case 'error':
         lastError = 'mic';
-        stop();
+        _musicOff();
         break;
     }
   }

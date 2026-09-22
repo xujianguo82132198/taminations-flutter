@@ -25,6 +25,7 @@ import 'package:provider/provider.dart' as pp;
 import 'package:taminations/animated_call.dart';
 
 import '../sequencer/sequencer_model.dart';
+import '../sequencer/voice_flow.dart';
 import '../beat_notifier.dart';
 import '../call_index.dart';
 import '../common_flutter.dart';
@@ -350,8 +351,12 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                       );
                     })),
 
-                //  Slider to show current animation position
-            _Slider(),
+                //  Slider to show current animation position。
+                //  Sequencer 场景取消百分比滑条,改显示
+                //  "***bpm" 及速度设定模式(Fast/Normal/Slow/Music)
+                isSequencer
+                    ? _BpmModeText()
+                    : _Slider(),
 
                 //  Painter to show animation start, end, beats, and parts
             if (!isSmall)
@@ -375,6 +380,28 @@ class _BeatText extends fm.StatelessWidget {
         final bb = danceModel.beater.beat.i.clamp(0, tb);
         return fm.Text('$bb of $tb',style:fm.TextStyle(fontSize:24));
       });
+}
+
+//  Sequencer 场景底部的节拍与速度模式显示:
+//  音乐模式显示 "Nbpm Music",平时显示设定档位(Fast/Normal/Slow)
+class _BpmModeText extends fm.StatelessWidget {
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final flow = VoiceFlow.instance;
+    final mode = Settings.speed.startsWith('BPM ')
+        ? 'Music'
+        : Settings.speed.replaceFirst('Normal( Speed)?'.r,'');
+    final text = flow.musicDancing
+        ? '${flow.cachedBpm}bpm $mode'
+        : (mode.isBlank ? '' : mode);
+    return fm.Container(
+      color: Color.LIGHTGRAY,
+      width: double.infinity,
+      padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
+      child: fm.Text(text,
+          style: fm.TextStyle(fontSize: 16, fontWeight: fm.FontWeight.bold)),
+    );
+  }
 }
 
 //  Speed shown at lower right if not the default Normal
