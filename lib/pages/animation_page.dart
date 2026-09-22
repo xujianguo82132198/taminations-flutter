@@ -375,11 +375,39 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
 //  Sequencer 场景底部的节拍与速度模式显示:
 //  格式 "***bpm 速度模式",如 "125bpm Fast";
 //  无节拍缓存时只显示速度模式(如 "Normal");
-//  音乐节拍生效时模式显示为 "Music"
-class _BpmModeText extends fm.StatelessWidget {
+//  音乐节拍生效时模式显示为 "Music"。
+//  监听 VoiceFlow 与 Settings:节拍生效/退出、速度档位变化
+//  都立即刷新显示
+class _BpmModeText extends fm.StatefulWidget {
+  @override
+  _BpmModeTextState createState() => _BpmModeTextState();
+}
+
+class _BpmModeTextState extends fm.State<_BpmModeText> {
+
+  final flow = VoiceFlow.instance;
+  final settings = Settings();
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_onChanged);
+    settings.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    flow.removeListener(_onChanged);
+    settings.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   fm.Widget build(fm.BuildContext context) {
-    final flow = VoiceFlow.instance;
     final mode = flow.musicDancing ? 'Music' : Settings.speed;
     //  bpm 始终显示:音乐模式用检测值;固定档位换算
     //  (每拍毫秒数 -> 每分钟拍数,如 Normal=500ms -> 120bpm)
