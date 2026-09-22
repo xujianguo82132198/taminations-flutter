@@ -332,14 +332,15 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                                     _Note(),
                                     //  Info to show at bottom right
                                     //  Sequencer Beat, Speed, Looping
+                                    //  (Sequencer 场景已删掉原有显示,
+                                    //   节拍与速度模式统一在下方显示)
+                                    if (!isSequencer)
                                     fm.Positioned(
                                       bottom: 0.0,
                                       right: 0.0,
                                       child: fm.Row(
                                         spacing: 10,
                                         children: [
-                                          if (isSequencer)
-                                            _BeatText(),
                                           _SpeedText(),
                                           _LoopText()
                                         ],
@@ -366,41 +367,6 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
             _AnimationButtons()
               ]); }
       )
-    );
-  }
-}
-
-//  Sequence beat info to show at lower right
-class _BeatText extends fm.StatelessWidget {
-  @override
-  fm.Widget build(fm.BuildContext context) =>
-      pp.Consumer2<SequencerModel,DanceModel>(builder: (
-          context, sequencerModel, danceModel,_) {
-        final tb = sequencerModel.totalBeats().i;
-        final bb = danceModel.beater.beat.i.clamp(0, tb);
-        return fm.Text('$bb of $tb',style:fm.TextStyle(fontSize:24));
-      });
-}
-
-//  Sequencer 场景底部的节拍与速度模式显示:
-//  音乐模式显示 "Nbpm Music",平时显示设定档位(Fast/Normal/Slow)
-class _BpmModeText extends fm.StatelessWidget {
-  @override
-  fm.Widget build(fm.BuildContext context) {
-    final flow = VoiceFlow.instance;
-    //  Normal 等设定档位直接显示,不再隐藏
-    final mode = Settings.speed.startsWith('BPM ')
-        ? 'Music'
-        : Settings.speed;
-    final text = flow.musicDancing
-        ? '${flow.cachedBpm}bpm $mode'
-        : (mode.isBlank ? '' : mode);
-    return fm.Container(
-      color: Color.LIGHTGRAY,
-      width: double.infinity,
-      padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
-      child: fm.Text(text,
-          style: fm.TextStyle(fontSize: 16, fontWeight: fm.FontWeight.bold)),
     );
   }
 }

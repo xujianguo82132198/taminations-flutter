@@ -114,10 +114,11 @@ class BasicSequencerAnimation extends fm.StatelessWidget {
                         return fm.Column(crossAxisAlignment:
                             fm.CrossAxisAlignment.start, children: [
                           AutoSizeText(current, maxLines: 1,
-                              style: fm.TextStyle(fontSize: 20)),
+                              style: fm.TextStyle(fontSize: 16, height: 1.0)),
                           AutoSizeText(next, maxLines: 1,
                               style: fm.TextStyle(
-                                  fontSize: 24,
+                                  fontSize: 20,
+                                  height: 1.0,
                                   fontWeight: fm.FontWeight.bold)),
                         ]);
                       }
