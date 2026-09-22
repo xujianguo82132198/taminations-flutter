@@ -331,20 +331,21 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                                     //  Note that fades out as animation starts
                                     _Note(),
                                     //  Info to show at bottom right
-                                    //  Sequencer Beat, Speed, Looping
-                                    //  (Sequencer 场景已删掉原有显示,
-                                    //   节拍与速度模式统一在下方显示)
-                                    if (!isSequencer)
+                                    //  Sequencer 场景显示 "***bpm 速度模式"
+                                    //  (悬浮于画面右下角,不另占行);
+                                    //  其他页面保持速度/循环显示
                                     fm.Positioned(
                                       bottom: 0.0,
                                       right: 0.0,
-                                      child: fm.Row(
-                                        spacing: 10,
-                                        children: [
-                                          _SpeedText(),
-                                          _LoopText()
-                                        ],
-                                      )
+                                      child: isSequencer
+                                          ? _BpmModeText()
+                                          : fm.Row(
+                                              spacing: 10,
+                                              children: [
+                                                _SpeedText(),
+                                                _LoopText()
+                                              ],
+                                            )
                                     )
                                   ]),
                             )
@@ -352,12 +353,11 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                       );
                     })),
 
-                //  Slider to show current animation position。
-                //  Sequencer 场景取消百分比滑条,改显示
-                //  "***bpm" 及速度设定模式(Fast/Normal/Slow/Music)
-                isSequencer
-                    ? _BpmModeText()
-                    : _Slider(),
+                //  Slider to show current animation position
+                //  (Sequencer 场景不显示,节拍与速度模式
+                //   移至画面右下角原显示行)
+                if (!isSequencer)
+                  _Slider(),
 
                 //  Painter to show animation start, end, beats, and parts
             if (!isSmall)
@@ -385,13 +385,8 @@ class _BpmModeText extends fm.StatelessWidget {
     //  bpm 仅在节拍生效期间显示;退出即消失(缓存仍保留)
     final bpm = flow.musicDancing ? flow.cachedBpm : 0;
     final text = bpm > 0 ? '$bpm bpm $mode' : mode;
-    return fm.Container(
-      color: Color.LIGHTGRAY,
-      width: double.infinity,
-      padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
-      child: fm.Text(text,
-          style: fm.TextStyle(fontSize: 16, fontWeight: fm.FontWeight.bold)),
-    );
+    return fm.Text(text,
+        style: fm.TextStyle(fontSize: 16, fontWeight: fm.FontWeight.bold));
   }
 }
 
