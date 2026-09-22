@@ -371,6 +371,30 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
   }
 }
 
+//  Sequencer 场景底部的节拍与速度模式显示:
+//  格式 "***bpm 速度模式",如 "125bpm Fast";
+//  无节拍缓存时只显示速度模式(如 "Normal");
+//  音乐节拍生效时模式显示为 "Music"
+class _BpmModeText extends fm.StatelessWidget {
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final flow = VoiceFlow.instance;
+    final mode = Settings.speed.startsWith('BPM ')
+        ? 'Music'
+        : Settings.speed;
+    final bpm = flow.musicDancing || flow.cachedBpm > 0
+        ? flow.cachedBpm : 0;
+    final text = bpm > 0 ? '$bpm bpm $mode' : mode;
+    return fm.Container(
+      color: Color.LIGHTGRAY,
+      width: double.infinity,
+      padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
+      child: fm.Text(text,
+          style: fm.TextStyle(fontSize: 16, fontWeight: fm.FontWeight.bold)),
+    );
+  }
+}
+
 //  Speed shown at lower right if not the default Normal
 class _SpeedText extends fm.StatelessWidget {
   @override
