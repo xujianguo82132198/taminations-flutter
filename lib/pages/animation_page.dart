@@ -360,7 +360,8 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                   _Slider(),
 
                 //  Painter to show animation start, end, beats, and parts
-            if (!isSmall)
+                //  (Sequencer 场景连同滑条一起取消标尺)
+            if (!isSmall && !isSequencer)
               _SliderTicks(),
 
                 //  Buttons to control the animation
