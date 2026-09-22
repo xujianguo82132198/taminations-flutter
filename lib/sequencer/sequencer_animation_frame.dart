@@ -103,14 +103,16 @@ class BasicSequencerAnimation extends fm.StatelessWidget {
                   top: 4, left:12, right:12,
                   child: pp.Consumer<SequencerModel>(
                       builder: (context,model,_) {
-                        final current = model.currentCall < 0 ? ''
-                            : model.calls[model.currentCall].name;
+                        //  未开始跳舞时不显示任何口令(含第一条),
+                        //  播放按钮按下、舞蹈开始后才显示
+                        final dancing = model.currentCall >= 0 &&
+                            model.currentCall < model.calls.length;
+                        final current = dancing
+                            ? model.calls[model.currentCall].name : '';
                         final nextIndex = model.currentCall + 1;
-                        final next = (model.currentCall >= 0 &&
+                        final next = (dancing &&
                                 nextIndex < model.calls.length)
-                            ? model.calls[nextIndex].name
-                            : (model.currentCall < 0 && model.calls.isNotEmpty
-                                ? model.calls[0].name : '');
+                            ? model.calls[nextIndex].name : '';
                         return fm.Column(crossAxisAlignment:
                             fm.CrossAxisAlignment.start, children: [
                           AutoSizeText(current, maxLines: 1,
