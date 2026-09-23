@@ -1336,8 +1336,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                           child: fm.Text('创建')),
                                     ],
                                   );
-                                });
-                        if (level == null || !level.contains('|')) return;
+                                }));
+                        if (level == null || !level.contains('|')) {
+                          return;
+                        }
                         final parts = level.split('|');
                                         final onlyName =
                                             '${parts[0]}_${parts[1]}_Only';
