@@ -47,6 +47,13 @@ class CallerRow {
   Map<String, dynamic> toJson() =>
       {'seq': seq, 'recognized': recognized, 'standardCall': standardCall};
 
+  ///  序号重排后的行列表(供合并输出)
+  static List<CallerRow> emptyList(List<CallerRow> list) {
+    for (var i = 0; i < list.length; i++)
+      list[i].seq = i + 1;
+    return list;
+  }
+
   static CallerRow fromJson(Map<dynamic, dynamic> json) => CallerRow(
       seq: (json['seq'] as num).toInt(),
       recognized: json['recognized']?.toString() ?? '',
@@ -300,6 +307,62 @@ class CallerTable extends ChangeNotifier {
     for (var i = 0; i < rows.length; i++)
       rows[i].seq = i + 1;
     await save();
+  }
+
+  ///  不排序追加(建Only工作表用:保持口令库顺序)
+  Future<void> appendRowNoSort(
+      {required String recognized, required String standardCall}) async {
+    rows.add(CallerRow(seq: lastSeq + 1,
+        recognized: recognized, standardCall: standardCall));
+    await save();
+  }
+
+  ///  建Only工作表:第3列=指定级别全部口令(含子口令,去重),第2列空
+  static Future<CallerTable> createOnlyTable(SharedPreferences prefs,
+      String tableName, String levelDir) async {
+    await prefs.setString(_keyPrefix + tableName, '{"rows":[]}');
+    final t = await CallerTable.open(tableName);
+    final titles = <String>[];
+    for (final entry in callIndex) {
+      if (entry.level != levelDir) continue;
+      for (final call in flattenAnimatedCallList(entry.calls)) {
+        if (!titles.contains(call.title))
+          titles.add(call.title);
+      }
+    }
+    for (final title in titles)
+      await t.appendRowNoSort(recognized: '', standardCall: title);
+    return t;
+  }
+
+  ///  合并另存:本表各行(第2列非空) + 源表全部行,
+  ///  按第2列总体排序,存为目标表名
+  static Future<int> mergeAndSaveAs(SharedPreferences prefs,
+      CallerTable only, String sourceName, String targetName) async {
+    final src = prefs.getString(_keyPrefix + sourceName);
+    final merged = <CallerRow>[];
+    if (src != null) {
+      try {
+        final d = jsonDecode(src);
+        if (d is Map && d['rows'] is List) {
+          for (final r in d['rows']) {
+            if (r is Map)
+              merged.add(CallerRow.fromJson(r));
+          }
+        }
+      } on FormatException {}
+    }
+    for (final r in only.rows) {
+      if (r.recognized.isNotBlank)
+        merged.add(CallerRow(seq: 0,
+            recognized: r.recognized, standardCall: r.standardCall));
+    }
+    merged.sort((a, b) =>
+        a.recognized.toLowerCase().compareTo(b.recognized.toLowerCase()));
+    final out = CallerRow.emptyList(merged);
+    await prefs.setString(_keyPrefix + targetName,
+        jsonEncode({'rows': out}));
+    return merged.length;
   }
 
   ///  表补全:把口令库中全部口令写入映射表(第二列=口令名,

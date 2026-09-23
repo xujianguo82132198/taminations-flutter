@@ -684,7 +684,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               .map((a) => a.recognizedWords.replaceAll('\\W'.r, ' ').trim())
               .firstWhere((st) => st.isNotBlank, orElse: () => '');
           flow.consumeSample();
-          if (sample.isNotBlank) {
+          //  Only 采表模式:识别结果放输入框,待"识别确认"后入表
+          if (flow.onlyMode && sample.isNotBlank) {
+            later(() {
+              textFieldController.text = sample;
+              focusNode.requestFocus();
+            });
+            speech.clearResults();
+          }
+          if (sample.isNotBlank && !flow.onlyMode) {
             later(() async {
               final row = await flow.startRecordInit(sample);
               if (row == null || !mounted) return;
@@ -818,6 +826,28 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               //  点击麦克风:登录(姓名下拉选择已有表)→ 打开口令员表
               //  → 直接进入语音识别(音乐功能默认关闭)
               //  流程进行中再点 = 结束语音呼叫并恢复原 Dance Speed
+              //  Only 采表模式:识别确认 + 完成建表按钮
+              if (flow.onlyMode) ...[
+                fm.TextButton(onPressed: () {
+                  flow.confirmDictation(textFieldController.text);
+                  textFieldController.clear();
+                }, child: fm.Text('识别确认',
+                    style: fm.TextStyle(fontSize: 14,
+                        color: Color.WHITE,
+                        backgroundColor: Color.BLUE))),
+                fm.TextButton(onPressed: () async {
+                  final n = await flow.finishOnlyTable();
+                  if (n != null && mounted)
+                    fm.ScaffoldMessenger.of(context).showSnackBar(
+                        fm.SnackBar(backgroundColor: Color.BLUE,
+                            content: fm.Text(
+                                '已另存 ${flow.onlyTargetName}(共$n条)',
+                                style: fm.TextStyle(fontSize: 18))));
+                }, child: fm.Text('完成建表',
+                    style: fm.TextStyle(fontSize: 14,
+                        color: Color.WHITE,
+                        backgroundColor: Color.GREEN))),
+              ],
               //  PTT 采样按钮(映射表口令语音采集):
               //  需要先打开映射表(未打开时按下进入映射表选择);
               //  手指触其显示"按下说话,抬起停止"提示,
@@ -1258,6 +1288,68 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         await _manageSaveTableAs(prefs, tableNames, selected);
                         setState(() {});
                       }),
+                      _tableMgmtButton(ctx, true, '建表', () async {
+                        //  建 Only 工作表:选源表+级别
+                        final prefs2 = await SharedPreferences.getInstance();
+                        final srcNames = CallerTable.listTableNames(prefs2)
+                            .where((n) => !n.endsWith('_Only')).toList();
+                        final level = await fm.showDialog<String>(
+                            context: context,
+                            builder: (lctx) =>
+                                fm.StatefulBuilder(builder: (lctx, lset) {
+                                  var src = srcNames.isNotEmpty
+                                      ? srcNames.first : '';
+                                  var lv = 'plus';
+                                  return fm.AlertDialog(
+                                    title: fm.Text('建表(建Only工作表)'),
+                                    content: fm.Column(
+                                      mainAxisSize: fm.MainAxisSize.min,
+                                      children: [
+                                        fm.DropdownButton<String>(
+                                            value: src,
+                                            isExpanded: true,
+                                            items: [for (final n in srcNames)
+                                              fm.DropdownMenuItem(
+                                                  value: n, child: fm.Text(n))],
+                                            onChanged: (v) =>
+                                                lset(() => src = v ?? src)),
+                                        fm.DropdownButton<String>(
+                                            value: lv,
+                                            isExpanded: true,
+                                            items: [for (final l in
+                                              ['plus','a1','a2','c1','c2','c3a','c3b'])
+                                              fm.DropdownMenuItem(
+                                                  value: l, child: fm.Text(l))],
+                                            onChanged: (v) =>
+                                                lset(() => lv = v ?? lv)),
+                                      ],
+                                    ),
+                                    actions: [
+                                      fm.TextButton(
+                                          onPressed: () =>
+                                              fm.Navigator.of(lctx).pop(),
+                                          child: fm.Text('取消')),
+                                      fm.TextButton(
+                                          onPressed: () =>
+                                              fm.Navigator.of(lctx)
+                                                  .pop('$src|$lv'),
+                                          child: fm.Text('创建')),
+                                    ],
+                                  );
+                                });
+                        if (level == null || !level.contains('|')) return;
+                        final parts = level.split('|');
+                                        final onlyName =
+                                            '${parts[0]}_${parts[1]}_Only';
+                                        final t = await CallerTable
+                                            .createOnlyTable(prefs2,
+                                                onlyName, parts[1]);
+                                        await _refreshTableNames(
+                                            prefs2, tableNames);
+                                        setState(() { selected = onlyName; });
+                                        _mgmtSnackBar('已创建 $onlyName '
+                                            '(${t.rows.length}条),打开后采表');
+                                      }),
                       _tableMgmtButton(ctx, selected.isBlank, '导入',
                           () async {
                         final imported = await _manageImportYsb(

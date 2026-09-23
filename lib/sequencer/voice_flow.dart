@@ -23,6 +23,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../dance_model.dart';
+import '../extensions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
 import 'dual_speech_to_text.dart';
@@ -175,6 +177,49 @@ class VoiceFlow extends ChangeNotifier {
   //  并恢复语音识别。
   ///  待补全的新记录(null 表示当前没有进行中的记录初始化)
   CallerRow? pendingRecord;
+
+  //  ---- Only 表采表模式(建表朗读录入) ----
+  ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
+  bool get onlyMode =>
+      callerTable != null && callerTable!.callerName.endsWith('_Only');
+  ///  当前待录行(第2列为空的第一行),null=全部录完
+  CallerRow? get currentDictationRow {
+    final t = callerTable;
+    if (t == null) return null;
+    for (final r in t.rows)
+      if (r.recognized.isBlank) return r;
+    return null;
+  }
+  ///  源表名 = Only 表名去掉 "_<级别>_Only" 后缀
+  String get onlySourceName {
+    final n = callerTable?.callerName ?? '';
+    final i = n.lastIndexOf('_');
+    return (n.endsWith('_Only') && i > 0)
+        ? n.substring(0, i) : n;
+  }
+  ///  目标表名 = Only 表名去 "_Only"
+  String get onlyTargetName =>
+      (callerTable?.callerName ?? '').replaceAll('_Only', '');
+
+  ///  采表确认:输入框文字写入当前待录行第2列,跳下一行
+  Future<bool> confirmDictation(String text) async {
+    final t = callerTable;
+    final row = currentDictationRow;
+    if (t == null || row == null || text.isBlank) return false;
+    await t.updateRow(row.seq, recognized: text.trim());
+    _notify();
+    return true;
+  }
+
+  ///  完成建表:与源表合并、总体排序、另存(去掉 Only)
+  Future<int?> finishOnlyTable() async {
+    final t = callerTable;
+    if (t == null || !onlyMode) return null;
+    final prefs = await SharedPreferences.getInstance();
+    final count = await CallerTable.mergeAndSaveAs(
+        prefs, t, onlySourceName, onlyTargetName);
+    return count;
+  }
 
   ///  口令员在 Calls 画面点选的口令(输入行取走后清空)
   String? callSelection;
