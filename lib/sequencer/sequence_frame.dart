@@ -1350,7 +1350,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                             prefs2, tableNames);
                                         setState(() { selected = onlyName; });
                                         _mgmtSnackBar('已创建 $onlyName '
-                                            '(${t.rows.length}条),打开后采表');
+                                            '(${t.rows.length}条)');
+                                        //  自动打开,直接进入采表模式
+                                        flow.callerName = onlyName;
+                                        await flow.openCallerTable(onlyName);
+                                        flow.startTableMode();
+                                        fm.Navigator.of(ctx).pop();
                                       }),
                       _tableMgmtButton(ctx, selected.isBlank, '导入',
                           () async {
