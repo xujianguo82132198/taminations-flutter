@@ -1103,7 +1103,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 });
               }
               //  口令确认:回车或"确定"触发
-              void doConfirm() {
+              Future<void> doConfirm() async {
                 final pwd = passwordController.text;
                 if (pwd.isBlank) return;
                 flow.callerPassword = pwd;
@@ -1113,7 +1113,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   opened = true;
                   fm.Navigator.of(ctx).pop();
                 } else if (passwordMode == '删除') {
-                  _manageDeleteTable(prefs, tableNames, selected);
+                  //  必须 await 删除完成再刷新,否则列表仍显示已删表
+                  await _manageDeleteTable(prefs, tableNames, selected);
                   setState(() {
                     passwordMode = '';
                     selected = '';
