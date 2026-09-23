@@ -21,6 +21,7 @@
 import 'package:flutter/material.dart' as fm;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart' as pp;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../common_flutter.dart';
 import 'page.dart';
@@ -89,9 +90,79 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 DancerShapesWidget(),
                 DancerIdentificationWidget(),
                 GeometrySettingWidget(),
-                JoinCallsWithWidget()
+                JoinCallsWithWidget(),
+                SpeechEngineWidget()
               ]));
         });
+  }
+}
+
+///  语音引擎选择:自动(默认,中国用讯飞/海外连不上自动切谷歌)、
+///  讯飞、谷歌
+class SpeechEngineWidget extends fm.StatefulWidget {
+  @override
+  _SpeechEngineWidgetState createState() => _SpeechEngineWidgetState();
+}
+
+class _SpeechEngineWidgetState extends fm.State<SpeechEngineWidget> {
+
+  String _engine = 'auto';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted)
+        setState(() => _engine = prefs.getString('语音引擎') ?? 'auto');
+    } catch (_) {}
+  }
+
+  Future<void> _set(String v) async {
+    setState(() => _engine = v);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('语音引擎', v);
+    } catch (_) {}
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    return fm.Column(
+        crossAxisAlignment: fm.CrossAxisAlignment.stretch,
+        children: [
+          _SettingTitle('语音引擎(中国讯飞/美国谷歌)'),
+          fm.Container(
+            color: fm.Colors.white,
+            margin: fm.EdgeInsets.only(bottom:3),
+            child: fm.Row(
+              children: [
+                for (final v in ['auto', 'xfyun', 'google'])
+                  fm.Expanded(
+                    child: fm.InkWell(
+                      onTap: () => _set(v),
+                      child: fm.Row(mainAxisSize: fm.MainAxisSize.min,
+                          children:[
+                            fm.Radio<String>(
+                                value: v,
+                                groupValue: _engine,
+                                onChanged: (nv) {
+                                  if (nv != null) _set(nv);
+                                }),
+                            fm.Text(v == 'auto' ? '自动' :
+                                    (v == 'xfyun' ? '讯飞' : '谷歌'),
+                                style: fm.TextStyle(fontSize: 18))
+                          ]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ]);
   }
 }
 

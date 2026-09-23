@@ -41,6 +41,7 @@ import 'abbreviations_model.dart';
 import 'caller_store.dart';
 import 'sequencer_model.dart';
 import 'voice_flow.dart';
+import 'dual_speech_to_text.dart';
 import 'xfyun_speech_to_text.dart';
 
 class SequenceFrame extends fm.StatefulWidget {
@@ -497,7 +498,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   final focusNode = fm.FocusNode();
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
-  late SpeechToTextProvider speechProvider;
+  late DualSpeechProvider speechProvider;
   var _lastError = '';
   var _isVoiceCall = false;
 
@@ -517,7 +518,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       later(() {
         focusNode.requestFocus();
       });
-    speechProvider = SpeechToTextProvider();
+    speechProvider = DualSpeechProvider();
     flow.attach(speechProvider);
     flow.addListener(_onFlowChanged);
     //  供音乐按钮在未登录时触发的"登录并打开映射表"回调
@@ -633,7 +634,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         value: speechProvider,
         child: pp.Consumer4<SequencerModel,
             AbbreviationsModel,
-            SpeechToTextProvider,
+            DualSpeechProvider,
             VirtualKeyboardVisible>(
     builder: (context, model, abbreviations, speech, virtualKeyboard, child) {
 
