@@ -18,7 +18,7 @@ Left Thru”, “Sides Right and Left Thru”), or doesn't matter because the ne
 (for example, “Heads Pass Thru, Separate, Around 1 to a Line”).
 
 Some callers who want the active dancers to remain in the center precede the call with a “Heads Move In”,
-“Heads Move Forward”, or “Heads Move into the Center”. For example, “Heads Move In and Square Thru 3”
+“Heads Move Forward”, or “Heads Move into the Center.” For example, “Heads Move In and Square Thru 3”
 would have the Heads remain in the center instead of returning to Squared Set spots.
 
 *Timing:* Moving into the center adds 2 beats to the timing for the move.
@@ -27,4 +27,4 @@ Note that the time needed to move out of the middle will often be blended into t
 in “Right and Left Thru”, during the Courtesy Turn) or be overlapped with the start of the following call (as
 in “Heads Right and Left Thru, Sides Right and Left Thru”)
 
-###### @ Copyright 1994, 2000-2023 by CALLERLAB Inc., The International Association of Square Dance Callers. Permission to reprint, republish, and create derivative works without royalty is hereby granted, provided this notice appears. Publication on the Internet of derivative works without royalty is hereby granted provided this notice appears. Permission to quote parts or all of this document without royalty is hereby granted, provided this notice is included. Information contained herein shall not be changed nor revised in any derivation or publication.
+© 1994, 2000-2026 by CALLERLAB Inc., The International Association of Square Dance Callers. Permission to reprint, republish, and create derivative works without royalty is hereby granted, provided this notice appears. Publication on the Internet of derivative works without royalty is hereby granted provided this notice appears. Permission to quote parts or all of this document without royalty is hereby granted, provided this notice is included. Information contained herein shall not be changed nor revised in any derivation or publication.
