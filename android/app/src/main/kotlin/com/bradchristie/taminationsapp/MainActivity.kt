@@ -33,6 +33,17 @@ class MainActivity : FlutterActivity() {
         sendEvent("auto_music")
       }, 2000)
     }
+    if (intent?.getBooleanExtra("tam_auto_voice", false) == true) {
+      //  自动语音测试:采样 8 秒(配合外部播音验证识别链路)
+      mainHandler.postDelayed({
+        Log.i(TAG, "auto trigger: auto_voice")
+        sendEvent("auto_voice")
+      }, 2000)
+      mainHandler.postDelayed({
+        Log.i(TAG, "auto trigger: auto_voice_end")
+        sendEvent("auto_voice_end")
+      }, 10000)
+    }
   }
 
   override fun onCreate(savedInstanceState: android.os.Bundle?) {

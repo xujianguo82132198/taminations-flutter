@@ -366,6 +366,19 @@ class VoiceFlow extends ChangeNotifier {
       await toggleMusic();
       return;
     }
+    //  自动语音测试:直接采样 8 秒(不依赖映射表,
+    //  识别结果见日志,用于验证采集->讯飞->文本链路)
+    if (e.type == 'auto_voice') {
+      debugPrint('auto_voice: sampling 8s');
+      speech?.cancel();
+      speech?.sample(localeId: 'en_US');
+      return;
+    }
+    if (e.type == 'auto_voice_end') {
+      debugPrint('auto_voice: end sampling');
+      speech?.stop();
+      return;
+    }
     //  音乐功能已关闭时不处理(可能有关闭瞬间在途的事件)
     if (!musicEnabled) return;
     switch (e.type) {
