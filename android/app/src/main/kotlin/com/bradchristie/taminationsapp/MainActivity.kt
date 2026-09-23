@@ -92,6 +92,10 @@ class MainActivity : FlutterActivity() {
             "startPlaybackWatch" -> startPlaybackWatch(result)
             "stopPlaybackWatch" -> { stopPlaybackWatch(); result.success(null) }
             "sendEnterKey" -> { sendEnterKey(); result.success(null) }
+            "checkMusicActive" -> {
+              val am = getSystemService(AUDIO_SERVICE) as AudioManager
+              result.success(am.isMusicActive)
+            }
             "startSpeechCapture" -> {
               stopMicMonitor()
               startSpeechCapture(result)

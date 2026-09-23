@@ -101,6 +101,15 @@ class MusicMonitor {
   Future<void> stopSpeechCapture() async =>
       await _invoke('stopSpeechCapture');
 
+  ///  即时查询本机是否有音乐正在播放
+  Future<bool> isMusicPlaying() async {
+    try {
+      return await _channel.invokeMethod('checkMusicActive') ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   Future<void> _invoke(String method) async {
     try {
       await _channel.invokeMethod(method);

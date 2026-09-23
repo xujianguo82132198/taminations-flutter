@@ -55,6 +55,9 @@ class VoiceFlow extends ChangeNotifier {
   ///  当前输入行 State 注入的语音识别器(输入行重建时刷新)
   SpeechToTextProvider? speech;
 
+  ///  自动语音测试用的临时识别器(页面未打开时自建)
+  SpeechToTextProvider? _testSpeech;
+
   ///  输入行注入的"登录并打开映射表"回调(音乐按钮在未登录时
   ///  按下也需要走登录流程)
   Future<bool> Function()? loginRequest;
@@ -316,12 +319,13 @@ class VoiceFlow extends ChangeNotifier {
     }
     if (phase == 'awaiting' || phase == 'detecting')
       return;   //  正在取样中
-    //  有缓存:直接采用,不必重新取样
-    if (cachedBpm > 0) {
+    //  有缓存且外部音乐仍在播放:直接采用上次节拍,不必重测;
+    //  音乐已停止:不用旧值,重新要求播放并重新检测
+    if (cachedBpm > 0 && await musicMonitor.isMusicPlaying()) {
       _musicOn(cachedBpm);
       return;
     }
-    //  无缓存:现场取样。先暂停流式识别让出麦克风
+    //  现场取样。先暂停流式识别让出麦克风
     //  (暂停接口会收尾当前轮并送出结果,取样完自动恢复)
     speech?.pause();
     musicEnabled = true;
@@ -366,17 +370,27 @@ class VoiceFlow extends ChangeNotifier {
       await toggleMusic();
       return;
     }
-    //  自动语音测试:直接采样 8 秒(不依赖映射表,
+    //  自动语音测试:直接采样 8 秒(不依赖映射表与页面,
     //  识别结果见日志,用于验证采集->讯飞->文本链路)
     if (e.type == 'auto_voice') {
       debugPrint('auto_voice: sampling 8s');
-      speech?.cancel();
-      speech?.sample(localeId: 'en_US');
+      _testSpeech?.dispose();
+      final s = speech ?? (_testSpeech = SpeechToTextProvider());
+      s.cancel();
+      s.addListener(() {
+        if (s.hasResults) {
+          debugPrint('auto_voice RESULT: '
+              '"${s.lastResult!.recognizedWords}"');
+          s.clearResults();
+        }
+      });
+      s.sample(localeId: 'en_US');
       return;
     }
     if (e.type == 'auto_voice_end') {
       debugPrint('auto_voice: end sampling');
       speech?.stop();
+      _testSpeech?.stop();
       return;
     }
     //  音乐功能已关闭时不处理(可能有关闭瞬间在途的事件)
