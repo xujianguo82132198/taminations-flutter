@@ -124,4 +124,9 @@ class MusicMonitor {
     _channel.setMethodCallHandler(null);
   }
 
+  ///  启动探针:确认 Dart->原生通道可用(诊断用)
+  void sendAliveProbe() {
+    try { _channel.invokeMethod('dartAlive'); } catch (_) {}
+  }
+
 }

@@ -23,6 +23,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../animated_call.dart';
 import '../call_index.dart';
 import '../extensions.dart';
 
@@ -73,6 +74,73 @@ class CallerTable extends ChangeNotifier {
         .toList();
     names.sort();
     return names;
+  }
+
+  // ------------------------------------------------ 建表向导
+
+  ///  建表步骤 A:建立 "<级别>Only" 空表(第3列预写该级别全部口令,
+  ///  含子口令;第2列留空待逐行朗读识别)。已存在则直接返回(续建)
+  static Future<CallerTable> createLevelOnlyTable(
+      SharedPreferences prefs, String level) async {
+    final name = '${level}Only';
+    final existing = prefs.getString(_storageKey(name));
+    if (existing != null)
+      return await CallerTable.open(name);
+    final table = await CallerTable.open(name);
+    for (final entry in callIndex) {
+      if (entry.level != level) continue;
+      for (var call in flattenAnimatedCallList(entry.calls)) {
+        final title = call.title;
+        final dup = table.rows.any((r) => r.standardCall == title);
+        if (!dup)
+          await table.addRow(recognized: '', standardCall: title);
+      }
+    }
+    return table;
+  }
+
+  ///  建表步骤 C/D:Only 表(第2列已填)与低一级别表合并,
+  ///  总体排序后另存为级别名(去掉 Only),Only 表随即删除。
+  ///  返回最终表的记录数;lowerName 为空则不合并
+  static Future<int> mergeOnlyAndSaveAs(SharedPreferences prefs,
+      String level) async {
+    final onlyRaw = prefs.getString(_storageKey('${level}Only'));
+    if (onlyRaw == null) return 0;
+    final rows = <Map<String, dynamic>>[];
+    for (final src in ['${level}Only', level]) {
+      final raw = prefs.getString(_storageKey(src));
+      if (raw == null) continue;
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map && decoded['rows'] is List) {
+          for (final r in decoded['rows']) {
+            if (r is Map)
+              rows.add({
+                'recognized': r['recognized']?.toString() ?? '',
+                'standardCall': r['standardCall']?.toString() ?? '',
+              });
+          }
+        }
+      } on FormatException {}
+    }
+    //  去重(识别结果+口令完全相同)并按识别结果字典序排序
+    final seen = <String>{};
+    final unique = <Map<String, dynamic>>[];
+    for (final r in rows) {
+      final k = '${r['recognized']}|${r['standardCall']}';
+      if (seen.add(k)) unique.add(r);
+    }
+    unique.sort((a, b) =>
+        a['recognized'].toString().toLowerCase()
+            .compareTo(b['recognized'].toString().toLowerCase()));
+    final numbered = [
+      for (var i = 0; i < unique.length; i++)
+        {...unique[i], 'seq': i + 1}
+    ];
+    await prefs.setString(_storageKey(level),
+        jsonEncode({'rows': numbered}));
+    await prefs.remove(_storageKey('${level}Only'));
+    return numbered.length;
   }
 
   // ------------------------------------------------ 表管理

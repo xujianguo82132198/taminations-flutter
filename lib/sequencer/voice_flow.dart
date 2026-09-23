@@ -46,6 +46,7 @@ class VoiceFlow extends ChangeNotifier {
     //  音乐监测事件监听:音乐按钮独立于语音流程,
     //  不能依赖 start() 才挂载
     _musicSub ??= musicMonitor.events.listen(_onEvent);
+    musicMonitor.sendAliveProbe();
   }
   static final VoiceFlow instance = VoiceFlow._();
 

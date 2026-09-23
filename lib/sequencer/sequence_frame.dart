@@ -872,11 +872,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                     if (!await _loginAndOpenTable()) return;
                     flow.start();
                   },
-                  //  长按麦克风:强制重新选择映射表(换表用)
+                  //  长按麦克风:退出当前表,回到映射表选择
+                  //  (可删除/重命名/另存/导入导出/换表)
                   onLongPress: () async {
-                    if (flow.pttActive || flow.isActive) return;
-                    if (!await _loginAndOpenTable()) return;
-                    flow.start();
+                    if (flow.pttActive) return;
+                    if (flow.isActive) {
+                      flow.stop();
+                      speechProvider.cancel();
+                    }
+                    await _loginAndOpenTable();
                   },
                   child: fm.Icon(
                   fm.Icons.mic,
