@@ -297,6 +297,7 @@ class VoiceFlow extends ChangeNotifier {
   //  音乐节拍独立于语音流程,不受此影响(由其按钮单独控制)
   void stop() {
     debugPrint('VoiceFlow.stop (phase=$phase)');
+    speech?.cancel();
     bpm = 0;
     lastCandidate = null;
     lastCandidateError = 1.0;

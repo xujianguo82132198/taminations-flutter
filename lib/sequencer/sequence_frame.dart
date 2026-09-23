@@ -394,6 +394,26 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     style: fm.TextStyle(
                         fontWeight: fm.FontWeight.bold, fontSize: 16)),
               ),
+              //  退出映射表:结束当前表,回到未打开状态
+              fm.InkWell(
+                onTap: () => flow.stop(),
+                child: fm.Padding(
+                  padding: fm.EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  child: fm.Text('退出映射表',
+                      style: fm.TextStyle(fontSize: 14,
+                          color: Color.WHITE)),
+                ),
+              ),
+              fm.Container(
+                color: Color.RED,
+                padding: fm.EdgeInsets.symmetric(horizontal: 2),
+                child: fm.InkWell(
+                  onTap: () => flow.stop(),
+                  child: fm.Icon(fm.Icons.logout,
+                      size: 16, color: Color.WHITE),
+                ),
+              ),
               //  极小化按钮:关闭显示,后台工作不受影响
               fm.InkWell(
                 onTap: () => flow.setPanelMinimized(true),
