@@ -396,8 +396,17 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   void _onChanged() {
     if (!mounted) return;
     setState(() {});
+    //  表变化时重置跟踪(新表打开时触发首次滚动)
+    final t = flow.callerTable;
+    if (t != null && !identical(t, _lastTable)) {
+      _lastTable = t;
+      _lastScrolledCursor = null;
+      _lastScrolledPending = null;
+      _lastScrolledCandidate = null;
+    }
     _scrollToCenterIfNeeded();
   }
+  CallerTable? _lastTable;
 
   //  需要居中显示的记录,按优先级:
   //  1) 录入时新插入的待补全记录(先插入,排序,居中显示,高亮)
