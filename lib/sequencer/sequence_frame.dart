@@ -740,18 +740,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
           flow.consumeSample();
           //  Only 采表模式:识别结果放输入框,待"识别确认"后入表
           if (flow.onlyMode) {
-            later(() {
-              if (sample.isNotBlank) {
-                textFieldController.text = sample;
-                focusNode.requestFocus();
-              } else if (mounted) {
-                fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-                    backgroundColor: Color.RED,
-                    duration: const Duration(seconds: 3),
-                    content: fm.Text('未识别到语音,请按住按钮朗读后抬起',
-                        style: fm.TextStyle(fontSize: 18))));
-              }
-            });
+            if (sample.isNotBlank) {
+              debugPrint('PTT Only: putting "$sample" in input box');
+              textFieldController.text = sample;
+            } else {
+              debugPrint('PTT Only: sample is blank');
+            }
             speech.clearResults();
           }
           if (sample.isNotBlank && !flow.onlyMode) {
