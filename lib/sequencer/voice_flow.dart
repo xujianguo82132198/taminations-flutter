@@ -186,10 +186,24 @@ class VoiceFlow extends ChangeNotifier {
   ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
   bool get onlyMode =>
       callerTable != null && callerTable!.callerName.endsWith('_Only');
-  ///  当前待录行(第2列为空的第一行),null=全部录完
+  ///  手动选中的采表行序号(点面板行可重选;null=自动取第一个空行)
+  int? dictationSeqOverride;
+
+  ///  选定某行作为当前采表目标(重新录入用)
+  void selectDictationRow(int seq) {
+    dictationSeqOverride = seq;
+    dictationText = '';
+    _notify();
+  }
+
+  ///  当前待录行:优先取手动选中的行,否则第一个第2列为空的行
   CallerRow? get currentDictationRow {
     final t = callerTable;
     if (t == null) return null;
+    if (dictationSeqOverride != null) {
+      for (final r in t.rows)
+        if (r.seq == dictationSeqOverride) return r;
+    }
     for (final r in t.rows)
       if (r.recognized.isBlank) return r;
     return null;
@@ -214,6 +228,7 @@ class VoiceFlow extends ChangeNotifier {
     if (t == null || row == null || text.isBlank) return false;
     await t.updateRow(row.seq, recognized: text.trim(), sort: false);
     dictationText = '';
+    dictationSeqOverride = null;
     _notify();
     return true;
   }

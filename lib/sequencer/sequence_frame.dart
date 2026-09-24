@@ -493,7 +493,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                       final isCandidate =
                           identical(flow.lastCandidate, row);
                       return fm.InkWell(
-                        onTap: () => _deleteRow(row),
+                        //  Only 模式:点行选定为当前采表目标(重录用);
+                        //  其他模式:点行删除
+                        onTap: () => flow.onlyMode
+                            ? flow.selectDictationRow(row.seq)
+                            : _deleteRow(row),
                         child: fm.Container(
                           color: pending
                               ? Color.YELLOW
