@@ -375,6 +375,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
 
   CallerRow? _lastScrolledCandidate;
   CallerRow? _lastScrolledPending;
+  CallerRow? _lastScrolledCursor;
 
   //  显隐状态由 VoiceFlow 持有(检索模式自动收起,表管理模式展开,
   //  手动切换随时可用,输入行重建不丢)
@@ -405,9 +406,18 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     final table = flow.callerTable;
     if (table == null || minimized) return;
     CallerRow? target;
+    //  Only 采表:光标行(当前待录行)居中(最高优先级)
+    if (flow.onlyMode) {
+      final cursor = flow.currentDictationRow;
+      if (cursor != null && !identical(cursor, _lastScrolledCursor)) {
+        _lastScrolledCursor = cursor;
+        target = cursor;
+      }
+    }
     //  录入新插入的待补全记录
     final pending = flow.pendingRecord;
-    if (pending != null && !identical(pending, _lastScrolledPending)) {
+    if (target == null && pending != null &&
+        !identical(pending, _lastScrolledPending)) {
       _lastScrolledPending = pending;
       target = pending;
     }
