@@ -446,6 +446,35 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     });
   }
 
+  //  Only 模式:长按行弹菜单(编辑第3列/删除该行)
+  Future<void> _rowActionMenu(CallerRow row) async {
+    final action = await fm.showDialog<String>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text('第${row.seq}行'),
+          content: fm.Text(
+              '${row.recognized} → ${row.standardCall}',
+              style: fm.TextStyle(fontSize: 18)),
+          actions: [
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop('edit'),
+                child: fm.Text('编辑口令')),
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop('delete'),
+                child: fm.Text('删除',
+                    style: fm.TextStyle(color: Color.RED))),
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop(),
+                child: fm.Text('取消')),
+          ],
+        ));
+    if (action == 'edit') {
+      await _editStandardCall(row);
+    } else if (action == 'delete') {
+      await _deleteRow(row);
+    }
+  }
+
   //  Only 模式:手动编辑第3列(标准口令)内容
   Future<void> _editStandardCall(CallerRow row) async {
     final controller = fm.TextEditingController()
@@ -613,7 +642,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                             ? flow.selectDictationRow(row.seq)
                             : _deleteRow(row),
                         onLongPress: flow.onlyMode
-                            ? () => _editStandardCall(row)
+                            ? () => _rowActionMenu(row)
                             : null,
                         child: fm.Container(
                           color: isCursor
