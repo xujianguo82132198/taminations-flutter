@@ -485,9 +485,12 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     itemCount: table.rows.length,
                     itemBuilder: (context, index) {
                       final row = table.rows[index];
+                      //  Only 采表:当前目标行(光标)蓝底+箭头标记
+                      final isCursor = flow.onlyMode &&
+                          identical(flow.currentDictationRow, row);
                       //  待补全的记录(第三列为空)黄色;
                       //  语音查表的候选记录蓝色边框突出显示
-                      final pending =
+                      final pending = !flow.onlyMode &&
                           row.standardCall.isBlank &&
                           identical(flow.pendingRecord, row);
                       final isCandidate =
@@ -499,9 +502,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                             ? flow.selectDictationRow(row.seq)
                             : _deleteRow(row),
                         child: fm.Container(
-                          color: pending
-                              ? Color.YELLOW
-                              : (isCandidate ? Color(0xffe0f0ff) : null),
+                          color: isCursor
+                              ? Color.BLUE
+                              : (pending
+                                  ? Color.YELLOW
+                                  : (isCandidate ? Color(0xffe0f0ff) : null)),
                           decoration: pending || isCandidate ? null : fm.BoxDecoration(
                               border: fm.Border(
                                   bottom: fm.BorderSide(
@@ -512,13 +517,16 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                             crossAxisAlignment: fm.CrossAxisAlignment.start,
                             children: [
                               fm.SizedBox(
-                                  width: 30,
+                                  width: 36,
                                   child: fm.Padding(
                                     padding: fm.EdgeInsets.only(top: 2),
-                                    child: fm.Text('${row.seq}',
+                                    child: fm.Text(
+                                        isCursor ? '▶${row.seq}' : '${row.seq}',
                                         style: fm.TextStyle(
                                             fontSize: 16,
-                                            fontWeight: isCandidate
+                                            color: isCursor
+                                                ? Color.WHITE : Color.BLACK,
+                                            fontWeight: (isCandidate || isCursor)
                                                 ? fm.FontWeight.bold : null)),
                                   )),
                               fm.Expanded(
@@ -543,6 +551,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                       overflow: fm.TextOverflow.ellipsis,
                                       style: fm.TextStyle(
                                           fontSize: 16,
+                                          color: isCursor ? Color.WHITE : Color.BLACK,
                                           fontWeight: fm.FontWeight.bold))),
                             ],
                           ),
