@@ -209,8 +209,10 @@ class VoiceFlow extends ChangeNotifier {
   Future<bool> confirmDictation(String text) async {
     final t = callerTable;
     final row = currentDictationRow;
+    debugPrint('confirmDictation: text="$text" row=${row?.seq} '
+        'table=${t?.callerName}');
     if (t == null || row == null || text.isBlank) return false;
-    await t.updateRow(row.seq, recognized: text.trim());
+    await t.updateRow(row.seq, recognized: text.trim(), sort: false);
     dictationText = '';
     _notify();
     return true;

@@ -267,7 +267,7 @@ class CallerTable extends ChangeNotifier {
   ///  更新指定序号记录的内容(未提供的列保持原值),更新后重新排序。
   ///  返回更新后的行对象(排序后序号可能变化)
   Future<CallerRow?> updateRow(int seq, {String? recognized,
-      String? standardCall}) async {
+      String? standardCall, bool sort = true}) async {
     final index = rows.indexWhere((r) => r.seq == seq);
     if (index < 0) return null;
     final old = rows[index];
@@ -275,7 +275,10 @@ class CallerTable extends ChangeNotifier {
         recognized: recognized ?? old.recognized,
         standardCall: standardCall ?? old.standardCall);
     rows[index] = updated;
-    await _sortAndRenumber();
+    if (sort)
+      await _sortAndRenumber();
+    else
+      await save();
     return updated;
   }
 
