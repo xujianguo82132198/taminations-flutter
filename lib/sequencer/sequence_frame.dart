@@ -62,8 +62,10 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
              builder: (context,constraints) => fm.Column(
                children: [
                  SequencerEditLine(),
-                 //  音乐功能开关(可选):开启后小人按播放音乐的节拍跳舞
-                 if (TamUtils.canListen)
+                 //  Only 采表工具栏
+                 OnlyTableToolbar(),
+                 //  音乐功能开关(可选)
+                 if (TamUtils.canListen && !VoiceFlow.instance.onlyMode)
                    MusicDanceButton(),
                  //  全程显示当前口令员映射表的全部记录,便于核对正确与否
                  CallerTablePanel(),
@@ -149,6 +151,58 @@ class SequenceEditButtons extends fm.StatelessWidget {
 ///  → 节拍显示并接管 Dance Speed → 音乐停止检测;
 ///  再次按下:停止上述功能并恢复系统原设定节拍。
 ///  语音识别不受此按钮影响。未登录时按下无效。
+///  Only 采表工具栏:识别确认 / 完成建表
+class OnlyTableToolbar extends fm.StatefulWidget {
+  @override
+  _OnlyTableToolbarState createState() => _OnlyTableToolbarState();
+}
+
+class _OnlyTableToolbarState extends fm.State<OnlyTableToolbar> {
+  final flow = VoiceFlow.instance;
+  final _textController = fm.TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(() { if (mounted) setState(() {}); });
+  }
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (!flow.onlyMode) return fm.SizedBox.shrink();
+    return fm.Padding(
+      padding: fm.EdgeInsets.only(top: 2, left: 4, right: 4),
+      child: fm.Row(children: [
+        fm.Expanded(child: Button('识别确认', onPressed: () {
+          //  从序列器输入行取文字
+          final editState = context.findAncestorStateOfType<
+              _SequencerEditLineState>();
+          final text = editState?.textFieldController.text ?? '';
+          if (text.isNotBlank) {
+            flow.confirmDictation(text);
+            editState?.textFieldController.clear();
+          }
+        })),
+        fm.SizedBox(width: 6),
+        fm.Expanded(child: Button('完成建表', onPressed: () async {
+          final n = await flow.finishOnlyTable();
+          if (n != null && mounted)
+            fm.ScaffoldMessenger.of(context).showSnackBar(
+                fm.SnackBar(backgroundColor: Color.BLUE,
+                    content: fm.Text(
+                        '已另存 ${flow.onlyTargetName}(共$n条)',
+                        style: fm.TextStyle(fontSize: 18))));
+        })),
+      ]),
+    );
+  }
+}
+
 class MusicDanceButton extends fm.StatefulWidget {
   @override
   _MusicDanceButtonState createState() => _MusicDanceButtonState();
