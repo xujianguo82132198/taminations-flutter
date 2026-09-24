@@ -369,6 +369,11 @@ class VoiceFlow extends ChangeNotifier {
     if (phase != 'awaiting' && phase != 'detecting')
       phase = 'idle';
     musicStoppedDuringCall = false;
+    //  清除表引用:退出后再次打开时进入映射表选择画面
+    callerTable = null;
+    tableMode = false;
+    dictationText = '';
+    dictationSeqOverride = null;
     _notify();
   }
 
