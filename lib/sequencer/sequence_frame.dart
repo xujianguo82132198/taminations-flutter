@@ -517,7 +517,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                             : _deleteRow(row),
                         child: fm.Container(
                           color: isCursor
-                              ? Color.BLUE
+                              ? Color(0xff87CEEB)
                               : (pending
                                   ? Color.YELLOW
                                   : (isCandidate ? Color(0xffe0f0ff) : null)),
@@ -538,8 +538,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                         isCursor ? '▶${row.seq}' : '${row.seq}',
                                         style: fm.TextStyle(
                                             fontSize: 16,
-                                            color: isCursor
-                                                ? Color.WHITE : Color.BLACK,
+                                            color: Color.BLACK,
                                             fontWeight: (isCandidate || isCursor)
                                                 ? fm.FontWeight.bold : null)),
                                   )),
@@ -565,7 +564,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                       overflow: fm.TextOverflow.ellipsis,
                                       style: fm.TextStyle(
                                           fontSize: 16,
-                                          color: isCursor ? Color.WHITE : Color.BLACK,
+                                          color: Color.BLACK,
                                           fontWeight: fm.FontWeight.bold))),
                             ],
                           ),
