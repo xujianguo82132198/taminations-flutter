@@ -735,12 +735,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
           flow.consumeSample();
           //  Only 采表模式:识别结果放输入框,待"识别确认"后入表
           if (flow.onlyMode) {
-            if (sample.isNotBlank) {
-              debugPrint('PTT Only: putting "$sample" in input box');
-              textFieldController.text = sample;
-            } else {
-              debugPrint('PTT Only: sample is blank');
-            }
+            flow.dictationText = sample;
+            //  与 Calls 选择式同法:由 _onFlowChanged 消费到输入框
+            flow.callSelection = sample;
             speech.clearResults();
           }
           if (sample.isNotBlank && !flow.onlyMode) {
