@@ -649,10 +649,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     if (selection != null) {
       flow.callSelection = null;
       textFieldController.text = selection;
-      focusNode.requestFocus();
-      setState(() {
-        virtualKeyboardSetVisible(true);
-      });
+      //  Only 采表模式:只填文字,不弹键盘不抢焦点
+      //  (操作者用语音+确认按钮,无需键盘)
+      if (!flow.onlyMode) {
+        focusNode.requestFocus();
+        setState(() {
+          virtualKeyboardSetVisible(true);
+        });
+      }
     }
     if (flow.phase == 'detecting')
       _blinkController?.repeat();
