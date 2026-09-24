@@ -61,6 +61,20 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
            return fm.LayoutBuilder(
              builder: (context,constraints) => fm.Column(
                children: [
+                 //  Only 采表:识别结果大字只读显示
+                 //  (不依赖TextField,不弹键盘,直接可见)
+                 if (VoiceFlow.instance.onlyMode)
+                   fm.Container(
+                     width: double.infinity,
+                     color: VoiceFlow.instance.dictationText.isNotBlank
+                         ? Color.YELLOW : Color.WHITE,
+                     padding: fm.EdgeInsets.all(6),
+                     child: fm.Text(
+                         VoiceFlow.instance.dictationText.isNotBlank
+                             ? '识别:"${VoiceFlow.instance.dictationText}"'
+                             : '(按住🎙朗读,抬起出结果)',
+                         style: fm.TextStyle(fontSize: 22,
+                             fontWeight: fm.FontWeight.bold))),
                  SequencerEditLine(),
                  //  Only 采表工具栏
                  OnlyTableToolbar(),
