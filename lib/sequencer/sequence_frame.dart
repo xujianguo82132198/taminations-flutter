@@ -656,6 +656,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         setState(() {
           virtualKeyboardSetVisible(true);
         });
+      } else {
+        //  Only 模式:强制刷新显示(不弹键盘)
+        setState(() {});
       }
     }
     if (flow.phase == 'detecting')
