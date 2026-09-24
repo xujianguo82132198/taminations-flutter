@@ -755,8 +755,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       '执行正确后自动存表。',
                       style: GoogleFonts.roboto(fontSize: 20))));
             });
-          } else {
-            //  空结果也要有反应:提示正确的采样方式
+          } else if (!flow.onlyMode && sample.isBlank) {
+            //  空结果(非Only模式)才提示
             later(() {
               if (!mounted) return;
               fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
