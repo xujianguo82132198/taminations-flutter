@@ -290,10 +290,12 @@ class VoiceFlow extends ChangeNotifier {
   ///  输入行销毁时调用:若短时间后没有新的输入行接入(即真正离开页面),
   ///  回收整个流程,避免后台残留监测
   void detach() {
+    //  表模式/采表模式不回收(对话框关闭时键盘收起会引起
+    //  布局重建误触发 detach,导致表打开后几秒自动消失)
+    if (tableMode || onlyMode) return;
     final s = speech;
     _orphanTimer?.cancel();
     _orphanTimer = Timer(const Duration(seconds: 5), () {
-      //  若期间有新的输入行接入,speech 已被替换,流程继续
       if (speech == s)
         stop();
     });
