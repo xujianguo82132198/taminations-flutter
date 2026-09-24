@@ -180,13 +180,8 @@ class _OnlyTableToolbarState extends fm.State<OnlyTableToolbar> {
       child: fm.Row(children: [
         fm.Expanded(child: Button('识别确认', onPressed: () {
           //  从序列器输入行取文字
-          final editState = context.findAncestorStateOfType<
-              _SequencerEditLineState>();
-          final text = editState?.textFieldController.text ?? '';
-          if (text.isNotBlank) {
-            flow.confirmDictation(text);
-            editState?.textFieldController.clear();
-          }
+          if (flow.dictationText.isNotBlank)
+            flow.confirmDictation(flow.dictationText);
         })),
         fm.SizedBox(width: 6),
         fm.Expanded(child: Button('完成建表', onPressed: () async {
