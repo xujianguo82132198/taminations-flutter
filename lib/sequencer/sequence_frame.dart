@@ -64,7 +64,14 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                  //  Only 采表:识别结果大字只读显示
                  //  (不依赖TextField,不弹键盘,直接可见)
                  if (VoiceFlow.instance.onlyMode)
-                   fm.Container(
+                   fm.GestureDetector(
+                     onTap: () => VoiceFlow.instance.confirmDictation(
+                         VoiceFlow.instance.dictationText),
+                     onLongPress: () async {
+                       final n = await VoiceFlow.instance.finishOnlyTable();
+                       // SnackBar 由上层处理
+                     },
+                     child: fm.Container(
                      width: double.infinity,
                      color: VoiceFlow.instance.dictationText.isNotBlank
                          ? Color.YELLOW : Color.WHITE,
@@ -75,6 +82,8 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                              : '(按住🎙朗读,抬起出结果)',
                          style: fm.TextStyle(fontSize: 22,
                              fontWeight: fm.FontWeight.bold))),
+                     ),
+                   ),
                  SequencerEditLine(),
                  //  Only 采表工具栏
                  OnlyTableToolbar(),
