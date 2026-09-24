@@ -1622,6 +1622,19 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             foregroundColor: Color.WHITE)
                         : null,
                     onPressed: canOpen ? () async {
+                      //  新建表:名字含级别后缀(无 _Only)自动追加
+                      final name = selected.isNotBlank
+                          ? selected : nameController.text.trim();
+                      final isNew = !tableNames.contains(name);
+                      if (isNew &&
+                          name.contains(
+                              RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b)$')) &&
+                          !name.endsWith('_Only')) {
+                        final onlyName = '${name}_Only';
+                        nameController.text = onlyName;
+                        //  显示提示
+                        _mgmtSnackBar('已自动追加 _Only: $onlyName');
+                      }
                       //  打开要求输入口令(同框切换到口令阶段)
                       passwordController.clear();
                       setState(() { passwordMode = '打开'; });
