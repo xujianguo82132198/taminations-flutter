@@ -312,6 +312,21 @@ class CallerTable extends ChangeNotifier {
     await save();
   }
 
+  ///  清洗子口令标题:去掉括号中的 formation/位置描述、
+  ///  "from xxx" 等非口令文字,保留纯口令名
+  static String _cleanCallTitle(String title) {
+    var t = title.trim();
+    //  去掉以 "from " 开头的描述(如 "from Waves")
+    t = t.replaceFirst(r'\s+from\s+.*$', '');
+    //  去掉括号注释(如 "( Boys Lead)" "(与 Anything 配合)" 等)
+    t = t.replaceAll(r'\([^)]*\)', '').trim();
+    //  去掉方括号注释
+    t = t.replaceAll(r'\[[^\]]*\]', '').trim();
+    //  多余空格压缩
+    t = t.replaceAll(r'\s+', ' ').trim();
+    return t;
+  }
+
   ///  不排序追加(建Only工作表用:保持口令库顺序)
   Future<void> appendRowNoSort(
       {required String recognized, required String standardCall}) async {
@@ -329,8 +344,9 @@ class CallerTable extends ChangeNotifier {
     for (final entry in callIndex) {
       if (entry.level != levelDir) continue;
       for (final call in flattenAnimatedCallList(entry.calls)) {
-        if (!titles.contains(call.title))
-          titles.add(call.title);
+        final t = _cleanCallTitle(call.title);
+        if (t.isNotBlank && !titles.contains(t))
+          titles.add(t);
       }
     }
     for (final title in titles)

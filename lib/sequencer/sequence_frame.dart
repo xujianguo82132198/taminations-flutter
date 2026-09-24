@@ -446,6 +446,42 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     });
   }
 
+  //  Only 模式:手动编辑第3列(标准口令)内容
+  Future<void> _editStandardCall(CallerRow row) async {
+    final controller = fm.TextEditingController()
+      ..text = row.standardCall;
+    final confirmed = await fm.showDialog<String>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text('修改第${row.seq}行标准口令'),
+          content: fm.TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 2,
+            style: fm.TextStyle(fontSize: 22),
+            decoration: fm.InputDecoration(
+                labelText: '标准口令',
+                labelStyle: fm.TextStyle(fontSize: 18)),
+          ),
+          actions: [
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop(),
+                child: fm.Text('取消')),
+            fm.TextButton(
+                onPressed: () =>
+                    fm.Navigator.of(ctx).pop(controller.text),
+                child: fm.Text('确定')),
+          ],
+        ));
+    controller.dispose();
+    if (confirmed != null && confirmed.trim().isNotBlank) {
+      final table = flow.callerTable;
+      if (table != null)
+        await table.updateRow(row.seq,
+            standardCall: confirmed.trim(), sort: false);
+    }
+  }
+
   //  口令员删除所选记录(带确认)
   Future<void> _deleteRow(CallerRow row) async {
     final table = flow.callerTable;
@@ -570,11 +606,15 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                       final isCandidate =
                           identical(flow.lastCandidate, row);
                       return fm.InkWell(
-                        //  Only 模式:点行选定为当前采表目标(重录用);
-                        //  其他模式:点行删除
+                        //  Only 模式:点行=选定为采表目标;
+                        //   长按=编辑第3列(标准口令)
+                        //  其他模式:点行=删除
                         onTap: () => flow.onlyMode
                             ? flow.selectDictationRow(row.seq)
                             : _deleteRow(row),
+                        onLongPress: flow.onlyMode
+                            ? () => _editStandardCall(row)
+                            : null,
                         child: fm.Container(
                           color: isCursor
                               ? Color(0xff87CEEB)
