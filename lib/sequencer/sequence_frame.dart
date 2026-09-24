@@ -61,29 +61,8 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
            return fm.LayoutBuilder(
              builder: (context,constraints) => fm.Column(
                children: [
-                 //  Only 采表:识别结果大字只读显示
-                 //  (不依赖TextField,不弹键盘,直接可见)
-                 if (VoiceFlow.instance.onlyMode)
-                   fm.GestureDetector(
-                     onTap: () => VoiceFlow.instance.confirmDictation(
-                         VoiceFlow.instance.dictationText),
-                     onLongPress: () async {
-                       final n = await VoiceFlow.instance.finishOnlyTable();
-                       // SnackBar 由上层处理
-                     },
-                     child: fm.Container(
-                     width: double.infinity,
-                     color: VoiceFlow.instance.dictationText.isNotBlank
-                         ? Color.YELLOW : Color.WHITE,
-                     padding: fm.EdgeInsets.all(6),
-                     child: fm.Text(
-                         VoiceFlow.instance.dictationText.isNotBlank
-                             ? '识别结果: ${VoiceFlow.instance.dictationText}'
-                             : '(按住🎙朗读,抬起出结果)',
-                         style: fm.TextStyle(fontSize: 22,
-                             fontWeight: fm.FontWeight.bold)),
-                     ),
-                   ),
+                 //  Only 采表:识别结果大字只读显示(独立监听组件)
+                 OnlyDisplayBar(),
                  SequencerEditLine(),
                  //  Only 采表工具栏
                  OnlyTableToolbar(),
@@ -174,6 +153,61 @@ class SequenceEditButtons extends fm.StatelessWidget {
 ///  → 节拍显示并接管 Dance Speed → 音乐停止检测;
 ///  再次按下:停止上述功能并恢复系统原设定节拍。
 ///  语音识别不受此按钮影响。未登录时按下无效。
+///  Only 采表:识别结果显示条(黄底大字,点=确认,长按=完成建表)
+class OnlyDisplayBar extends fm.StatefulWidget {
+  @override
+  _OnlyDisplayBarState createState() => _OnlyDisplayBarState();
+}
+
+class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_onChanged);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_onChanged);
+    super.dispose();
+  }
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (!flow.onlyMode) return fm.SizedBox.shrink();
+    return fm.GestureDetector(
+      onTap: () {
+        if (flow.dictationText.isNotBlank)
+          flow.confirmDictation(flow.dictationText);
+      },
+      onLongPress: () async {
+        final n = await flow.finishOnlyTable();
+        if (n != null && mounted)
+          fm.ScaffoldMessenger.of(context).showSnackBar(
+              fm.SnackBar(backgroundColor: Color.BLUE,
+                  content: fm.Text(
+                      '已另存 ${flow.onlyTargetName}(共$n条)',
+                      style: fm.TextStyle(fontSize: 18))));
+      },
+      child: fm.Container(
+        width: double.infinity,
+        color: flow.dictationText.isNotBlank ? Color.YELLOW : Color.WHITE,
+        padding: fm.EdgeInsets.all(6),
+        child: fm.Text(
+            flow.dictationText.isNotBlank
+                ? '识别结果: ${flow.dictationText}  (点=确认)'
+                : '(按住🎙朗读,抬起出结果)',
+            style: fm.TextStyle(fontSize: 22,
+                fontWeight: fm.FontWeight.bold)),
+      ),
+    );
+  }
+}
+
 ///  Only 采表工具栏:识别确认 / 完成建表
 class OnlyTableToolbar extends fm.StatefulWidget {
   @override
