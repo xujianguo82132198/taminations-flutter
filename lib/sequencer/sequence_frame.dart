@@ -71,7 +71,7 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                      padding: fm.EdgeInsets.all(6),
                      child: fm.Text(
                          VoiceFlow.instance.dictationText.isNotBlank
-                             ? '识别:"${VoiceFlow.instance.dictationText}"'
+                             ? '识别结果: ${VoiceFlow.instance.dictationText}'
                              : '(按住🎙朗读,抬起出结果)',
                          style: fm.TextStyle(fontSize: 22,
                              fontWeight: fm.FontWeight.bold))),
@@ -441,7 +441,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       );
     //  展开时固定高度(150),不自动扩大,不影响跳舞区域
     return fm.Container(
-      height: 150,
+      height: 240,
       color: Color.WHITE,
       child: fm.Column(
         crossAxisAlignment: fm.CrossAxisAlignment.start,
