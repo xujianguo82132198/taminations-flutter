@@ -290,15 +290,9 @@ class VoiceFlow extends ChangeNotifier {
   ///  输入行销毁时调用:若短时间后没有新的输入行接入(即真正离开页面),
   ///  回收整个流程,避免后台残留监测
   void detach() {
-    //  表模式/采表模式不回收(对话框关闭时键盘收起会引起
-    //  布局重建误触发 detach,导致表打开后几秒自动消失)
-    if (tableMode || onlyMode) return;
-    final s = speech;
-    _orphanTimer?.cancel();
-    _orphanTimer = Timer(const Duration(seconds: 5), () {
-      if (speech == s)
-        stop();
-    });
+    //  完全禁用孤儿回收:start()期间的布局重建会误触发
+    //  detach→5秒后stop→表自动消失。退出表由"退出映射表"
+    //  按钮或麦克风长按显式操作
   }
 
   //  登录确认后启动。withMusic=true 直接进入音乐模式(音乐按钮

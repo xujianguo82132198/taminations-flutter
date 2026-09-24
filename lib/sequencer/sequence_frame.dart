@@ -64,8 +64,6 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                  //  Only 采表:识别结果大字只读显示(独立监听组件)
                  OnlyDisplayBar(),
                  SequencerEditLine(),
-                 //  Only 采表工具栏
-                 OnlyTableToolbar(),
                  //  音乐功能开关(可选)
                  if (TamUtils.canListen && !VoiceFlow.instance.onlyMode)
                    MusicDanceButton(),
