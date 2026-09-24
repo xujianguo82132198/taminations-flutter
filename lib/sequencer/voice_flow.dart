@@ -179,6 +179,10 @@ class VoiceFlow extends ChangeNotifier {
   CallerRow? pendingRecord;
 
   //  ---- Only 表采表模式(建表朗读录入) ----
+  ///  Only 采表:待确认的识别文字(识别结果暂存,
+  ///  "识别确认"后写入表中)
+  String dictationText = '';
+
   ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
   bool get onlyMode =>
       callerTable != null && callerTable!.callerName.endsWith('_Only');
@@ -207,6 +211,7 @@ class VoiceFlow extends ChangeNotifier {
     final row = currentDictationRow;
     if (t == null || row == null || text.isBlank) return false;
     await t.updateRow(row.seq, recognized: text.trim());
+    dictationText = '';
     _notify();
     return true;
   }
