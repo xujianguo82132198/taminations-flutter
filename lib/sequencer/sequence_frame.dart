@@ -81,7 +81,7 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                              ? '识别结果: ${VoiceFlow.instance.dictationText}'
                              : '(按住🎙朗读,抬起出结果)',
                          style: fm.TextStyle(fontSize: 22,
-                             fontWeight: fm.FontWeight.bold))),
+                             fontWeight: fm.FontWeight.bold)),
                      ),
                    ),
                  SequencerEditLine(),
