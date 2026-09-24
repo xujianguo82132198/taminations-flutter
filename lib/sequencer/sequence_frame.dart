@@ -685,10 +685,18 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               .firstWhere((st) => st.isNotBlank, orElse: () => '');
           flow.consumeSample();
           //  Only 采表模式:识别结果放输入框,待"识别确认"后入表
-          if (flow.onlyMode && sample.isNotBlank) {
+          if (flow.onlyMode) {
             later(() {
-              textFieldController.text = sample;
-              focusNode.requestFocus();
+              if (sample.isNotBlank) {
+                textFieldController.text = sample;
+                focusNode.requestFocus();
+              } else if (mounted) {
+                fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+                    backgroundColor: Color.RED,
+                    duration: const Duration(seconds: 3),
+                    content: fm.Text('未识别到语音,请按住按钮朗读后抬起',
+                        style: fm.TextStyle(fontSize: 18))));
+              }
             });
             speech.clearResults();
           }

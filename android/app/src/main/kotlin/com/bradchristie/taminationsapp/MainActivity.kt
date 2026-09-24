@@ -486,9 +486,8 @@ class MainActivity : FlutterActivity() {
         while (speechRunning) {
           val n = record.read(chunk, 0, chunk.size)
           if (n <= 0) break
-          //  软件增益 x6(约+15dB):部分设备采集增益过低,
-          //  讯飞听不清;放大并防截幅
-          val gain = 6.0f
+          //  软件增益 x3(约+9.5dB):过高会削波失真致识别失败
+          val gain = 3.0f
           val bytes = ByteArray(n * 2)
           var sumSq = 0.0
           for (i in 0 until n) {
