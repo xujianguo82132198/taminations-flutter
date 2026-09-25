@@ -63,53 +63,8 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                children: [
                  //  Only 采表:识别结果大字只读显示(独立监听组件)
                  OnlyDisplayBar(),
-                 //  Only 采表:独立的采样按钮行(输入行已隐藏)
-                 if (VoiceFlow.instance.onlyMode)
-                   fm.Padding(
-                     padding: fm.EdgeInsets.symmetric(
-                         horizontal: 10, vertical: 4),
-                     child: fm.Row(children: [
-                       //  打开表(Only 模式下也可换表)
-                       fm.TextButton(onPressed: () {
-                         VoiceFlow.instance.callerTable = null;
-                         VoiceFlow.instance.tableMode = false;
-                         VoiceFlow.instance.phase = 'idle';
-                         VoiceFlow.instance.notifyListeners();
-                       }, child: fm.Icon(
-                           fm.Icons.folder_open,
-                           color: Color.BLACK, size: 28)),
-                       fm.Text('(按住朗读)',
-                           style: fm.TextStyle(fontSize: 18)),
-                       fm.Spacer(),
-                       //  采样按钮:按下朗读,抬起结束
-                       fm.Listener(
-                         behavior: fm.HitTestBehavior.opaque,
-                         onPointerDown: (e) {
-                           debugPrint('PTT down');
-                           final ok = VoiceFlow.instance.startSample();
-                           debugPrint('PTT ok=$ok');
-                         },
-                         onPointerUp: (e) {
-                           debugPrint('PTT up');
-                           VoiceFlow.instance.endSample();
-                         },
-                         onPointerCancel: (e) {
-                           debugPrint('PTT cancel');
-                           VoiceFlow.instance.endSample();
-                         },
-                         child: fm.Container(
-                           width: 60, height: 60,
-                           alignment: fm.Alignment.center,
-                           decoration: fm.BoxDecoration(
-                               color: VoiceFlow.instance.pttActive
-                                   ? fm.Colors.blue : Color.BLACK,
-                               shape: fm.BoxShape.circle),
-                           child: fm.Icon(fm.Icons.record_voice_over,
-                               color: Color.WHITE, size: 32),
-                         ),
-                       ),
-                     ]),
-                   ),
+                                  OnlyButtonRow(),
+
                  //  非 Only 模式:正常显示输入行
                  if (!VoiceFlow.instance.onlyMode)
                    SequencerEditLine(),
@@ -200,6 +155,66 @@ class SequenceEditButtons extends fm.StatelessWidget {
 ///  再次按下:停止上述功能并恢复系统原设定节拍。
 ///  语音识别不受此按钮影响。未登录时按下无效。
 ///  Only 采表:识别结果显示条(黄底大字,点=确认,长按=完成建表)
+///  Only 模式独立按钮行(📂+采样圆钮),监听 VoiceFlow
+///  退出后自动隐藏
+class OnlyButtonRow extends fm.StatefulWidget {
+  @override
+  _OnlyButtonRowState createState() => _OnlyButtonRowState();
+}
+
+class _OnlyButtonRowState extends fm.State<OnlyButtonRow> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_on);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_on);
+    super.dispose();
+  }
+  void _on() { if (mounted) setState(() {}); }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (!flow.onlyMode) return fm.SizedBox.shrink();
+    return fm.Padding(
+      padding: fm.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: fm.Row(children: [
+        fm.TextButton(onPressed: () {
+          flow.callerTable = null;
+          flow.tableMode = false;
+          flow.phase = 'idle';
+          flow.notifyListeners();
+        }, child: fm.Icon(fm.Icons.folder_open,
+            color: Color.BLACK, size: 28)),
+        fm.Text('(按住朗读)', style: fm.TextStyle(fontSize: 18)),
+        fm.Spacer(),
+        fm.Listener(
+          behavior: fm.HitTestBehavior.opaque,
+          onPointerDown: (e) {
+            debugPrint('PTT down');
+            flow.startSample();
+          },
+          onPointerUp: (e) => flow.endSample(),
+          onPointerCancel: (e) => flow.endSample(),
+          child: fm.Container(
+            width: 60, height: 60,
+            alignment: fm.Alignment.center,
+            decoration: fm.BoxDecoration(
+                color: flow.pttActive ? fm.Colors.blue : Color.BLACK,
+                shape: fm.BoxShape.circle),
+            child: fm.Icon(fm.Icons.record_voice_over,
+                color: Color.WHITE, size: 32),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class OnlyDisplayBar extends fm.StatefulWidget {
   @override
   _OnlyDisplayBarState createState() => _OnlyDisplayBarState();
