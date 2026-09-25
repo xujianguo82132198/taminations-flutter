@@ -1677,6 +1677,45 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       }),
                       //  表补全:把口令库全部口令预写入映射表,
                       //  使喊口令时标准说法即可命中
+                      //  合并:把选中的 _Only 表与源表合并排序另存
+                      _tableMgmtButton(ctx,
+                          selected.endsWith('_Only'),
+                          '合并', () async {
+                        //  源表名 = 去掉 "_<级别>_Only"
+                        final src = selected.replaceFirst(
+                            RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$'), '');
+                        //  目标表名 = 去掉 "_Only"
+                        final dst = selected.replaceAll('_Only', '');
+                        final ok = await fm.showDialog<bool>(
+                            context: context,
+                            builder: (mctx) => fm.AlertDialog(
+                              title: fm.Text('合并映射表'),
+                              content: fm.Text(
+                                  '把 "$selected" 与 "$src" 合并\n'
+                                  '另存为 "$dst"?',
+                                  style: fm.TextStyle(fontSize: 20)),
+                              actions: [
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(mctx).pop(false),
+                                    child: fm.Text('取消')),
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(mctx).pop(true),
+                                    child: fm.Text('合并')),
+                              ],
+                            ));
+                        if (ok != true) return;
+                        //  打开 Only 表并执行合并
+                        final onlyTable =
+                            await flow.openCallerTable(selected);
+                        final count = await CallerTable.mergeAndSaveAs(
+                            prefs, onlyTable, src, dst);
+                        _mgmtSnackBar(
+                            '已合并另存 $dst(共$count条)');
+                        await _refreshTableNames(prefs, tableNames);
+                        setState(() { selected = dst; });
+                      }),
                       _tableMgmtButton(ctx, selected.isNotBlank, '补全',
                           () async {
                         final ok = await fm.showDialog<bool>(
