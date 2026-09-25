@@ -118,15 +118,14 @@ class _SequencerPageState extends fm.State<SequencerPage> {
               //  Portrait only for small devices
               if (isSmallDevice(context)) {
                 //  Only 采表模式:跳舞区缩为最小,表面板最大化
-                final om = VoiceFlow.instance.onlyMode;
                 return  fm.Column(
                   children: [
                     fm.Expanded(
-                        flex: om ? 1 : 3,
+                        flex: 3,
                         child:PortraitSequencerAnimationFrame()
                     ),
                     fm.Expanded(
-                        flex: om ? 9 : (isSmallAndCompact(context) ? 0 : 2),
+                        flex: isSmallAndCompact(context) ? 0 : 2,
                         child: SequenceFrame()
                     )
                   ],
