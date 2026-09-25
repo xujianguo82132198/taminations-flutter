@@ -114,6 +114,9 @@ class VoiceFlow extends ChangeNotifier {
     //  不立即 notify:重建 widget 树会导致 Listener 指针被取消,
     //  采样刚启动就被 stop(73ms 后被杀)。推迟到微任务。
     speech?.sample(localeId: 'en_US');
+    //  Only 模式:结果直接在 VoiceFlow 处理(输入行隐藏时 build 不跑)
+    if (onlyMode)
+      speech?.addListener(_onSampleResult);
     Future.microtask(() => _notify());
     return true;
   }
@@ -122,6 +125,27 @@ class VoiceFlow extends ChangeNotifier {
   void endSample() {
     if (!pttActive) return;
     speech?.stop();
+    _notify();
+    //  结果可能延迟到达,监听保留到结果处理完毕
+  }
+
+  ///  Only 模式采样结果处理:识别文字存入 dictationText
+  void _onSampleResult() {
+    final s = speech;
+    if (s == null || !pttActive || !s.hasResults) return;
+    final result = s.lastResult;
+    if (result == null || !result.finalResult) return;
+    String text = '';
+    for (final alt in result.alternates) {
+      final t = alt.recognizedWords
+          .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
+      if (t.isNotEmpty) { text = t; break; }
+    }
+    debugPrint('Only result: "$text"');
+    dictationText = text;
+    pttActive = false;
+    s.removeListener(_onSampleResult);
+    s.clearResults();
     _notify();
   }
 
