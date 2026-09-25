@@ -137,7 +137,10 @@ class VoiceFlow extends ChangeNotifier {
         debugPrint('Sample timeout: resetting');
         pttActive = false;
         dictationText = '';
-        lastError = 'timeout';
+        final err = speech?.lastError ?? '';
+        lastError = err.contains('11201')
+            ? 'licc_quota'   //  讯飞额度用完
+            : 'timeout';
         _notify();
       }
     });

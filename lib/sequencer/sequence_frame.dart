@@ -272,11 +272,13 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
         color: flow.dictationText.isNotBlank ? Color.YELLOW : Color.WHITE,
         padding: fm.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
         child: fm.Text(
-            flow.pttActive
-                ? '● 正在聆听... (松开结束)'
-                : (flow.dictationText.isNotBlank
+            flow.lastError == 'licc_quota'
+                ? '⚠ 今日讯飞额度已用完,明天再试'
+                : (flow.pttActive
+                    ? '● 正在聆听... (松开结束)'
+                    : (flow.dictationText.isNotBlank
                     ? '识别结果: ${flow.dictationText}  (点=确认)'
-                    : '(按住🎙朗读,抬起出结果)'),
+                        : '(按住🎙朗读,抬起出结果)')),
             style: fm.TextStyle(fontSize: 22,
                 fontWeight: fm.FontWeight.bold)),
       ),
