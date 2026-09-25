@@ -82,20 +82,28 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                            style: fm.TextStyle(fontSize: 18)),
                        fm.Spacer(),
                        //  采样按钮:按下朗读,抬起结束
-                       fm.GestureDetector(
-                         onPanStart: (_) =>
-                             VoiceFlow.instance.startSample(),
-                         onPanEnd: (_) =>
-                             VoiceFlow.instance.endSample(),
-                         onPanCancel: () =>
-                             VoiceFlow.instance.endSample(),
+                       fm.Listener(
+                         behavior: fm.HitTestBehavior.opaque,
+                         onPointerDown: (e) {
+                           debugPrint('PTT down');
+                           final ok = VoiceFlow.instance.startSample();
+                           debugPrint('PTT ok=$ok');
+                         },
+                         onPointerUp: (e) {
+                           debugPrint('PTT up');
+                           VoiceFlow.instance.endSample();
+                         },
+                         onPointerCancel: (e) {
+                           debugPrint('PTT cancel');
+                           VoiceFlow.instance.endSample();
+                         },
                          child: fm.Container(
-                           padding: fm.EdgeInsets.all(12),
+                           width: 60, height: 60,
+                           alignment: fm.Alignment.center,
                            decoration: fm.BoxDecoration(
                                color: VoiceFlow.instance.pttActive
                                    ? fm.Colors.blue : Color.BLACK,
-                               borderRadius:
-                                   fm.BorderRadius.circular(25)),
+                               shape: fm.BoxShape.circle),
                            child: fm.Icon(fm.Icons.record_voice_over,
                                color: Color.WHITE, size: 32),
                          ),
