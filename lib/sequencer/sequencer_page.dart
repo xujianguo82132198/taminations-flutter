@@ -126,7 +126,7 @@ class _SequencerPageState extends fm.State<SequencerPage> {
                         child:PortraitSequencerAnimationFrame()
                     ),
                     fm.Expanded(
-                        flex: om ? 8 : (isSmallAndCompact(context) ? 0 : 2),
+                        flex: om ? 9 : (isSmallAndCompact(context) ? 0 : 2),
                         child: SequenceFrame()
                     )
                   ],

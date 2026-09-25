@@ -199,7 +199,7 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
       child: fm.Container(
         width: double.infinity,
         color: flow.dictationText.isNotBlank ? Color.YELLOW : Color.WHITE,
-        padding: fm.EdgeInsets.all(6),
+        padding: fm.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
         child: fm.Text(
             flow.dictationText.isNotBlank
                 ? '识别结果: ${flow.dictationText}  (点=确认)'
