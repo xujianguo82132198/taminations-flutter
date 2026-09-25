@@ -63,7 +63,39 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                children: [
                  //  Only 采表:识别结果大字只读显示(独立监听组件)
                  OnlyDisplayBar(),
-                 //  Only 采表:隐藏输入行(纯语音,不需键盘)
+                 //  Only 采表:独立的采样按钮行(输入行已隐藏)
+                 if (VoiceFlow.instance.onlyMode)
+                   fm.Padding(
+                     padding: fm.EdgeInsets.symmetric(
+                         horizontal: 10, vertical: 4),
+                     child: fm.Row(children: [
+                       fm.Text('(按住朗读)',
+                           style: fm.TextStyle(fontSize: 18)),
+                       fm.Spacer(),
+                       fm.Listener(
+                         onPointerDown: (_) {
+                           if (VoiceFlow.instance.startSample())
+                             debugPrint('sample started');
+                         },
+                         onPointerUp: (_) =>
+                             VoiceFlow.instance.endSample(),
+                         onPointerCancel: (_) =>
+                             VoiceFlow.instance.endSample(),
+                         child: fm.Container(
+                           padding: fm.EdgeInsets.all(12),
+                           decoration: fm.BoxDecoration(
+                               color: VoiceFlow.instance.pttActive
+                                   ? fm.Colors.blue : Color.BLACK,
+                               shape: fm.RoundedRectangleBorder(
+                                   borderRadius:
+                                       fm.BorderRadius.circular(25))),
+                           child: fm.Icon(fm.Icons.record_voice_over,
+                               color: Color.WHITE, size: 32),
+                         ),
+                       ),
+                     ]),
+                   ),
+                 //  非 Only 模式:正常显示输入行
                  if (!VoiceFlow.instance.onlyMode)
                    SequencerEditLine(),
                  //  音乐功能开关(可选)
