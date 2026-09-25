@@ -492,23 +492,29 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   void _scrollToCenterIfNeeded() {
     final table = flow.callerTable;
     if (table == null || minimized) return;
-    CallerRow? target;
-    //  Only 采表:光标行(当前待录行)居中(最高优先级)
+    //  Only 模式:光标行始终强制滚动到中心(每次状态变化都执行)
     if (flow.onlyMode) {
       final cursor = flow.currentDictationRow;
-      if (cursor != null && !identical(cursor, _lastScrolledCursor)) {
-        _lastScrolledCursor = cursor;
-        target = cursor;
+      if (cursor != null) {
+        final index = table.rows.indexOf(cursor);
+        if (index >= 0) {
+          debugPrint('scroll: cursor seq=${cursor.seq} index=$index');
+          fm.WidgetsBinding.instance.addPostFrameCallback((_) {
+            itemScrollController.scrollTo(
+                index: index, alignment: 0.5,
+                duration: Duration(milliseconds: 200));
+          });
+        }
       }
+      return;
     }
-    //  录入新插入的待补全记录
+    //  非 Only 模式:候选/待补全记录居中
+    CallerRow? target;
     final pending = flow.pendingRecord;
-    if (target == null && pending != null &&
-        !identical(pending, _lastScrolledPending)) {
+    if (pending != null && !identical(pending, _lastScrolledPending)) {
       _lastScrolledPending = pending;
       target = pending;
     }
-    //  语音查表的候选记录
     final candidate = flow.lastCandidate;
     if (target == null && candidate != null &&
         !identical(candidate, _lastScrolledCandidate)) {
