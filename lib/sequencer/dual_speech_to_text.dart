@@ -50,7 +50,8 @@ class DualSpeechProvider extends ChangeNotifier {
   bool get isAvailable => _active.isAvailable;
   bool get isListening => _active.isListening;
   bool get hasResults => _active.hasResults;
-  bool get hasError => false;
+  String? get lastError =>
+      engine == 'google' ? null : xfyun.lastError;
   SpeechRecognitionResult? get lastResult => _active.lastResult;
 
   DualSpeechProvider() {

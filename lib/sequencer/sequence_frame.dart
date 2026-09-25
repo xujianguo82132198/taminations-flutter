@@ -644,7 +644,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
             fm.Icon(fm.Icons.unfold_more, size: 20),
             fm.SizedBox(width: 6),
             fm.Text(
-                '口令员 ${flow.callerName} 映射表(${table.rows.length}条) ▸',
+                '${flow.callerName}(${table.rows.length}条) ▸',
                 style: fm.TextStyle(
                     fontWeight: fm.FontWeight.bold, fontSize: 16)),
           ]),
@@ -664,7 +664,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
             child: fm.Row(children: [
               fm.Expanded(
                 child: fm.Text(
-                    '口令员 ${flow.callerName} 映射表(${table.rows.length}条)',
+                    '${flow.callerName}(${table.rows.length}条)',
                     style: fm.TextStyle(
                         fontWeight: fm.FontWeight.bold, fontSize: 16)),
               ),
