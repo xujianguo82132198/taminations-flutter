@@ -518,7 +518,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     if (target == null) return;
     final index = table.rows.indexWhere((r) => identical(r, target));
     if (index < 0) return;
-    later(() {
+    fm.WidgetsBinding.instance.addPostFrameCallback((_) {
       itemScrollController.scrollTo(
           index: index, alignment: 0.5, duration: Duration(milliseconds: 300));
     });
