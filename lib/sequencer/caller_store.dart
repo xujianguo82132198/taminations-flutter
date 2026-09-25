@@ -349,8 +349,13 @@ class CallerTable extends ChangeNotifier {
           titles.add(t);
       }
     }
-    for (final title in titles)
-      await t.appendRowNoSort(recognized: '', standardCall: title);
+    //  一次性写入(逐条写入 333 次太慢)
+    t.rows.clear();
+    for (var i = 0; i < titles.length; i++)
+      t.rows.add(CallerRow(seq: i + 1,
+          recognized: '', standardCall: titles[i]));
+    await t.save();
+    debugPrint('createOnlyTable($levelDir): ${t.rows.length} rows');
     return t;
   }
 
