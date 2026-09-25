@@ -92,6 +92,10 @@ class VoiceFlow extends ChangeNotifier {
   bool playbackWasActive = false;
 
 
+  ///  表退出标志:抑制 onDidRemovePage 的页面跳转
+  ///  (flow.stop 引起重建时可能误触发页面移除回调)
+  bool suppressBackNav = false;
+
   ///  最近一次错误('mic' 麦克风不可用,'speech' 识别不可用),UI 负责提示
   String? lastError;
 

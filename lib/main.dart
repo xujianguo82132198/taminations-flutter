@@ -44,6 +44,7 @@ import 'sequencer/abbreviations_frame.dart';
 import 'sequencer/abbreviations_model.dart';
 import 'sequencer/sequencer_calls_page.dart';
 import 'sequencer/sequencer_page.dart';
+import 'sequencer/voice_flow.dart';
 
 ///  Main routine
 void main() async {
@@ -350,6 +351,9 @@ class TaminationsRouterDelegate extends fm.RouterDelegate<TamState>
                             appState.detailPage == DetailPage.CALLS)
                           appState.change(
                               mainPage: MainPage.SEQUENCER, detailPage: DetailPage.NONE);
+                        else if (VoiceFlow.instance.suppressBackNav) {
+                          VoiceFlow.instance.suppressBackNav = false;
+                        }
                         else
                           appState.change(mainPage: MainPage.LEVELS, detailPage: DetailPage.NONE);
                       } else
