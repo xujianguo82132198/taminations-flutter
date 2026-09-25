@@ -124,11 +124,23 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  抬起:收尾给出结果(结果在 hasResults 中被取走)
+  Timer? _sampleTimeout;
+
   void endSample() {
     if (!pttActive) return;
     speech?.stop();
     _notify();
-    //  结果可能延迟到达,监听保留到结果处理完毕
+    //  8秒无结果:超时重置并提示(防卡死)
+    _sampleTimeout?.cancel();
+    _sampleTimeout = Timer(const Duration(seconds: 8), () {
+      if (pttActive) {
+        debugPrint('Sample timeout: resetting');
+        pttActive = false;
+        dictationText = '';
+        lastError = 'timeout';
+        _notify();
+      }
+    });
   }
 
   ///  Only 模式采样结果处理:识别文字存入 dictationText
@@ -143,6 +155,7 @@ class VoiceFlow extends ChangeNotifier {
           .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
       if (t.isNotEmpty) { text = t; break; }
     }
+    _sampleTimeout?.cancel();
     debugPrint('Only result: "$text"');
     dictationText = text;
     pttActive = false;
