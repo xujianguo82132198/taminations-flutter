@@ -192,14 +192,13 @@ class _OnlyButtonRowState extends fm.State<OnlyButtonRow> {
             color: Color.BLACK, size: 28)),
         fm.Text('(按住朗读)', style: fm.TextStyle(fontSize: 18)),
         fm.Spacer(),
-        fm.Listener(
-          behavior: fm.HitTestBehavior.opaque,
-          onPointerDown: (e) {
+        fm.InkWell(
+          onTapDown: (_) {
             debugPrint('PTT down');
             flow.startSample();
           },
-          onPointerUp: (e) => flow.endSample(),
-          onPointerCancel: (e) => flow.endSample(),
+          onTapUp: (_) => flow.endSample(),
+          onTapCancel: () => flow.endSample(),
           child: fm.Container(
             width: 60, height: 60,
             alignment: fm.Alignment.center,
