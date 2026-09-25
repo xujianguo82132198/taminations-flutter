@@ -925,7 +925,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     //  notifyListeners 触发已卸载的组件重建
     Future.microtask(() {
       speechProvider.cancel();
-      speechProvider.dispose();
+      //  不 dispose:VoiceFlow 还在用它(Only 模式下采样按钮需要)
+      //  dispose 会导致后续 startSample 因 disposed=true 被拒
     });
     _hidePttHint();
     _blinkController?.dispose();

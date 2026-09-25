@@ -232,7 +232,8 @@ class SpeechToTextProvider extends ChangeNotifier {
 
   ///  完全停止监听并丢弃当前轮已识别的内容。
   void cancel() {
-    _log('cancel: isListening=$_isListening');
+    _log('cancel CALLED: isListening=$_isListening '
+        'sample=$_sampleSession');
     _continuous = false;
     _sampleSession = false;
     _paused = false;
@@ -319,6 +320,8 @@ class SpeechToTextProvider extends ChangeNotifier {
     //  直接废弃本会话,不再启动录音。
     //  注意:采样模式(_sampleSession)本身就是单轮(_continuous=false),
     //  不属于"被取消",要放行
+    _log('session: check abort: disposed=$_disposed '
+        'continuous=$_continuous sample=$_sampleSession');
     if (_disposed || (!_continuous && !_sampleSession)) {
       _log('session: cancelled while connecting, abort');
       client.abort();
