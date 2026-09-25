@@ -618,24 +618,28 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     style: fm.TextStyle(
                         fontWeight: fm.FontWeight.bold, fontSize: 16)),
               ),
-              //  退出映射表:结束当前表,回到未打开状态
-              fm.InkWell(
-                onTap: () => flow.stop(),
-                child: fm.Padding(
-                  padding: fm.EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
-                  child: fm.Text('退出映射表',
-                      style: fm.TextStyle(fontSize: 14,
-                          color: Color.WHITE)),
-                ),
-              ),
+              //  表退出:红底白字大按钮
               fm.Container(
-                color: Color.RED,
-                padding: fm.EdgeInsets.symmetric(horizontal: 2),
+                decoration: fm.BoxDecoration(
+                    color: Color.RED,
+                    borderRadius: fm.BorderRadius.circular(6)),
+                margin: fm.EdgeInsets.only(right: 6),
                 child: fm.InkWell(
                   onTap: () => flow.stop(),
-                  child: fm.Icon(fm.Icons.logout,
-                      size: 16, color: Color.WHITE),
+                  borderRadius: fm.BorderRadius.circular(6),
+                  child: fm.Padding(
+                    padding: fm.EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 5),
+                    child: fm.Row(children: [
+                      fm.Icon(fm.Icons.exit_to_app,
+                          size: 18, color: Color.WHITE),
+                      fm.SizedBox(width: 4),
+                      fm.Text('表退出',
+                          style: fm.TextStyle(fontSize: 16,
+                              fontWeight: fm.FontWeight.bold,
+                              color: Color.WHITE)),
+                    ]),
+                  ),
                 ),
               ),
               //  极小化按钮:关闭显示,后台工作不受影响
