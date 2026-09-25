@@ -107,8 +107,10 @@ class VoiceFlow extends ChangeNotifier {
     if (phase == 'detecting' || phase == 'awaiting') return false;
     pttActive = true;
     speech?.cancel();   //  停掉连续识别,让出麦克风
-    _notify();
+    //  不立即 notify:重建 widget 树会导致 Listener 指针被取消,
+    //  采样刚启动就被 stop(73ms 后被杀)。推迟到微任务。
     speech?.sample(localeId: 'en_US');
+    later(() => _notify());
     return true;
   }
 
