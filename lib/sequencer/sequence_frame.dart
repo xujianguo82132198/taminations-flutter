@@ -175,7 +175,10 @@ class _OnlyButtonRowState extends fm.State<OnlyButtonRow> {
     flow.removeListener(_on);
     super.dispose();
   }
-  void _on() { if (mounted) setState(() {}); }
+  void _on() {
+    //  PTT 活动期间不重建:重建会断掉 InkWell 手势(onTapUp 丢失)
+    if (mounted && !flow.pttActive) setState(() {});
+  }
 
   @override
   fm.Widget build(fm.BuildContext context) {
