@@ -49,6 +49,8 @@ class VoiceFlow extends ChangeNotifier {
     //  不能依赖 start() 才挂载
     _musicSub ??= musicMonitor.events.listen(_onEvent);
     musicMonitor.sendAliveProbe();
+    //  始终持有语音识别器(Only模式隐藏输入行时PTT也能工作)
+    speech ??= DualSpeechProvider();
   }
   static final VoiceFlow instance = VoiceFlow._();
 
