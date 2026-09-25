@@ -55,6 +55,23 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
   final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
 
   @override
+  void initState() {
+    super.initState();
+    //  监听 VoiceFlow:表退出后恢复输入行(含打开表按钮)
+    VoiceFlow.instance.addListener(_onFlowChanged);
+  }
+
+  @override
+  void dispose() {
+    VoiceFlow.instance.removeListener(_onFlowChanged);
+    super.dispose();
+  }
+
+  void _onFlowChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   fm.Widget build(fm.BuildContext context) {
     return pp.Consumer<SequencerModel>(
          builder: (context, model, child) {
