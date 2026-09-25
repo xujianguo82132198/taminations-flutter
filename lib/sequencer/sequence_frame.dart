@@ -70,13 +70,11 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                          horizontal: 10, vertical: 4),
                      child: fm.Row(children: [
                        //  打开表(Only 模式下也可换表)
-                       fm.TextButton(onPressed: () async {
-                         //  先退出当前表
+                       fm.TextButton(onPressed: () {
                          VoiceFlow.instance.callerTable = null;
                          VoiceFlow.instance.tableMode = false;
                          VoiceFlow.instance.phase = 'idle';
                          VoiceFlow.instance.notifyListeners();
-                         //  打开选择画面(由页面层处理)
                        }, child: fm.Icon(
                            fm.Icons.folder_open,
                            color: Color.BLACK, size: 28)),
@@ -612,7 +610,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       );
     //  展开时固定高度(150),不自动扩大,不影响跳舞区域
     return fm.Container(
-      height: flow.onlyMode ? null : 240,
+      height: flow.onlyMode ? 400 : 240,
       color: Color.WHITE,
       child: fm.Column(
         crossAxisAlignment: fm.CrossAxisAlignment.start,
