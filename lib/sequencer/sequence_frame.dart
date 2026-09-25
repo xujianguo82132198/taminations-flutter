@@ -1058,30 +1058,32 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         color: Color.WHITE,
                         backgroundColor: Color.GREEN))),
               ],
-              //  PTT 采样按钮(映射表口令语音采集):
-              //  需要先打开映射表(未打开时按下进入映射表选择);
-              //  手指触其显示"按下说话,抬起停止"提示,
+              //  打开表按钮:负责映射表的选择与打开/退出
+              if (TamUtils.canListen)
+                fm.TextButton(onPressed: () async {
+                    if (flow.isActive) {
+                      //  已打开:退出表
+                      flow.stop();
+                      return;
+                    }
+                    //  未打开:进入映射表选择
+                    if (!await _loginAndOpenTable()) return;
+                    flow.startTableMode();
+                  }, child: fm.Icon(
+                  fm.Icons.folder_open,
+                  color: flow.isActive ? Color.GREEN : Color.BLACK,
+                  size: 28,
+                  )
+              ),
+              //  PTT 采样按钮:只负责按下朗读,抬起结束
               //  按下说话,抬起结束并给出识别结果,
               //  结果直接进入记录初始化(写入映射表第二列)
               if (TamUtils.canListen)
                 fm.Listener(
-                  onPointerDown: (_) async {
-                    if (!flow.isActive) {
-                      _hidePttHint();
-                      //  已有打开的映射表:直接进入表管理模式
-                      //  并立即开始采样(本次按住即说话)
-                      if (flow.callerTable != null) {
-                        flow.startTableMode();
-                        if (flow.startSample())
-                          _showPttHint();
-                        return;
-                      }
-                      //  无表:选择后进入表管理模式
-                      //  (显示面板,只做记录增删排序,不启动连续识别)
-                      if (await _loginAndOpenTable())
-                        flow.startTableMode();
-                      return;
-                    }
+                  onPointerDown: (_) {
+                    //  此按钮只负责"按下朗读,抬起结束"
+                    //  打开表由独立的"打开表"按钮负责
+                    if (!flow.isActive) return;
                     if (flow.startSample())
                       _showPttHint();
                   },
