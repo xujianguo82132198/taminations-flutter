@@ -1546,7 +1546,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                       ? nameController.text.trim()
                                       : (srcNames.isNotEmpty
                                           ? srcNames.first : '');
-                                  var lv = 'plus';
+                                  var lv = 'ms';
                                   return fm.AlertDialog(
                                     title: fm.Text('建表(建Only工作表)'),
                                     content: fm.Column(
@@ -1590,6 +1590,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           return;
                         }
                         final parts = level.split('|');
+                        debugPrint('建表: name=${parts[0]} '
+                            'level=${parts[1]}');
                                         final onlyName =
                                             '${parts[0]}_${parts[1]}_Only';
                                         final t = await CallerTable
