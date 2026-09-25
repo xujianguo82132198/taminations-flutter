@@ -69,17 +69,27 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                      padding: fm.EdgeInsets.symmetric(
                          horizontal: 10, vertical: 4),
                      child: fm.Row(children: [
+                       //  打开表(Only 模式下也可换表)
+                       fm.TextButton(onPressed: () async {
+                         //  先退出当前表
+                         VoiceFlow.instance.callerTable = null;
+                         VoiceFlow.instance.tableMode = false;
+                         VoiceFlow.instance.phase = 'idle';
+                         VoiceFlow.instance.notifyListeners();
+                         //  打开选择画面(由页面层处理)
+                       }, child: fm.Icon(
+                           fm.Icons.folder_open,
+                           color: Color.BLACK, size: 28)),
                        fm.Text('(按住朗读)',
                            style: fm.TextStyle(fontSize: 18)),
                        fm.Spacer(),
-                       fm.Listener(
-                         onPointerDown: (_) {
-                           if (VoiceFlow.instance.startSample())
-                             debugPrint('sample started');
-                         },
-                         onPointerUp: (_) =>
+                       //  采样按钮:按下朗读,抬起结束
+                       fm.GestureDetector(
+                         onPanStart: (_) =>
+                             VoiceFlow.instance.startSample(),
+                         onPanEnd: (_) =>
                              VoiceFlow.instance.endSample(),
-                         onPointerCancel: (_) =>
+                         onPanCancel: () =>
                              VoiceFlow.instance.endSample(),
                          child: fm.Container(
                            padding: fm.EdgeInsets.all(12),
