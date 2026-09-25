@@ -317,13 +317,15 @@ class CallerTable extends ChangeNotifier {
   static String _cleanCallTitle(String title) {
     var t = title.trim();
     //  去掉以 "from " 开头的描述(如 "from Waves")
-    t = t.replaceFirst(r'\s+from\s+.*$', '');
-    //  去掉括号注释(如 "( Boys Lead)" "(与 Anything 配合)" 等)
-    t = t.replaceAll(r'\([^)]*\)', '').trim();
+    t = t.replaceFirst(RegExp(r'\s+from\s+.*$'), '');
+    //  去掉圆括号注释(如 "(Boys Lead)" "(As Couples)" 等)
+    t = t.replaceAll(RegExp(r'\([^)]*\)'), '');
     //  去掉方括号注释
-    t = t.replaceAll(r'\[[^\]]*\]', '').trim();
+    t = t.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+    //  尖括号注释
+    t = t.replaceAll(RegExp(r'<[^>]*>'), '');
     //  多余空格压缩
-    t = t.replaceAll(r'\s+', ' ').trim();
+    t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
     return t;
   }
 
@@ -400,7 +402,9 @@ class CallerTable extends ChangeNotifier {
       final norm = _normalize(title);
       final exists = rows.any((r) => _normalize(r.recognized) == norm);
       if (!exists) {
-        rows.add(CallerRow(seq: 0, recognized: title, standardCall: title));
+        final clean = _cleanCallTitle(title);
+        if (clean.isNotBlank)
+          rows.add(CallerRow(seq: 0, recognized: clean, standardCall: clean));
         added++;
       }
     }
