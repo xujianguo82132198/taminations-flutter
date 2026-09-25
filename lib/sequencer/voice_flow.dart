@@ -110,7 +110,7 @@ class VoiceFlow extends ChangeNotifier {
     //  不立即 notify:重建 widget 树会导致 Listener 指针被取消,
     //  采样刚启动就被 stop(73ms 后被杀)。推迟到微任务。
     speech?.sample(localeId: 'en_US');
-    later(() => _notify());
+    Future.microtask(() => _notify());
     return true;
   }
 
