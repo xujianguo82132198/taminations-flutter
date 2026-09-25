@@ -110,7 +110,9 @@ class VoiceFlow extends ChangeNotifier {
     if (!isActive) return false;   //  需先登录(选择映射表)
     if (phase == 'detecting' || phase == 'awaiting') return false;
     pttActive = true;
-    speech?.cancel();   //  停掉连续识别,让出麦克风
+    //  不调 cancel:cancel 会重置 _sampleSession=false,
+    //  导致会话连接后被"cancelled while connecting"误杀。
+    //  sample() 本身就会停止旧会话再开新会话。
     //  不立即 notify:重建 widget 树会导致 Listener 指针被取消,
     //  采样刚启动就被 stop(73ms 后被杀)。推迟到微任务。
     speech?.sample(localeId: 'en_US');
