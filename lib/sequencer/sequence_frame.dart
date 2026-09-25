@@ -625,7 +625,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     borderRadius: fm.BorderRadius.circular(6)),
                 margin: fm.EdgeInsets.only(right: 6),
                 child: fm.InkWell(
-                  onTap: () => flow.stop(),
+                  onTap: () => Future.microtask(() => flow.stop()),
                   borderRadius: fm.BorderRadius.circular(6),
                   child: fm.Padding(
                     padding: fm.EdgeInsets.symmetric(
