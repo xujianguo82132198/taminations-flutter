@@ -626,8 +626,13 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                 margin: fm.EdgeInsets.only(right: 6),
                 child: fm.InkWell(
                   onTap: () {
-                        flow.suppressBackNav = true;
-                        Future.microtask(() => flow.stop());
+                        //  最小化退出:不用 flow.stop()(级联重建跳页)
+                        flow.callerTable = null;
+                        flow.tableMode = false;
+                        flow.phase = 'idle';
+                        flow.dictationText = '';
+                        flow.dictationSeqOverride = null;
+                        flow.notifyListeners();
                       },
                   borderRadius: fm.BorderRadius.circular(6),
                   child: fm.Padding(
