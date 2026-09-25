@@ -1541,27 +1541,32 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             context: context,
                             builder: (lctx) =>
                                 fm.StatefulBuilder(builder: (lctx, lset) {
-                                  var src = srcNames.isNotEmpty
-                                      ? srcNames.first : '';
+                                  var src = nameController.text
+                                      .trim().isNotBlank
+                                      ? nameController.text.trim()
+                                      : (srcNames.isNotEmpty
+                                          ? srcNames.first : '');
                                   var lv = 'plus';
                                   return fm.AlertDialog(
                                     title: fm.Text('建表(建Only工作表)'),
                                     content: fm.Column(
                                       mainAxisSize: fm.MainAxisSize.min,
                                       children: [
-                                        fm.DropdownButton<String>(
-                                            value: src,
-                                            isExpanded: true,
-                                            items: [for (final n in srcNames)
-                                              fm.DropdownMenuItem(
-                                                  value: n, child: fm.Text(n))],
+                                        fm.TextField(
                                             onChanged: (v) =>
-                                                lset(() => src = v ?? src)),
+                                                lset(() => src = v),
+                                            controller: fm.TextEditingController()
+                                              ..text = src,
+                                            decoration: fm.InputDecoration(
+                                                labelText: '表名(前缀)',
+                                                labelStyle:
+                                                    fm.TextStyle(fontSize: 18)),
+                                            style: fm.TextStyle(fontSize: 22)),
                                         fm.DropdownButton<String>(
                                             value: lv,
                                             isExpanded: true,
                                             items: [for (final l in
-                                              ['plus','a1','a2','c1','c2','c3a','c3b'])
+                                              ['ms','plus','a1','a2','c1','c2','c3a','c3b'])
                                               fm.DropdownMenuItem(
                                                   value: l, child: fm.Text(l))],
                                             onChanged: (v) =>
