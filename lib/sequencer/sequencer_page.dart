@@ -31,6 +31,7 @@ import '../pages/settings_page.dart';
 import 'abbreviations_frame.dart';
 import 'abbreviations_model.dart';
 import 'sequence_frame.dart';
+import 'voice_flow.dart';
 import 'sequencer_animation_frame.dart';
 import 'sequencer_calls_page.dart';
 import 'sequencer_model.dart';
@@ -116,14 +117,16 @@ class _SequencerPageState extends fm.State<SequencerPage> {
               titleModel.title = 'Sequencer';
               //  Portrait only for small devices
               if (isSmallDevice(context)) {
+                //  Only 采表模式:跳舞区缩为最小,表面板最大化
+                final om = VoiceFlow.instance.onlyMode;
                 return  fm.Column(
                   children: [
                     fm.Expanded(
-                        flex: 3,
+                        flex: om ? 1 : 3,
                         child:PortraitSequencerAnimationFrame()
                     ),
                     fm.Expanded(
-                        flex: isSmallAndCompact(context) ? 0 : 2,
+                        flex: om ? 8 : (isSmallAndCompact(context) ? 0 : 2),
                         child: SequenceFrame()
                     )
                   ],
