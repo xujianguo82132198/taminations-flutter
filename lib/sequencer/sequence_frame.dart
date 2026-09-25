@@ -63,12 +63,17 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                children: [
                  //  Only 采表:识别结果大字只读显示(独立监听组件)
                  OnlyDisplayBar(),
-                 SequencerEditLine(),
+                 //  Only 采表:隐藏输入行(纯语音,不需键盘)
+                 if (!VoiceFlow.instance.onlyMode)
+                   SequencerEditLine(),
                  //  音乐功能开关(可选)
                  if (TamUtils.canListen && !VoiceFlow.instance.onlyMode)
                    MusicDanceButton(),
-                 //  全程显示当前口令员映射表的全部记录,便于核对正确与否
-                 CallerTablePanel(),
+                 //  Only 模式:面板展开占满;其他模式固定高度
+                 if (VoiceFlow.instance.onlyMode)
+                   fm.Expanded(child: CallerTablePanel())
+                 else
+                   CallerTablePanel(),
                  if (!isSmallAndCompact(context))
                    fm.Expanded(
                        child: ScrollablePositionedList.builder(
@@ -566,7 +571,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       );
     //  展开时固定高度(150),不自动扩大,不影响跳舞区域
     return fm.Container(
-      height: 240,
+      height: flow.onlyMode ? null : 240,
       color: Color.WHITE,
       child: fm.Column(
         crossAxisAlignment: fm.CrossAxisAlignment.start,
