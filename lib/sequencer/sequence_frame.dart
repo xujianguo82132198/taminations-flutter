@@ -1065,18 +1065,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               ],
               //  打开表按钮:负责映射表的选择与打开/退出
               if (TamUtils.canListen)
-                fm.TextButton(onPressed: () async {
-                    if (flow.isActive) {
-                      //  已打开:退出表
-                      flow.stop();
-                      return;
-                    }
-                    //  未打开:进入映射表选择
+                fm.TextButton(
+                  //  已打开表时禁止操作(变灰);关闭表后恢复
+                  onPressed: flow.isActive ? null : () async {
                     if (!await _loginAndOpenTable()) return;
                     flow.startTableMode();
                   }, child: fm.Icon(
                   fm.Icons.folder_open,
-                  color: flow.isActive ? Color.GREEN : Color.BLACK,
+                  color: flow.isActive ? Color.GRAY : Color.BLACK,
                   size: 28,
                   )
               ),
