@@ -1271,9 +1271,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     fm.TextButton(
         onPressed: enabled ? () => action() : null,
         style: fm.TextButton.styleFrom(
-            padding: fm.EdgeInsets.symmetric(horizontal: 8),
-            minimumSize: fm.Size(48, 32),
-            textStyle: fm.TextStyle(fontSize: 16)),
+            padding: fm.EdgeInsets.symmetric(horizontal: 5),
+            minimumSize: fm.Size(36, 28),
+            textStyle: fm.TextStyle(fontSize: 13)),
         child: fm.Text(label));
 
   Future<String?> _inputDialog(String title, String hint,
@@ -1522,7 +1522,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   fm.SizedBox(height: 6),
                   //  全部映射表列表,初始光标指向第一个
                   fm.Container(
-                    constraints: fm.BoxConstraints(maxHeight: 220),
+                    constraints: fm.BoxConstraints(maxHeight: 150),
                     width: double.infinity,
                     decoration: fm.BoxDecoration(
                         border: fm.Border.all(color: Color.LIGHTGREY)),
@@ -1554,7 +1554,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                           ? Color(0xffe0e0ff)
                                           : null),
                                   padding: fm.EdgeInsets.only(
-                                      left: 12, top: 8, bottom: 8),
+                                      left: 12, top: 4, bottom: 4),
                                   child: fm.Text(name,
                                       style: fm.TextStyle(
                                           fontSize: 22,
@@ -1572,8 +1572,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   //  菜单区:未选表时只有"导入"可用;
                   //  选中表后其他按钮可用,"导入"变不可用
                   fm.Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: [
                       _tableMgmtButton(ctx, selected.isNotBlank, '删除',
                           () async {
