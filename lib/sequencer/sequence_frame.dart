@@ -108,11 +108,7 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                  //  音乐功能开关(可选)
                  if (TamUtils.canListen && !VoiceFlow.instance.onlyMode)
                    MusicDanceButton(),
-                 //  Only 模式:面板展开占满;其他模式固定高度
-                 if (VoiceFlow.instance.onlyMode)
-                   fm.Expanded(child: CallerTablePanel())
-                 else
-                   CallerTablePanel(),
+                 CallerTablePanel(),
                  if (!isSmallAndCompact(context))
                    fm.Expanded(
                        child: ScrollablePositionedList.builder(
