@@ -209,11 +209,11 @@ class VoiceFlow extends ChangeNotifier {
     return null;
   }
   ///  源表名 = Only 表名去掉 "_<级别>_Only" 后缀
+  ///  (如 "XuJianguo_plus_Only" -> "XuJianguo")
   String get onlySourceName {
     final n = callerTable?.callerName ?? '';
-    final i = n.lastIndexOf('_');
-    return (n.endsWith('_Only') && i > 0)
-        ? n.substring(0, i) : n;
+    return n.replaceFirst(
+        RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b)_Only$'), '');
   }
   ///  目标表名 = Only 表名去 "_Only"
   String get onlyTargetName =>
