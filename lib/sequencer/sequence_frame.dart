@@ -86,9 +86,8 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                            decoration: fm.BoxDecoration(
                                color: VoiceFlow.instance.pttActive
                                    ? fm.Colors.blue : Color.BLACK,
-                               shape: fm.RoundedRectangleBorder(
-                                   borderRadius:
-                                       fm.BorderRadius.circular(25))),
+                               borderRadius:
+                                   fm.BorderRadius.circular(25)),
                            child: fm.Icon(fm.Icons.record_voice_over,
                                color: Color.WHITE, size: 32),
                          ),
