@@ -906,9 +906,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
         return fm.Column(
           crossAxisAlignment: fm.CrossAxisAlignment.start,
           children: [
-            //  列头(表的最顶端):三列标题 + 两个可拖动列宽把手
-            _headerRow(recogW),
-            //  标题行:口令员名/条数 + 表退出 + 极小化
+            //  第一行:表名(口令员名/条数 + 极小化)
             fm.Container(
               width: double.infinity,
               color: Color.FLOOR,
@@ -965,6 +963,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                 ),
               ]),
             ),
+            //  第二行:列头(三列标题 + 两个可拖动列宽把手)
+            _headerRow(recogW),
             fm.Expanded(
               child: table.rows.isEmpty
                   ? fm.Container(
@@ -1104,7 +1104,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       padding: fm.EdgeInsets.only(left: 12, right: 8, top: 1, bottom: 1),
       child: fm.Row(children: [
         fm.SizedBox(
-            width: _seqColW, child: fm.Text('序号', style: style)),
+            width: _seqColW,
+            child: fm.FittedBox(
+                fit: fm.BoxFit.scaleDown,
+                child: fm.Text('序号',
+                    maxLines: 1, style: style))),
         handle(_onSeqDrag),
         fm.SizedBox(
             width: recogW, child: fm.Text('语音识别结果', style: style)),
