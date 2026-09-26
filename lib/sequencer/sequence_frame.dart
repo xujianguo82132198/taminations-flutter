@@ -775,8 +775,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                               fm.Expanded(
                                   flex: 5,
                                   child: fm.Text(row.recognized,
-                                      maxLines: 3,
-                                      overflow: fm.TextOverflow.ellipsis,
+                                      maxLines: 5,
+                                      overflow: fm.TextOverflow.visible,
                                       style: fm.TextStyle(
                                           fontSize: 16,
                                           fontWeight: isCandidate
@@ -790,8 +790,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                   flex: 5,
                                   child: fm.Text(
                                       row.standardCall.isBlank ? '(待补全)' : row.standardCall,
-                                      maxLines: 3,
-                                      overflow: fm.TextOverflow.ellipsis,
+                                      maxLines: 5,
+                                      overflow: fm.TextOverflow.visible,
                                       style: fm.TextStyle(
                                           fontSize: 16,
                                           color: Color.BLACK,
