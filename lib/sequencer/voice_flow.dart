@@ -125,23 +125,25 @@ class VoiceFlow extends ChangeNotifier {
     return true;
   }
 
-  ///  采表词表:当前表第3列(标准口令)的全部单词。
-  ///  数字分数形式换成读法(1/4 -> one quarter)
+  ///  采表语法:当前表第3列(标准口令)的全部口令短语。
+  ///  整条口令作为可选短语,识别结果直接吸附到完整口令;
+  ///  数字分数换成读法(1/4 -> one quarter);[unk] 兜底防卡
   List<String>? _onlyTableWords() {
     final t = callerTable;
     if (t == null || !onlyMode) return null;
-    final words = <String>{};
+    final phrases = <String>{};
     for (final r in t.rows) {
       var s = r.standardCall.toLowerCase();
       s = s.replaceAll('1/4', ' one quarter ')
            .replaceAll('1/2', ' one half ')
            .replaceAll('3/4', ' three quarter ')
            .replaceAll('2/3', ' two third ');
-      for (final w in s.split(RegExp(r'[^a-z]+'))) {
-        if (w.isNotEmpty) words.add(w);
-      }
+      s = s.replaceAll(RegExp(r'[^a-z ]+'), ' ')
+           .replaceAll(RegExp(r' +'), ' ').trim();
+      if (s.isNotEmpty) phrases.add(s);
     }
-    return words.isEmpty ? null : words.toList();
+    if (phrases.isEmpty) return null;
+    return [...phrases, '[unk]'];
   }
 
   ///  抬起:收尾给出结果(结果在 hasResults 中被取走)
