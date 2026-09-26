@@ -79,8 +79,7 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
              builder: (context,constraints) => fm.Column(
                children: [
                  //  Only 采表:识别结果大字只读显示(独立监听组件)
-                 OnlyDisplayBar(),
-                                  OnlyButtonRow(),
+                 OnlyCombinedBar(),
 
                  //  非 Only 模式:正常显示输入行
                  if (!VoiceFlow.instance.onlyMode)
@@ -174,6 +173,91 @@ class SequenceEditButtons extends fm.StatelessWidget {
 ///  Only 采表:识别结果显示条(黄底大字,点=确认,长按=完成建表)
 ///  Only 模式独立按钮行(📂+采样圆钮),监听 VoiceFlow
 ///  退出后自动隐藏
+///  Only 模式合并行:黄色显示区(左)+圆采样钮(右)
+///  点黄色区=识别确认,长按=完成建表
+class OnlyCombinedBar extends fm.StatefulWidget {
+  @override
+  _OnlyCombinedBarState createState() => _OnlyCombinedBarState();
+}
+
+class _OnlyCombinedBarState extends fm.State<OnlyCombinedBar> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_on);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_on);
+    super.dispose();
+  }
+  void _on() {
+    if (mounted && !flow.pttActive) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (!flow.onlyMode) return fm.SizedBox.shrink();
+    return fm.Padding(
+      padding: fm.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      child: fm.Row(children: [
+        //  黄色显示区(点击=确认,长按=完成建表)
+        fm.Expanded(
+          child: fm.GestureDetector(
+            onTap: () {
+              if (flow.dictationText.isNotBlank)
+                flow.confirmDictation(flow.dictationText);
+            },
+            onLongPress: () async {
+              final n = await flow.finishOnlyTable();
+              if (n != null && mounted)
+                fm.ScaffoldMessenger.of(context).showSnackBar(
+                    fm.SnackBar(backgroundColor: Color.BLUE,
+                        content: fm.Text(
+                            '已另存 \${flow.onlyTargetName}(共\$n条)',
+                            style: fm.TextStyle(fontSize: 18))));
+            },
+            child: fm.Container(
+              padding: fm.EdgeInsets.all(4),
+              color: flow.dictationText.isNotBlank
+                  ? Color.YELLOW : Color.WHITE,
+              constraints: fm.BoxConstraints(minHeight: 44),
+              alignment: fm.Alignment.centerLeft,
+              child: fm.Text(
+                  flow.lastError == 'licc_quota'
+                      ? '⚠ 额度'
+                      : (flow.dictationText.isNotBlank
+                          ? '\${flow.dictationText} →'
+                          : '🎙 朗读'),
+                  style: fm.TextStyle(fontSize: 20,
+                      fontWeight: fm.FontWeight.bold)),
+            ),
+          ),
+        ),
+        fm.SizedBox(width: 6),
+        //  圆形采样按钮
+        fm.Listener(
+          behavior: fm.HitTestBehavior.opaque,
+          onPointerDown: (e) => flow.startSample(),
+          onPointerUp: (e) => flow.endSample(),
+          onPointerCancel: (e) => flow.endSample(),
+          child: fm.Container(
+            width: 48, height: 48,
+            alignment: fm.Alignment.center,
+            decoration: fm.BoxDecoration(
+                color: Color.BLACK,
+                shape: fm.BoxShape.circle),
+            child: fm.Icon(fm.Icons.record_voice_over,
+                color: Color.WHITE, size: 24),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class OnlyButtonRow extends fm.StatefulWidget {
   @override
   _OnlyButtonRowState createState() => _OnlyButtonRowState();
