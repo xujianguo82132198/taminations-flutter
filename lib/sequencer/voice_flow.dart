@@ -277,8 +277,25 @@ class VoiceFlow extends ChangeNotifier {
     if (t == null || row == null || text.isBlank) return false;
     await t.updateRow(row.seq, recognized: text.trim(), sort: false);
     dictationText = '';
-    //  确认后:跳到当前行的下一行(不管它是手选的还是自动的)
-    final nextRow = t.rows.where((r) => r.seq == row.seq + 1).firstOrNull;
+    //  确认后:光标移到下一个需要录入的行(第2列为空)。
+    //  物理的下一行已录完则继续往下找,直到找到空行为止;
+    //  后面全满时回到表内第一个空行补漏,全表录满则不设光标
+    final ordered = [...t.rows]..sort((a, b) => a.seq.compareTo(b.seq));
+    CallerRow? nextRow;
+    for (final r in ordered) {
+      if (r.seq > row.seq && r.recognized.isBlank) {
+        nextRow = r;
+        break;
+      }
+    }
+    if (nextRow == null) {
+      for (final r in ordered) {
+        if (r.recognized.isBlank) {
+          nextRow = r;
+          break;
+        }
+      }
+    }
     dictationSeqOverride = nextRow?.seq;
     _notify();
     return true;
