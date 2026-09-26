@@ -202,57 +202,127 @@ class _OnlyCombinedBarState extends fm.State<OnlyCombinedBar> {
     return fm.Padding(
       padding: fm.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       child: fm.Row(children: [
-        //  黄色显示区(点击=确认,长按=完成建表)
-        fm.Expanded(
-          child: fm.GestureDetector(
-            onTap: () {
-              if (flow.dictationText.isNotBlank)
-                flow.confirmDictation(flow.dictationText);
-            },
-            onLongPress: () async {
-              final n = await flow.finishOnlyTable();
-              if (n != null && mounted)
-                fm.ScaffoldMessenger.of(context).showSnackBar(
-                    fm.SnackBar(backgroundColor: Color.BLUE,
-                        content: fm.Text(
-                            '已另存 \${flow.onlyTargetName}(共\$n条)',
-                            style: fm.TextStyle(fontSize: 18))));
-            },
-            child: fm.Container(
-              padding: fm.EdgeInsets.all(4),
-              color: flow.dictationText.isNotBlank
-                  ? Color.YELLOW : Color.WHITE,
-              constraints: fm.BoxConstraints(minHeight: 44),
-              alignment: fm.Alignment.centerLeft,
-              child: fm.Text(
-                  flow.lastError == 'licc_quota'
-                      ? '⚠ 额度'
-                      : (flow.dictationText.isNotBlank
-                          ? '\${flow.dictationText} →'
-                          : '🎙 朗读'),
-                  style: fm.TextStyle(fontSize: 20,
-                      fontWeight: fm.FontWeight.bold)),
-            ),
-          ),
-        ),
+        //  黄色显示区(点击=确认,长按=完成建表)。
+        //  独立子组件自行监听刷新:采样中也要即时显示"正在聆听",
+        //  而外层(带 PTT 手势)在采样期间保持不重建以保护指针事件
+        fm.Expanded(child: _OnlyDictationBox()),
         fm.SizedBox(width: 6),
-        //  圆形采样按钮
+        //  圆形采样按钮(外观同样独立刷新:按下立刻变蓝)
         fm.Listener(
           behavior: fm.HitTestBehavior.opaque,
           onPointerDown: (e) => flow.startSample(),
           onPointerUp: (e) => flow.endSample(),
           onPointerCancel: (e) => flow.endSample(),
-          child: fm.Container(
-            width: 48, height: 48,
-            alignment: fm.Alignment.center,
-            decoration: fm.BoxDecoration(
-                color: Color.BLACK,
-                shape: fm.BoxShape.circle),
-            child: fm.Icon(fm.Icons.record_voice_over,
-                color: Color.WHITE, size: 24),
-          ),
+          child: _OnlyPttButton(),
         ),
       ]),
+    );
+  }
+}
+
+///  Only 显示区:识别结果/聆听状态大字显示。
+///  自行监听 VoiceFlow(含采样期间),保证按下立即有画面反馈
+class _OnlyDictationBox extends fm.StatefulWidget {
+  @override
+  _OnlyDictationBoxState createState() => _OnlyDictationBoxState();
+}
+
+class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_on);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_on);
+    super.dispose();
+  }
+  void _on() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    return fm.GestureDetector(
+      onTap: () {
+        if (flow.dictationText.isNotBlank)
+          flow.confirmDictation(flow.dictationText);
+      },
+      onLongPress: () async {
+        final n = await flow.finishOnlyTable();
+        if (n != null && mounted)
+          fm.ScaffoldMessenger.of(context).showSnackBar(
+              fm.SnackBar(backgroundColor: Color.BLUE,
+                  content: fm.Text(
+                      '已另存 ${flow.onlyTargetName}(共$n条)',
+                      style: fm.TextStyle(fontSize: 18))));
+      },
+      child: fm.AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: fm.EdgeInsets.all(4),
+        //  采样中浅蓝底"正在聆听",有结果黄底,平时白底
+        color: flow.pttActive
+            ? Color(0xffcfe8ff)
+            : (flow.dictationText.isNotBlank ? Color.YELLOW : Color.WHITE),
+        constraints: fm.BoxConstraints(minHeight: 44),
+        alignment: fm.Alignment.centerLeft,
+        child: fm.Text(
+            flow.lastError == 'licc_quota'
+                ? '⚠ 额度'
+                : (flow.pttActive
+                    ? '● 正在聆听…(松开结束)'
+                    : (flow.dictationText.isNotBlank
+                        ? '\${flow.dictationText} →'
+                        : '🎙 朗读')),
+            style: fm.TextStyle(fontSize: 20,
+                fontWeight: fm.FontWeight.bold)),
+      ),
+    );
+  }
+}
+
+///  Only 圆形采样按钮外观:按下采样时变蓝放大,
+///  松开还原。独立子组件,采样期间可安全刷新
+class _OnlyPttButton extends fm.StatefulWidget {
+  @override
+  _OnlyPttButtonState createState() => _OnlyPttButtonState();
+}
+
+class _OnlyPttButtonState extends fm.State<_OnlyPttButton> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_on);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_on);
+    super.dispose();
+  }
+  void _on() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final active = flow.pttActive;
+    return fm.AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      width: active ? 56 : 48,
+      height: active ? 56 : 48,
+      alignment: fm.Alignment.center,
+      decoration: fm.BoxDecoration(
+          color: active ? fm.Colors.blue : Color.BLACK,
+          shape: fm.BoxShape.circle),
+      child: fm.Icon(
+          active ? fm.Icons.mic : fm.Icons.record_voice_over,
+          color: Color.WHITE,
+          size: active ? 30 : 24),
     );
   }
 }
@@ -543,10 +613,44 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   //  手动切换随时可用,输入行重建不丢)
   bool get minimized => flow.panelMinimized;
 
+  //  列宽:识别结果列占(识别+标准)两列总宽的比例,
+  //  在表头拖动把手调整,持久保存(重开应用不丢)
+  double _recognizedRatio = 0.25;
+  static const _ratioPrefKey = '映射表识别列宽占比';
+  static const double _seqColW = 36;   //  序号列固定宽
+  static const double _dragColW = 30;  //  箭头/列宽把手列固定宽
+  double _twoColsW = 1;                //  最近一次布局的两列总宽
+
   @override
   void initState() {
     super.initState();
     flow.addListener(_onChanged);
+    _loadRatio();
+  }
+
+  Future<void> _loadRatio() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = prefs.getDouble(_ratioPrefKey);
+      if (v != null && v >= 0.12 && v <= 0.88) {
+        setState(() => _recognizedRatio = v);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveRatio() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_ratioPrefKey, _recognizedRatio);
+    } catch (_) {}
+  }
+
+  //  拖动把手:按位移占两列总宽的比例调整列宽分配
+  void _onDividerDrag(fm.DragUpdateDetails d) {
+    setState(() {
+      _recognizedRatio =
+          (_recognizedRatio + d.delta.dx / _twoColsW).clamp(0.12, 0.88);
+    });
   }
 
   @override
@@ -740,157 +844,213 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     return fm.Container(
       height: flow.onlyMode ? 400 : 240,
       color: Color.WHITE,
-      child: fm.Column(
-        crossAxisAlignment: fm.CrossAxisAlignment.start,
-        children: [
-          fm.Container(
-            width: double.infinity,
-            color: Color.FLOOR,
-            padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
-            child: fm.Row(children: [
-              fm.Expanded(
-                child: fm.Text(
-                    '${flow.callerName}(${table.rows.length}条)',
-                    style: fm.TextStyle(
-                        fontWeight: fm.FontWeight.bold, fontSize: 16)),
-              ),
-              //  表退出:红底白字大按钮
-              fm.Container(
-                decoration: fm.BoxDecoration(
-                    color: Color.RED,
-                    borderRadius: fm.BorderRadius.circular(6)),
-                margin: fm.EdgeInsets.only(right: 6),
-                child: fm.InkWell(
-                  onTap: () {
-                        //  最小化退出:不用 flow.stop()(级联重建跳页)
-                        flow.callerTable = null;
-                        flow.tableMode = false;
-                        flow.phase = 'idle';
-                        flow.dictationText = '';
-                        flow.dictationSeqOverride = null;
-                        flow.notifyListeners();
-                      },
-                  borderRadius: fm.BorderRadius.circular(6),
-                  child: fm.Padding(
-                    padding: fm.EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 5),
-                    child: fm.Row(children: [
-                      fm.Icon(fm.Icons.exit_to_app,
-                          size: 18, color: Color.WHITE),
-                      fm.SizedBox(width: 4),
-                      fm.Text('表退出',
-                          style: fm.TextStyle(fontSize: 16,
-                              fontWeight: fm.FontWeight.bold,
-                              color: Color.WHITE)),
-                    ]),
+      child: fm.LayoutBuilder(builder: (context, constraints) {
+        //  两列(识别结果/标准口令)总宽 = 面板宽 - 内边距 - 序号列 - 把手列
+        _twoColsW = constraints.maxWidth - 12 - 8 - _seqColW - _dragColW;
+        if (_twoColsW < 100) _twoColsW = 100;
+        final recogW = _twoColsW * _recognizedRatio;
+        return fm.Column(
+          crossAxisAlignment: fm.CrossAxisAlignment.start,
+          children: [
+            //  标题行:口令员名/条数 + 表退出 + 极小化
+            fm.Container(
+              width: double.infinity,
+              color: Color.FLOOR,
+              padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
+              child: fm.Row(children: [
+                fm.Expanded(
+                  child: fm.Text(
+                      '${flow.callerName}(${table.rows.length}条)',
+                      style: fm.TextStyle(
+                          fontWeight: fm.FontWeight.bold, fontSize: 16)),
+                ),
+                //  表退出:红底白字大按钮
+                fm.Container(
+                  decoration: fm.BoxDecoration(
+                      color: Color.RED,
+                      borderRadius: fm.BorderRadius.circular(6)),
+                  margin: fm.EdgeInsets.only(right: 6),
+                  child: fm.InkWell(
+                    onTap: () {
+                      //  最小化退出:不用 flow.stop()(级联重建跳页)
+                      flow.callerTable = null;
+                      flow.tableMode = false;
+                      flow.phase = 'idle';
+                      flow.dictationText = '';
+                      flow.dictationSeqOverride = null;
+                      flow.notifyListeners();
+                    },
+                    borderRadius: fm.BorderRadius.circular(6),
+                    child: fm.Padding(
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 5),
+                      child: fm.Row(children: [
+                        fm.Icon(fm.Icons.exit_to_app,
+                            size: 18, color: Color.WHITE),
+                        fm.SizedBox(width: 4),
+                        fm.Text('表退出',
+                            style: fm.TextStyle(fontSize: 16,
+                                fontWeight: fm.FontWeight.bold,
+                                color: Color.WHITE)),
+                      ]),
+                    ),
                   ),
                 ),
-              ),
-              //  极小化按钮:关闭显示,后台工作不受影响
-              fm.InkWell(
-                onTap: () => flow.setPanelMinimized(true),
-                child: fm.Padding(
-                  padding: fm.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  child: fm.Icon(fm.Icons.unfold_less, size: 20),
+                //  极小化按钮:关闭显示,后台工作不受影响
+                fm.InkWell(
+                  onTap: () => flow.setPanelMinimized(true),
+                  child: fm.Padding(
+                    padding:
+                        fm.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    child: fm.Icon(fm.Icons.unfold_less, size: 20),
+                  ),
                 ),
-              ),
-            ]),
-          ),
-          fm.Expanded(
-            child: table.rows.isEmpty
-                ? fm.Container(
-                    alignment: fm.Alignment.center,
-                    child: fm.Text('(空表,语音识别将进入记录初始化)',
-                        style: fm.TextStyle(fontSize: 18, color: Color.BLACK)))
-                : ScrollablePositionedList.builder(
-                    itemScrollController: itemScrollController,
-                    padding: fm.EdgeInsets.zero,
-                    itemCount: table.rows.length,
-                    itemBuilder: (context, index) {
-                      final row = table.rows[index];
-                      //  Only 采表:当前目标行(光标)蓝底+箭头标记
-                      final isCursor = flow.onlyMode &&
-                          identical(flow.currentDictationRow, row);
-                      //  待补全的记录(第三列为空)黄色;
-                      //  语音查表的候选记录蓝色边框突出显示
-                      final pending = !flow.onlyMode &&
-                          row.standardCall.isBlank &&
-                          identical(flow.pendingRecord, row);
-                      final isCandidate =
-                          identical(flow.lastCandidate, row);
-                      return fm.InkWell(
-                        //  Only 模式:点行=选定为采表目标;
-                        //   长按=编辑第3列(标准口令)
-                        //  其他模式:点行=删除
-                        onTap: () => flow.onlyMode
-                            ? flow.selectDictationRow(row.seq)
-                            : _deleteRow(row),
-                        onLongPress: flow.onlyMode
-                            ? () => _rowActionMenu(row)
-                            : null,
-                        child: fm.Container(
-                          color: isCursor
-                              ? Color(0xff87CEEB)
-                              : (pending
-                                  ? Color.YELLOW
-                                  : (isCandidate ? Color(0xffe0f0ff) : null)),
-                          decoration: pending || isCandidate ? null : fm.BoxDecoration(
-                              border: fm.Border(
-                                  bottom: fm.BorderSide(
-                                      width: 1, color: Color.LIGHTGREY))),
-                          padding: fm.EdgeInsets.only(
-                              left: 12, right: 8, top: 3, bottom: 3),
-                          child: fm.Row(
-                            crossAxisAlignment: fm.CrossAxisAlignment.start,
-                            children: [
-                              fm.SizedBox(
-                                  width: 36,
-                                  child: fm.Padding(
-                                    padding: fm.EdgeInsets.only(top: 2),
+              ]),
+            ),
+            //  列头:三列标题 + 可拖动的列宽把手
+            _headerRow(recogW),
+            fm.Expanded(
+              child: table.rows.isEmpty
+                  ? fm.Container(
+                      alignment: fm.Alignment.center,
+                      child: fm.Text('(空表,语音识别将进入记录初始化)',
+                          style: fm.TextStyle(
+                              fontSize: 18, color: Color.BLACK)))
+                  : ScrollablePositionedList.builder(
+                      itemScrollController: itemScrollController,
+                      padding: fm.EdgeInsets.zero,
+                      itemCount: table.rows.length,
+                      itemBuilder: (context, index) {
+                        final row = table.rows[index];
+                        //  Only 采表:当前目标行(光标)蓝底+箭头标记
+                        final isCursor = flow.onlyMode &&
+                            identical(flow.currentDictationRow, row);
+                        //  待补全的记录(第三列为空)黄色;
+                        //  语音查表的候选记录蓝色边框突出显示
+                        final pending = !flow.onlyMode &&
+                            row.standardCall.isBlank &&
+                            identical(flow.pendingRecord, row);
+                        final isCandidate =
+                            identical(flow.lastCandidate, row);
+                        return fm.InkWell(
+                          //  Only 模式:点行=选定为采表目标;
+                          //   长按=编辑第3列(标准口令)
+                          //  其他模式:点行=删除
+                          onTap: () => flow.onlyMode
+                              ? flow.selectDictationRow(row.seq)
+                              : _deleteRow(row),
+                          onLongPress: flow.onlyMode
+                              ? () => _rowActionMenu(row)
+                              : null,
+                          child: fm.Container(
+                            color: isCursor
+                                ? Color(0xff87CEEB)
+                                : (pending
+                                    ? Color.YELLOW
+                                    : (isCandidate ? Color(0xffe0f0ff) : null)),
+                            decoration: pending || isCandidate
+                                ? null
+                                : fm.BoxDecoration(
+                                    border: fm.Border(
+                                        bottom: fm.BorderSide(
+                                            width: 1,
+                                            color: Color.LIGHTGREY))),
+                            padding: fm.EdgeInsets.only(
+                                left: 12, right: 8, top: 3, bottom: 3),
+                            child: fm.Row(
+                              crossAxisAlignment:
+                                  fm.CrossAxisAlignment.start,
+                              children: [
+                                fm.SizedBox(
+                                    width: _seqColW,
+                                    child: fm.Padding(
+                                      padding: fm.EdgeInsets.only(top: 2),
+                                      child: fm.Text(
+                                          '${row.seq}',
+                                          style: fm.TextStyle(
+                                              fontSize: 16,
+                                              color: Color.BLACK,
+                                              fontWeight: (isCandidate ||
+                                                      isCursor)
+                                                  ? fm.FontWeight.bold
+                                                  : null)),
+                                    )),
+                                fm.SizedBox(
+                                    width: recogW,
+                                    child: fm.Text(row.recognized,
+                                        maxLines: 5,
+                                        overflow: fm.TextOverflow.visible,
+                                        style: fm.TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: isCandidate
+                                                ? fm.FontWeight.bold
+                                                : null))),
+                                fm.SizedBox(
+                                  width: _dragColW,
+                                  child: fm.Center(
+                                      child: fm.Text('→',
+                                          style:
+                                              fm.TextStyle(fontSize: 16))),
+                                ),
+                                fm.Expanded(
                                     child: fm.Text(
-                                        '${row.seq}',
+                                        row.standardCall.isBlank
+                                            ? '(待补全)'
+                                            : row.standardCall,
                                         style: fm.TextStyle(
                                             fontSize: 16,
                                             color: Color.BLACK,
-                                            fontWeight: (isCandidate || isCursor)
-                                                ? fm.FontWeight.bold : null)),
-                                  )),
-                              fm.Expanded(
-                                  flex: 2,
-                                  child: fm.Text(row.recognized,
-                                      maxLines: 5,
-                                      overflow: fm.TextOverflow.visible,
-                                      style: fm.TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: isCandidate
-                                              ? fm.FontWeight.bold : null))),
-                              fm.Padding(
-                                padding: fm.EdgeInsets.only(top: 2),
-                                child: fm.Text('→',
-                                    style: fm.TextStyle(fontSize: 16)),
-                              ),
-                              fm.Expanded(
-                                  flex: 8,
-                                  child: fm.Text(
-                                      row.standardCall.isBlank ? '(待补全)' : row.standardCall,
-                                      style: fm.TextStyle(
-                                          fontSize: 16,
-                                          color: Color.BLACK,
-                                          fontWeight: fm.FontWeight.bold))),
-                            ],
+                                            fontWeight:
+                                                fm.FontWeight.bold))),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  //  列头行:序号 / 语音识别结果 / 标准口令 标题,
+  //  识别列与标准列之间是拖动把手(左右拖改变两列宽度)
+  fm.Widget _headerRow(double recogW) {
+    final style = fm.TextStyle(
+        fontSize: 15,
+        color: Color(0xff444444),
+        fontWeight: fm.FontWeight.bold);
+    return fm.Container(
+      width: double.infinity,
+      color: Color(0xffe8e8e8),
+      padding: fm.EdgeInsets.only(left: 12, right: 8, top: 3, bottom: 3),
+      child: fm.Row(children: [
+        fm.SizedBox(width: _seqColW, child: fm.Text('序号', style: style)),
+        fm.SizedBox(
+            width: recogW, child: fm.Text('语音识别结果', style: style)),
+        fm.SizedBox(
+          width: _dragColW,
+          child: fm.GestureDetector(
+            behavior: fm.HitTestBehavior.opaque,
+            onHorizontalDragUpdate: _onDividerDrag,
+            onHorizontalDragEnd: (_) => _saveRatio(),
+            child: fm.Center(
+              child: fm.RotatedBox(
+                quarterTurns: 1,
+                child: fm.Icon(fm.Icons.drag_handle,
+                    size: 24, color: Color(0xff1976d2)),
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+        fm.Expanded(child: fm.Text('标准口令', style: style)),
+      ]),
     );
   }
 
 }
-
 
 class SequencerEditLine extends fm.StatefulWidget {
   @override
