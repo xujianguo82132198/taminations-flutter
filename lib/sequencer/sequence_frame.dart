@@ -275,7 +275,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                 : (flow.pttActive
                     ? '● 正在聆听…(松开结束)'
                     : (flow.dictationText.isNotBlank
-                        ? '\${flow.dictationText} →'
+                        ? '${flow.dictationText} →'
                         : '🎙 朗读')),
             style: fm.TextStyle(fontSize: 20,
                 fontWeight: fm.FontWeight.bold)),
