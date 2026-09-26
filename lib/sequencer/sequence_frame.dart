@@ -203,8 +203,7 @@ class _OnlyButtonRowState extends fm.State<OnlyButtonRow> {
     return fm.Padding(
       padding: fm.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: fm.Row(children: [
-        fm.Text('(按住朗读 → 表退出在下方红色按钮)',
-            style: fm.TextStyle(fontSize: 18)),
+        
         fm.Spacer(),
         fm.InkWell(
           onTapDown: (_) {
