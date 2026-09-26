@@ -24,6 +24,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'google_speech_to_text.dart';
+import 'vosk_speech_to_text.dart';
 import 'xfyun_speech_to_text.dart';
 
 ///  双语音引擎(中国用讯飞,美国/海外用谷歌):
@@ -37,15 +38,17 @@ class DualSpeechProvider extends ChangeNotifier {
 
   final xfyun = SpeechToTextProvider();
   final google = GoogleSpeechToText();
+  final vosk = VoskSpeechToText();
 
   ///  当前生效引擎名:'xfyun' / 'google'
-  String engine = 'xfyun';
+  String engine = 'vosk';
   String _setting = 'auto';   //  auto / xfyun / google
   Timer? _failoverTimer;
   bool _switchedNoticeShown = false;
 
   dynamic get _active =>
-      engine == 'google' ? google : xfyun;
+      engine == 'google' ? google
+      : (engine == 'vosk' ? vosk : xfyun);
 
   bool get isAvailable => _active.isAvailable;
   bool get isListening => _active.isListening;
@@ -67,7 +70,8 @@ class DualSpeechProvider extends ChangeNotifier {
       _setting = prefs.getString(_prefKey) ?? 'auto';
     } catch (_) {}
     if (_setting == 'google') engine = 'google';
-    else engine = 'xfyun';
+    else if (_setting == 'xfyun') engine = 'xfyun';
+    else engine = 'vosk';
   }
 
   ///  设置引擎(auto/xfyun/google),持久化并立即生效
@@ -123,20 +127,11 @@ class DualSpeechProvider extends ChangeNotifier {
     Duration? listenFor,
     Duration? pauseFor,
   }) {
-    _active.listen(
-        partialResults: partialResults,
-        localeId: localeId,
-        listenFor: listenFor,
-        pauseFor: pauseFor);
-    _watchFailover();
+    _active.listen(localeId: localeId);
   }
 
   void sample({String? localeId}) {
-    if (engine == 'google')
-      google.sample(localeId: localeId);
-    else
-      xfyun.sample(localeId: localeId);
-    _watchFailover();
+    _active.sample(localeId: localeId);
   }
 
   ///  自动模式:讯飞 5 秒内没进入监听且报连接错误 ->
