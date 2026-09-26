@@ -613,12 +613,13 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   //  手动切换随时可用,输入行重建不丢)
   bool get minimized => flow.panelMinimized;
 
-  //  列宽:识别结果列占(识别+标准)两列总宽的比例,
-  //  在表头拖动把手调整,持久保存(重开应用不丢)
+  //  列宽(可拖动调整,持久保存,重开应用不丢):
+  //  序号列宽为像素值;识别结果列占(识别+标准)两列总宽的比例
   double _recognizedRatio = 0.25;
+  double _seqColW = 36;
   static const _ratioPrefKey = '映射表识别列宽占比';
-  static const double _seqColW = 36;   //  序号列固定宽
-  static const double _dragColW = 30;  //  箭头/列宽把手列固定宽
+  static const _seqWidPrefKey = '映射表序号列宽';
+  static const double _dragColW = 30;  //  列宽把手列固定宽
   double _twoColsW = 1;                //  最近一次布局的两列总宽
 
   @override
@@ -635,6 +636,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       if (v != null && v >= 0.12 && v <= 0.88) {
         setState(() => _recognizedRatio = v);
       }
+      final s = prefs.getDouble(_seqWidPrefKey);
+      if (s != null && s >= 28 && s <= 140) {
+        setState(() => _seqColW = s);
+      }
     } catch (_) {}
   }
 
@@ -642,7 +647,15 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_ratioPrefKey, _recognizedRatio);
+      await prefs.setDouble(_seqWidPrefKey, _seqColW);
     } catch (_) {}
+  }
+
+  //  拖动序号列把手:直接按像素增减序号列宽
+  void _onSeqDrag(fm.DragUpdateDetails d) {
+    setState(() {
+      _seqColW = (_seqColW + d.delta.dx).clamp(28.0, 140.0);
+    });
   }
 
   //  拖动把手:按位移占两列总宽的比例调整列宽分配
@@ -845,13 +858,17 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       height: flow.onlyMode ? 400 : 240,
       color: Color.WHITE,
       child: fm.LayoutBuilder(builder: (context, constraints) {
-        //  两列(识别结果/标准口令)总宽 = 面板宽 - 内边距 - 序号列 - 把手列
-        _twoColsW = constraints.maxWidth - 12 - 8 - _seqColW - _dragColW;
+        //  两列(识别结果/标准口令)总宽 =
+        //  面板宽 - 内边距 - 序号列 - 两个把手槽
+        _twoColsW = constraints.maxWidth -
+            12 - 8 - _seqColW - _dragColW * 2;
         if (_twoColsW < 100) _twoColsW = 100;
         final recogW = _twoColsW * _recognizedRatio;
         return fm.Column(
           crossAxisAlignment: fm.CrossAxisAlignment.start,
           children: [
+            //  列头(表的最顶端):三列标题 + 两个可拖动列宽把手
+            _headerRow(recogW),
             //  标题行:口令员名/条数 + 表退出 + 极小化
             fm.Container(
               width: double.infinity,
@@ -907,8 +924,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                 ),
               ]),
             ),
-            //  列头:三列标题 + 可拖动的列宽把手
-            _headerRow(recogW),
             fm.Expanded(
               child: table.rows.isEmpty
                   ? fm.Container(
@@ -956,25 +971,24 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                             width: 1,
                                             color: Color.LIGHTGREY))),
                             padding: fm.EdgeInsets.only(
-                                left: 12, right: 8, top: 3, bottom: 3),
+                                left: 12, right: 8, top: 1, bottom: 1),
                             child: fm.Row(
                               crossAxisAlignment:
                                   fm.CrossAxisAlignment.start,
                               children: [
                                 fm.SizedBox(
                                     width: _seqColW,
-                                    child: fm.Padding(
-                                      padding: fm.EdgeInsets.only(top: 2),
-                                      child: fm.Text(
-                                          '${row.seq}',
-                                          style: fm.TextStyle(
-                                              fontSize: 16,
-                                              color: Color.BLACK,
-                                              fontWeight: (isCandidate ||
-                                                      isCursor)
-                                                  ? fm.FontWeight.bold
-                                                  : null)),
-                                    )),
+                                    child: fm.Text('${row.seq}',
+                                        style: fm.TextStyle(
+                                            fontSize: 16,
+                                            height: 1.3,
+                                            color: Color.BLACK,
+                                            fontWeight: (isCandidate ||
+                                                    isCursor)
+                                                ? fm.FontWeight.bold
+                                                : null))),
+                                //  与列头把手1对齐的占位槽
+                                fm.SizedBox(width: _dragColW),
                                 fm.SizedBox(
                                     width: recogW,
                                     child: fm.Text(row.recognized,
@@ -982,15 +996,18 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                         overflow: fm.TextOverflow.visible,
                                         style: fm.TextStyle(
                                             fontSize: 16,
+                                            height: 1.3,
                                             fontWeight: isCandidate
                                                 ? fm.FontWeight.bold
                                                 : null))),
+                                //  与列头把手2对齐:箭头居中
                                 fm.SizedBox(
                                   width: _dragColW,
                                   child: fm.Center(
                                       child: fm.Text('→',
-                                          style:
-                                              fm.TextStyle(fontSize: 16))),
+                                          style: fm.TextStyle(
+                                              fontSize: 16,
+                                              height: 1.3))),
                                 ),
                                 fm.Expanded(
                                     child: fm.Text(
@@ -999,6 +1016,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                             : row.standardCall,
                                         style: fm.TextStyle(
                                             fontSize: 16,
+                                            height: 1.3,
                                             color: Color.BLACK,
                                             fontWeight:
                                                 fm.FontWeight.bold))),
@@ -1015,26 +1033,20 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     );
   }
 
-  //  列头行:序号 / 语音识别结果 / 标准口令 标题,
-  //  识别列与标准列之间是拖动把手(左右拖改变两列宽度)
+  //  列头行(表顶端):序号 / 语音识别结果 / 标准口令 标题,
+  //  两个拖动把手:序号|识别列之间、识别|标准列之间(左右拖改列宽)
   fm.Widget _headerRow(double recogW) {
     final style = fm.TextStyle(
         fontSize: 15,
+        height: 1.3,
         color: Color(0xff444444),
         fontWeight: fm.FontWeight.bold);
-    return fm.Container(
-      width: double.infinity,
-      color: Color(0xffe8e8e8),
-      padding: fm.EdgeInsets.only(left: 12, right: 8, top: 3, bottom: 3),
-      child: fm.Row(children: [
-        fm.SizedBox(width: _seqColW, child: fm.Text('序号', style: style)),
-        fm.SizedBox(
-            width: recogW, child: fm.Text('语音识别结果', style: style)),
+    fm.Widget handle(void Function(fm.DragUpdateDetails) onDrag) =>
         fm.SizedBox(
           width: _dragColW,
           child: fm.GestureDetector(
             behavior: fm.HitTestBehavior.opaque,
-            onHorizontalDragUpdate: _onDividerDrag,
+            onHorizontalDragUpdate: onDrag,
             onHorizontalDragEnd: (_) => _saveRatio(),
             child: fm.Center(
               child: fm.RotatedBox(
@@ -1044,7 +1056,18 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               ),
             ),
           ),
-        ),
+        );
+    return fm.Container(
+      width: double.infinity,
+      color: Color(0xffe8e8e8),
+      padding: fm.EdgeInsets.only(left: 12, right: 8, top: 1, bottom: 1),
+      child: fm.Row(children: [
+        fm.SizedBox(
+            width: _seqColW, child: fm.Text('序号', style: style)),
+        handle(_onSeqDrag),
+        fm.SizedBox(
+            width: recogW, child: fm.Text('语音识别结果', style: style)),
+        handle(_onDividerDrag),
         fm.Expanded(child: fm.Text('标准口令', style: style)),
       ]),
     );
