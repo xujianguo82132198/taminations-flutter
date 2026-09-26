@@ -766,7 +766,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                   child: fm.Padding(
                                     padding: fm.EdgeInsets.only(top: 2),
                                     child: fm.Text(
-                                        isCursor ? '▶${row.seq}' : '${row.seq}',
+                                        '${row.seq}',
                                         style: fm.TextStyle(
                                             fontSize: 16,
                                             color: Color.BLACK,
