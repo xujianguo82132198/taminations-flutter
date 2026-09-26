@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlin.concurrent.thread
 import org.vosk.Model
@@ -110,7 +111,7 @@ class MainActivity : FlutterActivity() {
             }
             "stopSpeechCapture" -> { stopSpeechCapture(); result.success(null) }
             "voskInit" -> voskInit(result)
-            "voskStart" -> voskStart(result)
+            "voskStart" -> voskStart(call, result)
             "voskStop" -> { voskStop(); result.success(null) }
             "voskFinal" -> voskFinal(result)
             else -> result.notImplemented()
@@ -643,16 +644,22 @@ class MainActivity : FlutterActivity() {
     }
   }
 
-  private fun voskStart(result: MethodChannel.Result) {
+  private fun voskStart(call: MethodCall, result: MethodChannel.Result) {
     val model = voskModel
     if (model == null) {
       result.error("vosk_no_model", "model not initialized", null)
       return
     }
+    //  口令词表(JSON 单词数组):限定解码词汇,提高口音容错
+    val grammar = call.argument<String>("grammar")
     synchronized(voskLock) {
       try {
-        voskRecognizer = Recognizer(model, 16000f)
+        voskRecognizer = if (grammar != null && grammar.length > 2)
+            Recognizer(model, 16000f, grammar)
+        else
+            Recognizer(model, 16000f)
         voskFeed = true
+        if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
       } catch (e: Exception) {
         Log.e(TAG, "vosk: start failed", e)
         result.error("vosk_start", e.message, null)

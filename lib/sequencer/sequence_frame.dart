@@ -906,17 +906,19 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
         return fm.Column(
           crossAxisAlignment: fm.CrossAxisAlignment.start,
           children: [
-            //  第一行:表名(口令员名/条数 + 极小化)
+            //  第一行:表名(口令员名/条数,居中)+ 极小化
             fm.Container(
               width: double.infinity,
               color: Color.FLOOR,
               padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
               child: fm.Row(children: [
                 fm.Expanded(
-                  child: fm.Text(
-                      '${flow.callerName}(${table.rows.length}条)',
-                      style: fm.TextStyle(
-                          fontWeight: fm.FontWeight.bold, fontSize: 16)),
+                  child: fm.Center(
+                    child: fm.Text(
+                        '${flow.callerName}(${table.rows.length}条)',
+                        style: fm.TextStyle(
+                            fontWeight: fm.FontWeight.bold, fontSize: 16)),
+                  ),
                 ),
                 //  表退出:红底白字大按钮
                 //  (Only 模式移到下方圆钮旁,不占面板行)

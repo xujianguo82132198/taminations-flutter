@@ -114,8 +114,16 @@ class MusicMonitor {
     }
   }
 
-  ///  开始离线识别(复用原生语音采集线程)
-  Future<void> voskStart() async => await _invoke('voskStart');
+  ///  开始离线识别(复用原生语音采集线程);
+  ///  grammar 为口令词表 JSON(限定解码词汇,null=自由识别)
+  Future<void> voskStart({String? grammar}) async {
+    try {
+      await _channel.invokeMethod(
+          'voskStart', grammar == null ? null : {'grammar': grammar});
+    } on PlatformException catch (e) {
+      debugPrint('MusicMonitor.voskStart failed: ${e.code} ${e.message}');
+    }
+  }
 
   ///  停止识别并丢弃剩余内容
   Future<void> voskStop() async => await _invoke('voskStop');

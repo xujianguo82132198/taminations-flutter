@@ -54,6 +54,9 @@ class VoskSpeechToText extends ChangeNotifier {
   StreamSubscription<MusicEvent>? _sub;
   final musicMonitor = MusicMonitor();
 
+  //  采表词表(null=自由识别);仅下一轮采样会话使用
+  List<String>? _grammarWords;
+
   //  模型加载去重:并发的 initialize 共享同一次加载
   Future<bool>? _initFuture;
 
@@ -111,6 +114,11 @@ class VoskSpeechToText extends ChangeNotifier {
     _lastResult = null;
   }
 
+  ///  采表采样限定口令词表(null=自由识别)
+  void setSampleGrammar(List<String>? words) {
+    _grammarWords = words;
+  }
+
   ///  开关式持续监听(与讯飞引擎一致):
   ///  空闲时调用开始连续识别;监听中再调一次视为用户点击关闭。
   ///  Vosk 自带断句,每句自动出最终结果,无需会话轮换。
@@ -128,6 +136,7 @@ class VoskSpeechToText extends ChangeNotifier {
       return;
     }
     _log('listen: toggle ON');
+    _grammarWords = null;   //  流式喊口令:自由识别
     _lastResult = null;
     _lastError = null;
     _lastLevel = 0;
@@ -227,7 +236,9 @@ class VoskSpeechToText extends ChangeNotifier {
     try {
       _sub?.cancel();
       _sub = musicMonitor.events.listen(_onEvent);
-      await musicMonitor.voskStart();
+      await musicMonitor.voskStart(
+          grammar: _grammarWords == null || _grammarWords!.isEmpty
+              ? null : jsonEncode(_grammarWords));
       _isListening = true;
       _log('session: listening');
     } catch (e) {

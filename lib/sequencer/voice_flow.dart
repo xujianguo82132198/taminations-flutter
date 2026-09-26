@@ -112,6 +112,9 @@ class VoiceFlow extends ChangeNotifier {
     //  同步 cancel 清理旧会话(防止 _client 残留导致 sample 被拒),
     //  紧接 sample 重置 _sampleSession=true,时序安全
     speech?.cancel();
+    //  Only 采表:限定口令词表解码(口音发音吸附到标准口令词汇,
+    //  大幅提高识别准确率);流式喊口令仍为自由识别
+    speech?.setSampleGrammar(_onlyTableWords());
     //  不立即 notify:重建 widget 树会导致 Listener 指针被取消,
     //  采样刚启动就被 stop(73ms 后被杀)。推迟到微任务。
     speech?.sample(localeId: 'en_US');
@@ -120,6 +123,25 @@ class VoiceFlow extends ChangeNotifier {
       speech?.addListener(_onSampleResult);
     Future.microtask(() => _notify());
     return true;
+  }
+
+  ///  采表词表:当前表第3列(标准口令)的全部单词。
+  ///  数字分数形式换成读法(1/4 -> one quarter)
+  List<String>? _onlyTableWords() {
+    final t = callerTable;
+    if (t == null || !onlyMode) return null;
+    final words = <String>{};
+    for (final r in t.rows) {
+      var s = r.standardCall.toLowerCase();
+      s = s.replaceAll('1/4', ' one quarter ')
+           .replaceAll('1/2', ' one half ')
+           .replaceAll('3/4', ' three quarter ')
+           .replaceAll('2/3', ' two third ');
+      for (final w in s.split(RegExp(r'[^a-z]+'))) {
+        if (w.isNotEmpty) words.add(w);
+      }
+    }
+    return words.isEmpty ? null : words.toList();
   }
 
   ///  抬起:收尾给出结果(结果在 hasResults 中被取走)

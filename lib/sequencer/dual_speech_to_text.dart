@@ -142,6 +142,12 @@ class DualSpeechProvider extends ChangeNotifier {
     _active.sample(localeId: localeId);
   }
 
+  ///  采表采样限定口令词表(null=自由识别)
+  void setSampleGrammar(List<String>? words) {
+    if (engine == 'vosk') vosk.setSampleGrammar(words);
+    else vosk.setSampleGrammar(null);
+  }
+
   void stop() => _active.stop();
   void cancel() => _active.cancel();
   void pause() => _active.pause();
