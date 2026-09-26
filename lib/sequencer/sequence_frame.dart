@@ -971,7 +971,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                             width: 1,
                                             color: Color.LIGHTGREY))),
                             padding: fm.EdgeInsets.only(
-                                left: 12, right: 8, top: 1, bottom: 1),
+                                left: 12, right: 8),
                             child: fm.Row(
                               crossAxisAlignment:
                                   fm.CrossAxisAlignment.start,
