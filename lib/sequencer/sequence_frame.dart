@@ -215,7 +215,46 @@ class _OnlyCombinedBarState extends fm.State<OnlyCombinedBar> {
           onPointerCancel: (e) => flow.endSample(),
           child: _OnlyPttButton(),
         ),
+        fm.SizedBox(width: 6),
+        //  表退出:从面板标题栏移来(Only 模式在此,不挡记录)
+        _OnlyExitButton(),
       ]),
+    );
+  }
+}
+
+///  Only 模式表退出钮(圆钮右侧):退出当前表,回映射表选择
+class _OnlyExitButton extends fm.StatelessWidget {
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final flow = VoiceFlow.instance;
+    return fm.InkWell(
+      onTap: () {
+        //  最小化退出:不用 flow.stop()(级联重建跳页)
+        flow.callerTable = null;
+        flow.tableMode = false;
+        flow.phase = 'idle';
+        flow.dictationText = '';
+        flow.dictationSeqOverride = null;
+        flow.notifyListeners();
+      },
+      child: fm.Container(
+        height: 48,
+        padding: fm.EdgeInsets.symmetric(horizontal: 12),
+        alignment: fm.Alignment.center,
+        decoration: fm.BoxDecoration(
+            color: Color.RED,
+            borderRadius: fm.BorderRadius.circular(24)),
+        child: fm.Row(children: [
+          fm.Icon(fm.Icons.exit_to_app, size: 20, color: Color.WHITE),
+          fm.SizedBox(width: 4),
+          fm.Text('表退出',
+              style: fm.TextStyle(
+                  fontSize: 16,
+                  fontWeight: fm.FontWeight.bold,
+                  color: Color.WHITE)),
+        ]),
+      ),
     );
   }
 }
@@ -882,6 +921,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                           fontWeight: fm.FontWeight.bold, fontSize: 16)),
                 ),
                 //  表退出:红底白字大按钮
+                //  (Only 模式移到下方圆钮旁,不占面板行)
+                if (!flow.onlyMode)
                 fm.Container(
                   decoration: fm.BoxDecoration(
                       color: Color.RED,
