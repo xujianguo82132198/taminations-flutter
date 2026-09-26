@@ -790,8 +790,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                   flex: 8,
                                   child: fm.Text(
                                       row.standardCall.isBlank ? '(待补全)' : row.standardCall,
-                                      maxLines: 5,
-                                      overflow: fm.TextOverflow.visible,
                                       style: fm.TextStyle(
                                           fontSize: 16,
                                           color: Color.BLACK,
