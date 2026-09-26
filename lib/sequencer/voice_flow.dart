@@ -278,7 +278,9 @@ class VoiceFlow extends ChangeNotifier {
     if (t == null || row == null || text.isBlank) return false;
     await t.updateRow(row.seq, recognized: text.trim(), sort: false);
     dictationText = '';
-    dictationSeqOverride = null;
+    //  确认后:跳到当前行的下一行(不管它是手选的还是自动的)
+    final nextRow = t.rows.where((r) => r.seq == row.seq + 1).firstOrNull;
+    dictationSeqOverride = nextRow?.seq;
     _notify();
     return true;
   }

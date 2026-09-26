@@ -491,23 +491,27 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   //  需要居中显示的记录,按优先级:
   //  1) 录入时新插入的待补全记录(先插入,排序,居中显示,高亮)
   //  2) 语音查表的候选记录
+  void _scrollToCursor() {
+    final table = flow.callerTable;
+    if (table == null || minimized || !flow.onlyMode) return;
+    final cursor = flow.currentDictationRow;
+    if (cursor == null) return;
+    final index = table.rows.indexOf(cursor);
+    if (index < 0) return;
+    //  jumpTo 立即定位,不用动画(动画期间行会消失)
+    fm.WidgetsBinding.instance.addPostFrameCallback((_) {
+      itemScrollController.jumpTo(
+          index: index,
+          alignment: 0.15);  //  光标行在显示区约第2行位置
+    });
+  }
+
   void _scrollToCenterIfNeeded() {
     final table = flow.callerTable;
     if (table == null || minimized) return;
-    //  Only 模式:光标行始终强制滚动到中心(每次状态变化都执行)
+    //  Only 模式:光标行强制定位到固定物理位置(第2行)
     if (flow.onlyMode) {
-      final cursor = flow.currentDictationRow;
-      if (cursor != null) {
-        final index = table.rows.indexOf(cursor);
-        if (index >= 0) {
-          debugPrint('scroll: cursor seq=${cursor.seq} index=$index');
-          fm.WidgetsBinding.instance.addPostFrameCallback((_) {
-            itemScrollController.scrollTo(
-                index: index, alignment: 0.5,
-                duration: Duration(milliseconds: 200));
-          });
-        }
-      }
+      _scrollToCursor();
       return;
     }
     //  非 Only 模式:候选/待补全记录居中
