@@ -1245,12 +1245,11 @@ packages:
     source: hosted
     version: "15.3.0"
   vosk_flutter:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
-      name: vosk_flutter
-      sha256: "03ad3789891e669f1ee637674ff112b72185a8c8dd3cf7f71fd5e7373ed41c42"
-      url: "https://pub.dev"
-    source: hosted
+      path: vosk_flutter_local
+      relative: true
+    source: path
     version: "0.3.48"
   watcher:
     dependency: transitive
