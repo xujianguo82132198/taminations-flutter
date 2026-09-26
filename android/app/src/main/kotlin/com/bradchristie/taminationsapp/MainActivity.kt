@@ -85,6 +85,7 @@ class MainActivity : FlutterActivity() {
     super.configureFlutterEngine(flutterEngine)
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         .setMethodCallHandler { call, result ->
+          Log.i(TAG, "chan: ${call.method}")
           when (call.method) {
             "startMicMonitor" -> {
               //  互斥:先停语音采集,避免双 AudioRecord 抢占失败
@@ -115,6 +116,7 @@ class MainActivity : FlutterActivity() {
             else -> result.notImplemented()
           }
         }
+    Log.i(TAG, "channel ready (taminations/music)")
   }
 
   override fun onDestroy() {
@@ -132,6 +134,7 @@ class MainActivity : FlutterActivity() {
     val args = HashMap<String, Any>()
     args["type"] = type
     if (value != null) args["value"] = value
+    Log.d(TAG, "event -> $type")
     mainHandler.post {
       MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
           .invokeMethod("event", args)

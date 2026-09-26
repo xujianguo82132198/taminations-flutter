@@ -55,6 +55,9 @@ void main() async {
   // Start up window manager so we can set and detect window size
   //  on desktop platforms
   fm.WidgetsFlutterBinding.ensureInitialized();
+  //  提前构造 VoiceFlow:挂载原生事件监听(音乐/自动化触发),
+  //  并预载离线识别模型(首次解包需数秒,放在启动期最稳)
+  VoiceFlow.instance;
   if (TamUtils.isWindowDevice) {
     await windowManager.ensureInitialized();
   }

@@ -46,6 +46,10 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
+            //  关闭 R8 收缩:体积收益很小(资源大头是模型与动画数据),
+            //  且曾引发 JNA/Vosk 运行时问题;保留规则见 proguard-rules.pro
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
