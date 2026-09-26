@@ -37,8 +37,10 @@ class MusicEvent {
   final int? value;
   final double? level;
   final List<int>? audio;
+  final String? text;
 
-  const MusicEvent(this.type, this.value, {this.level, this.audio});
+  const MusicEvent(this.type, this.value,
+      {this.level, this.audio, this.text});
 
 }
 
@@ -71,7 +73,8 @@ class MusicMonitor {
               args['type']?.toString() ?? '',
               args['value'] is int ? args['value'] as int : null,
               level: args['value'] is double ? args['value'] as double : null,
-              audio: data is List ? List<int>.from(data) : null));
+              audio: data is List ? List<int>.from(data) : null,
+              text: args['text'] is String ? args['text'] as String : null));
         }
       }
     });
@@ -100,6 +103,31 @@ class MusicMonitor {
 
   Future<void> stopSpeechCapture() async =>
       await _invoke('stopSpeechCapture');
+
+  //  Vosk 离线识别:加载模型(首次运行从 assets 解包,需数秒)
+  Future<bool> voskInit() async {
+    try {
+      return await _channel.invokeMethod('voskInit') ?? false;
+    } on PlatformException catch (e) {
+      debugPrint('MusicMonitor.voskInit failed: ${e.code} ${e.message}');
+      return false;
+    }
+  }
+
+  ///  开始离线识别(复用原生语音采集线程)
+  Future<void> voskStart() async => await _invoke('voskStart');
+
+  ///  停止识别并丢弃剩余内容
+  Future<void> voskStop() async => await _invoke('voskStop');
+
+  ///  停止识别并把剩余语音收尾成最终结果(JSON 字符串)返回
+  Future<String?> voskFinal() async {
+    try {
+      return await _channel.invokeMethod('voskFinal');
+    } on PlatformException {
+      return null;
+    }
+  }
 
   ///  即时查询本机是否有音乐正在播放
   Future<bool> isMusicPlaying() async {

@@ -13,6 +13,9 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlin.concurrent.thread
+import org.vosk.Model
+import org.vosk.Recognizer
+import java.io.File
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.max
@@ -105,6 +108,10 @@ class MainActivity : FlutterActivity() {
               startSpeechCapture(result)
             }
             "stopSpeechCapture" -> { stopSpeechCapture(); result.success(null) }
+            "voskInit" -> voskInit(result)
+            "voskStart" -> voskStart(result)
+            "voskStop" -> { voskStop(); result.success(null) }
+            "voskFinal" -> voskFinal(result)
             else -> result.notImplemented()
           }
         }
@@ -113,6 +120,8 @@ class MainActivity : FlutterActivity() {
   override fun onDestroy() {
     stopMicMonitor()
     stopPlaybackWatch()
+    voskFeed = false
+    stopSpeechCapture()
     super.onDestroy()
   }
 
@@ -498,7 +507,28 @@ class MainActivity : FlutterActivity() {
             val d = v / 32768.0
             sumSq += d * d
           }
-          sendBytes("speech_audio", bytes)
+          val rec = voskRecognizer
+          if (voskFeed && rec != null) {
+            //  离线识别:音频直接喂 Vosk,结果推给 Dart,不发音频流
+            var finalJson: String? = null
+            var partialJson: String? = null
+            synchronized(voskLock) {
+              try {
+                if (rec.acceptWaveForm(bytes, bytes.size))
+                  finalJson = rec.result
+                else
+                  partialJson = rec.partialResult
+              } catch (e: Exception) {
+                Log.e(TAG, "vosk: acceptWaveForm failed", e)
+                voskFeed = false
+              }
+            }
+            if (finalJson != null) sendEvent("vosk_final", finalJson)
+            else if (partialJson != null) sendEvent("vosk_partial", partialJson)
+          } else {
+            //  云端引擎:音频推给 Dart 转发
+            sendBytes("speech_audio", bytes)
+          }
           ampSumSq += sumSq
           ampFrames += n
           val now = System.currentTimeMillis()
@@ -526,12 +556,151 @@ class MainActivity : FlutterActivity() {
     speechThread = null
   }
 
+  // ------------------------------------------------ Vosk 离线语音识别
+  //  模型打包在 assets/vosk-model-en-us(英文小模型,约 40MB),
+  //  首次使用时解包到内部存储再加载,之后直接复用本地文件。
+  //  识别在语音采集线程内完成(音频不出原生层),结果以
+  //  vosk_final / vosk_partial 事件推给 Dart;云端引擎
+  //  (讯飞)才需要把音频流转发到 Dart。
+
+  private var voskModel: Model? = null
+
+  //  识别器按会话创建;引用保留到下次会话替换,避免
+  //  使用中被释放(采集线程与主线程经 voskLock 互斥访问)
+  @Volatile
+  private var voskRecognizer: Recognizer? = null
+
+  @Volatile
+  private var voskFeed = false
+
+  //  加载去重:Dart 侧可能有多个提供者实例并发请求初始化
+  @Volatile
+  private var voskLoading = false
+
+  private val voskLock = Any()
+
+  private fun voskInit(result: MethodChannel.Result) {
+    if (voskModel != null) { result.success(true); return }
+    val shouldLoad = synchronized(voskLock) {
+      when {
+        voskModel != null -> false       //  已就绪(锁内复查)
+        voskLoading -> null              //  已有加载在进行
+        else -> { voskLoading = true; true }
+      }
+    }
+    when (shouldLoad) {
+      true -> thread(name = "vosk-init") {
+        try {
+          val dir = File(filesDir, "vosk-model-en-us")
+          val marker = File(filesDir, "vosk-model-en-us.ready")
+          if (!marker.exists()) {
+            dir.deleteRecursively()
+            copyAssets("vosk-model-en-us", dir)
+            marker.createNewFile()
+            Log.i(TAG, "vosk: model unpacked to ${dir.absolutePath}")
+          }
+          val model = Model(dir.absolutePath)
+          synchronized(voskLock) { voskModel = model }
+          Log.i(TAG, "vosk: model loaded")
+          mainHandler.post { result.success(true) }
+        } catch (e: Exception) {
+          Log.e(TAG, "vosk: init failed", e)
+          mainHandler.post { result.error("vosk_init", e.message, null) }
+        } finally {
+          voskLoading = false
+        }
+      }
+      false -> result.success(true)
+      null -> {
+        //  等待进行中的加载完成后答复(最多 60 秒)
+        thread(name = "vosk-init-wait") {
+          var waited = 0
+          while (voskModel == null && waited < 60000) {
+            try { Thread.sleep(500) } catch (_: InterruptedException) {}
+            waited += 500
+          }
+          mainHandler.post {
+            if (voskModel != null) result.success(true)
+            else result.error("vosk_init", "model load failed", null)
+          }
+        }
+      }
+    }
+  }
+
+  //  递归解包 assets 目录到本地文件(文件与空目录靠 list 区分)
+  private fun copyAssets(path: String, out: File) {
+    val children = assets.list(path) ?: emptyArray()
+    if (children.isEmpty()) {
+      out.parentFile?.mkdirs()
+      out.outputStream().use { assets.open(path).copyTo(it) }
+    } else {
+      out.mkdirs()
+      for (name in children) copyAssets("$path/$name", File(out, name))
+    }
+  }
+
+  private fun voskStart(result: MethodChannel.Result) {
+    val model = voskModel
+    if (model == null) {
+      result.error("vosk_no_model", "model not initialized", null)
+      return
+    }
+    synchronized(voskLock) {
+      try {
+        voskRecognizer = Recognizer(model, 16000f)
+        voskFeed = true
+      } catch (e: Exception) {
+        Log.e(TAG, "vosk: start failed", e)
+        result.error("vosk_start", e.message, null)
+        return
+      }
+    }
+    Log.i(TAG, "vosk: recognition started")
+    //  复用语音采集线程(16k),采集循环会直接喂识别器
+    if (speechRunning) result.success(null) else startSpeechCapture(result)
+  }
+
+  //  停止识别,不回收剩余内容(取消/关闭场景)
+  private fun voskStop() {
+    synchronized(voskLock) { voskFeed = false }
+    stopSpeechCapture()
+  }
+
+  //  停止识别并把剩余语音收尾成最终结果返回(采样抬起场景)
+  private fun voskFinal(result: MethodChannel.Result) {
+    var json: String? = null
+    synchronized(voskLock) {
+      val rec = voskRecognizer
+      if (rec != null) {
+        try { json = rec.finalResult } catch (e: Exception) {
+          Log.e(TAG, "vosk: final failed", e)
+        }
+      }
+      voskFeed = false
+    }
+    stopSpeechCapture()
+    result.success(json)
+  }
+
   //  Double 值事件(振幅等)
   private fun sendEvent(type: String, value: Double) {
     val engine = flutterEngine ?: return
     val args = HashMap<String, Any>()
     args["type"] = type
     args["value"] = value
+    mainHandler.post {
+      MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+          .invokeMethod("event", args)
+    }
+  }
+
+  //  文本事件(Vosk 识别结果 JSON 等)
+  private fun sendEvent(type: String, text: String) {
+    val engine = flutterEngine ?: return
+    val args = HashMap<String, Any>()
+    args["type"] = type
+    args["text"] = text
     mainHandler.post {
       MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
           .invokeMethod("event", args)

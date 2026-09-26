@@ -28,7 +28,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
 import 'dual_speech_to_text.dart';
-import 'xfyun_speech_to_text.dart';
 
 ///  口令员语音呼叫全流程(单例,存活于整个应用期间)
 ///

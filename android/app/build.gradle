@@ -53,3 +53,10 @@ android {
 flutter {
     source "../.."
 }
+
+dependencies {
+    //  Vosk 离线语音识别:直接依赖 Maven Central 上的原生 AAR,
+    //  不经过 vosk_flutter 插件(该插件要求 AGP<8,与本工程不兼容)
+    implementation 'com.alphacephei:vosk-android:0.3.47'
+    implementation 'net.java.dev.jna:jna:5.13.0@aar'
+}

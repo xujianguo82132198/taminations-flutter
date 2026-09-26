@@ -97,8 +97,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
   }
 }
 
-///  语音引擎选择:自动(默认,中国用讯飞/海外连不上自动切谷歌)、
-///  讯飞、谷歌
+///  语音引擎选择:默认离线(Vosk,免费无限制不联网)、
+///  自动(离线优先,异常退回云端)、讯飞云端、谷歌云端
 class SpeechEngineWidget extends fm.StatefulWidget {
   @override
   _SpeechEngineWidgetState createState() => _SpeechEngineWidgetState();
@@ -130,34 +130,46 @@ class _SpeechEngineWidgetState extends fm.State<SpeechEngineWidget> {
     } catch (_) {}
   }
 
+  String _label(String v) => v == 'auto' ? '自动(离线优先)'
+      : (v == 'vosk' ? '离线(推荐)'
+      : (v == 'xfyun' ? '讯飞(云端)' : '谷歌(云端)'));
+
   @override
   fm.Widget build(fm.BuildContext context) {
     return fm.Column(
         crossAxisAlignment: fm.CrossAxisAlignment.stretch,
         children: [
-          _SettingTitle('语音引擎(中国讯飞/美国谷歌)'),
+          _SettingTitle('语音引擎(默认离线,免费不限次)'),
           fm.Container(
             color: fm.Colors.white,
             margin: fm.EdgeInsets.only(bottom:3),
-            child: fm.Row(
+            child: fm.Column(
               children: [
-                for (final v in ['auto', 'xfyun', 'google'])
-                  fm.Expanded(
-                    child: fm.InkWell(
-                      onTap: () => _set(v),
-                      child: fm.Row(mainAxisSize: fm.MainAxisSize.min,
-                          children:[
-                            fm.Radio<String>(
-                                value: v,
-                                groupValue: _engine,
-                                onChanged: (nv) {
-                                  if (nv != null) _set(nv);
-                                }),
-                            fm.Text(v == 'auto' ? '自动' :
-                                    (v == 'xfyun' ? '讯飞' : '谷歌'),
-                                style: fm.TextStyle(fontSize: 18))
-                          ]),
-                    ),
+                for (final row in [
+                  ['auto', 'vosk'],
+                  ['xfyun', 'google']
+                ])
+                  fm.Row(
+                    children: [
+                      for (final v in row)
+                        fm.Expanded(
+                          child: fm.InkWell(
+                            onTap: () => _set(v),
+                            child: fm.Row(mainAxisSize: fm.MainAxisSize.min,
+                                children:[
+                                  fm.Radio<String>(
+                                      value: v,
+                                      groupValue: _engine,
+                                      onChanged: (nv) {
+                                        if (nv != null) _set(nv);
+                                      }),
+                                  fm.Expanded(child:
+                                  fm.Text(_label(v),
+                                      style: fm.TextStyle(fontSize: 18)))
+                                ]),
+                          ),
+                        ),
+                    ],
                   ),
               ],
             ),

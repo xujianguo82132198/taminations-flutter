@@ -16,6 +16,12 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+  多语音引擎(离线优先):
+  - 默认 Vosk 离线引擎(免费、无次数限制、不联网);
+  - 自动模式:离线不可用时依次退回讯飞(中国大陆)→谷歌(海外);
+  - 可在 Sequencer → Settings → 语音引擎 中手动指定。
+  对外 API 与单个引擎一致,调用方无感切换
+
 */
 
 import 'dart:async';
@@ -24,36 +30,30 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'google_speech_to_text.dart';
+import 'vosk_speech_to_text.dart';
 import 'xfyun_speech_to_text.dart';
 
-///  双语音引擎(中国用讯飞,美国/海外用谷歌):
-///  - 自动(默认):先用讯飞;连接失败(海外网络)自动切谷歌并重试;
-///    谷歌不可用(无 GMS)则保持讯飞
-///  - 手动:设置中指定引擎
-///  对外 API 与单个引擎一致,调用方无感切换
 class DualSpeechProvider extends ChangeNotifier {
 
-  static const _prefKey = '语音引擎';   //  auto / xfyun / google
+  static const _prefKey = '语音引擎';   //  auto / vosk / xfyun / google
 
   final xfyun = SpeechToTextProvider();
   final google = GoogleSpeechToText();
-  final vosk = null;
+  final vosk = VoskSpeechToText();
 
-  ///  当前生效引擎名:'xfyun' / 'google'
+  ///  当前生效引擎名:'vosk' / 'xfyun' / 'google'
   String engine = 'vosk';
-  String _setting = 'auto';   //  auto / xfyun / google
-  Timer? _failoverTimer;
-  bool _switchedNoticeShown = false;
+  String _setting = 'auto';   //  auto / vosk / xfyun / google
 
   dynamic get _active =>
       engine == 'google' ? google
-      : (engine == 'vosk' ? vosk : xfyun);
+      : (engine == 'xfyun' ? xfyun : vosk);
 
   bool get isAvailable => _active.isAvailable;
   bool get isListening => _active.isListening;
   bool get hasResults => _active.hasResults;
   String? get lastError =>
-      engine == 'google' ? null : xfyun.lastError;
+      engine == 'google' ? null : _active.lastError;
   SpeechRecognitionResult? get lastResult => _active.lastResult;
 
   DualSpeechProvider() {
@@ -61,6 +61,7 @@ class DualSpeechProvider extends ChangeNotifier {
     //  任一引擎通知都向上转发
     xfyun.addListener(_forward);
     google.addListener(_forward);
+    vosk.addListener(_forward);
   }
 
   Future<void> _loadSetting() async {
@@ -68,15 +69,24 @@ class DualSpeechProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _setting = prefs.getString(_prefKey) ?? 'auto';
     } catch (_) {}
-    if (_setting == 'google') engine = 'google';
-    else if (_setting == 'xfyun') engine = 'xfyun';
-    else engine = 'vosk';
+    engine = _engineFor(_setting);
+    debugPrint('DualSpeech: engine=$engine (setting=$_setting)');
+    //  预热离线模型(首次解包需数秒,提前到打开页面时做,
+    //  用户按下麦克风时基本已就绪)
+    if (engine == 'vosk') unawaited(vosk.initialize());
+    notifyListeners();
   }
 
-  ///  设置引擎(auto/xfyun/google),持久化并立即生效
+  String _engineFor(String setting) =>
+      setting == 'google' ? 'google'
+      : (setting == 'xfyun' ? 'xfyun' : 'vosk');
+
+  ///  设置引擎(auto/vosk/xfyun/google),持久化并立即生效
   Future<void> setEngine(String value) async {
     _setting = value;
-    engine = value == 'google' ? 'google' : 'xfyun';
+    engine = _engineFor(value);
+    //  切到新引擎时立即预热
+    unawaited(_active.initialize());
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefKey, value);
@@ -85,32 +95,31 @@ class DualSpeechProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _forward() {
-    if (!_switchedNoticeShown &&
-        engine == 'xfyun' && !xfyun.isListening &&
-        (xfyun.lastError?.contains('connect') ?? false)) {
-      //  首次连接失败提示一次(海外网络场景)
-      _switchedNoticeShown = true;
-      debugPrint('DualSpeech: xfyun connect failed noticed');
-    }
-    notifyListeners();
-  }
+  void _forward() => notifyListeners();
 
   Future<bool> initialize() async {
-    if (_setting == 'auto' && engine == 'xfyun') {
-      //  自动模式:两个都尝试初始化,优先讯飞(中国),
-      //  讯飞不可初始化且谷歌可用时切谷歌
-      final xok = await xfyun.initialize();
-      if (xok) {
+    if (engine == 'vosk') {
+      final ok = await vosk.initialize();
+      if (ok) {
         notifyListeners();
         return true;
       }
-      final gok = await google.initialize();
-      if (gok) {
-        engine = 'google';
-        debugPrint('DualSpeech: xfyun unavailable -> google');
-        notifyListeners();
-        return true;
+      if (_setting == 'auto') {
+        //  自动模式兜底:离线模型异常时退回云端
+        final xok = await xfyun.initialize();
+        if (xok) {
+          engine = 'xfyun';
+          debugPrint('DualSpeech: vosk unavailable -> xfyun');
+          notifyListeners();
+          return true;
+        }
+        final gok = await google.initialize();
+        if (gok) {
+          engine = 'google';
+          debugPrint('DualSpeech: vosk/xfyun unavailable -> google');
+          notifyListeners();
+          return true;
+        }
       }
       notifyListeners();
       return false;
@@ -133,25 +142,6 @@ class DualSpeechProvider extends ChangeNotifier {
     _active.sample(localeId: localeId);
   }
 
-  ///  自动模式:讯飞 5 秒内没进入监听且报连接错误 ->
-  ///  切谷歌重试一次(海外网络)
-  void _watchFailover() {
-    _failoverTimer?.cancel();
-    if (_setting != 'auto' || engine != 'xfyun') return;
-    _failoverTimer = Timer(const Duration(seconds: 5), () async {
-      if (engine != 'xfyun' || xfyun.isListening) return;
-      final err = xfyun.lastError ?? '';
-      if (!err.contains('connect')) return;
-      final gok = await google.initialize();
-      if (gok) {
-        engine = 'google';
-        debugPrint('DualSpeech: failover xfyun->google');
-        google.listen(localeId: 'en_US');
-        notifyListeners();
-      }
-    });
-  }
-
   void stop() => _active.stop();
   void cancel() => _active.cancel();
   void pause() => _active.pause();
@@ -160,11 +150,12 @@ class DualSpeechProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _failoverTimer?.cancel();
     xfyun.removeListener(_forward);
     google.removeListener(_forward);
+    vosk.removeListener(_forward);
     xfyun.dispose();
     google.dispose();
+    vosk.dispose();
     super.dispose();
   }
 
