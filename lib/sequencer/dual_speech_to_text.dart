@@ -24,7 +24,6 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'google_speech_to_text.dart';
-import 'vosk_speech_to_text.dart';
 import 'xfyun_speech_to_text.dart';
 
 ///  双语音引擎(中国用讯飞,美国/海外用谷歌):
@@ -38,7 +37,7 @@ class DualSpeechProvider extends ChangeNotifier {
 
   final xfyun = SpeechToTextProvider();
   final google = GoogleSpeechToText();
-  final vosk = VoskSpeechToText();
+  final vosk = null;
 
   ///  当前生效引擎名:'xfyun' / 'google'
   String engine = 'vosk';

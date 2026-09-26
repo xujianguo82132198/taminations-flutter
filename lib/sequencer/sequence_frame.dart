@@ -41,7 +41,7 @@ import 'abbreviations_model.dart';
 import 'caller_store.dart';
 import 'sequencer_model.dart';
 import 'voice_flow.dart';
-import 'vosk_speech_to_text.dart';
+import 'dual_speech_to_text.dart';
 import 'xfyun_speech_to_text.dart';
 
 class SequenceFrame extends fm.StatefulWidget {

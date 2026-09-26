@@ -27,7 +27,7 @@ import '../extensions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
-import 'vosk_speech_to_text.dart';
+import 'dual_speech_to_text.dart';
 import 'xfyun_speech_to_text.dart';
 
 ///  口令员语音呼叫全流程(单例,存活于整个应用期间)
@@ -113,15 +113,6 @@ class VoiceFlow extends ChangeNotifier {
     //  同步 cancel 清理旧会话(防止 _client 残留导致 sample 被拒),
     //  紧接 sample 重置 _sampleSession=true,时序安全
     speech?.cancel();
-    //  Vosk 需要初始化(首次加载模型约1秒)
-    if (speech?.isAvailable != true) {
-      debugPrint('Vosk: initializing...');
-      speech?.initialize().then((ok) {
-        debugPrint('Vosk: init ok=$ok');
-        if (ok) speech?.sample(localeId: 'en_US');
-      });
-      return true;  //  返回 true 表示已触发
-    }
     //  不立即 notify:重建 widget 树会导致 Listener 指针被取消,
     //  采样刚启动就被 stop(73ms 后被杀)。推迟到微任务。
     speech?.sample(localeId: 'en_US');
@@ -342,7 +333,7 @@ class VoiceFlow extends ChangeNotifier {
   bool get isActive => phase != 'idle';
 
   ///  输入行创建/重建时调用,注入其语音识别器并取消孤儿回收
-  void attach(VoskSpeechToText speechProvider) {
+  void attach(DualSpeechProvider speechProvider) {
     speech = speechProvider;
     _orphanTimer?.cancel();
     _orphanTimer = null;
