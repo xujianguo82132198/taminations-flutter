@@ -12,7 +12,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "com.bradchristie.taminationsapp"
-    compileSdk 34
+    compileSdk flutter.compileSdkVersion
     ndkVersion = "29.0.13846066"
 
     compileOptions {

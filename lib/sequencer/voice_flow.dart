@@ -27,7 +27,7 @@ import '../extensions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
-import 'vosk_speech_to_text.dart';
+import 'dual_speech_to_text.dart';
 import 'xfyun_speech_to_text.dart';
 
 ///  口令员语音呼叫全流程(单例,存活于整个应用期间)
@@ -50,7 +50,7 @@ class VoiceFlow extends ChangeNotifier {
     _musicSub ??= musicMonitor.events.listen(_onEvent);
     musicMonitor.sendAliveProbe();
     //  始终持有语音识别器(Only模式隐藏输入行时PTT也能工作)
-    speech ??= VoskSpeechToText();
+    speech ??= DualSpeechProvider();
   }
   static final VoiceFlow instance = VoiceFlow._();
 
@@ -59,10 +59,10 @@ class VoiceFlow extends ChangeNotifier {
   Timer? _orphanTimer;
 
   ///  当前输入行 State 注入的语音识别器(输入行重建时刷新)
-  VoskSpeechToText? speech;
+  DualSpeechProvider? speech;
 
   ///  自动语音测试用的临时识别器(页面未打开时自建)
-  VoskSpeechToText? _testSpeech;
+  DualSpeechProvider? _testSpeech;
 
   ///  输入行注入的"登录并打开映射表"回调(音乐按钮在未登录时
   ///  按下也需要走登录流程)
@@ -333,7 +333,7 @@ class VoiceFlow extends ChangeNotifier {
   bool get isActive => phase != 'idle';
 
   ///  输入行创建/重建时调用,注入其语音识别器并取消孤儿回收
-  void attach(VoskSpeechToText speechProvider) {
+  void attach(DualSpeechProvider speechProvider) {
     speech = speechProvider;
     _orphanTimer?.cancel();
     _orphanTimer = null;
@@ -498,7 +498,7 @@ class VoiceFlow extends ChangeNotifier {
     if (e.type == 'auto_voice') {
       debugPrint('auto_voice: sampling 8s');
       _testSpeech?.dispose();
-      final s = speech ?? (_testSpeech = VoskSpeechToText());
+      final s = speech ?? (_testSpeech = DualSpeechProvider());
       s.cancel();
       s.addListener(() {
         if (s.hasResults) {
