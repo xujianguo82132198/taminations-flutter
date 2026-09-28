@@ -1304,22 +1304,21 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         afterDelay(() { _lastError = ''; },Duration(seconds:5));
       }
       //  Process any results from the speech recognizer
-      if (speech.hasResults) {
+      //  只处理最终结果:中间结果仅供黄框实时显示,
+      //  不得流入输入框、不得触发表内自动执行
+      if (speech.hasResults && speech.lastResult!.finalResult) {
         //  0) PTT 采样结果(按下说话/抬起出结果):专用于映射表
-        //     口令语音采集——识别句直接进入记录初始化
+        //     口令语音采集。Only 模式由 VoiceFlow 处理(黄框待确认),
+        //     非 Only 模式进入记录初始化
         if (flow.pttActive) {
           final sample = speech.lastResult!.alternates
-              .map((a) => a.recognizedWords.replaceAll('\\W'.r, ' ').trim())
+              .map((a) => a.recognizedWords.replaceAll('\W'.r, ' ').trim())
               .firstWhere((st) => st.isNotBlank, orElse: () => '');
           flow.consumeSample();
-          //  Only 采表模式:识别结果放输入框,待"识别确认"后入表
           if (flow.onlyMode) {
-            flow.dictationText = sample;
-            //  与 Calls 选择式同法:由 _onFlowChanged 消费到输入框
-            flow.callSelection = sample;
+            //  结果只进黄框待确认(不动输入框、不发回车)
             speech.clearResults();
-          }
-          if (sample.isNotBlank && !flow.onlyMode) {
+          } else if (sample.isNotBlank) {
             later(() async {
               final row = await flow.startRecordInit(sample);
               if (row == null || !mounted) return;
@@ -1331,8 +1330,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       '执行正确后自动存表。',
                       style: GoogleFonts.roboto(fontSize: 20))));
             });
-          } else if (!flow.onlyMode && sample.isBlank) {
-            //  空结果(非Only模式)才提示
+            speech.clearResults();
+          } else {
             later(() {
               if (!mounted) return;
               fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
@@ -1341,42 +1340,41 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   content: fm.Text('未采集到语音:请按住按钮说话,说完再抬起。',
                       style: GoogleFonts.roboto(fontSize: 20))));
             });
+            speech.clearResults();
           }
-          speech.clearResults();
         }
-        //  1) 口令员映射表顺序查找:对每个候选识别句,
+        //  1) 喊口令流式结果:口令员映射表顺序查找,对每个候选识别句,
         //     误差最小的候选记录居中突出显示,误差小于阈值
-        //     命中则直接取该记录的第三列(标准口令)输出给系统
-        var tableMatched = false;
-        final table = flow.callerTable;
-        if (table != null && flow.isActive) {
-          for (var i = 0;
-              i < speech.lastResult!.alternates.length && !tableMatched;
-              i++) {
-            final sentence = speech.lastResult!.alternates[i]
-                .recognizedWords.replaceAll('\\W'.r, ' ').trim();
-            if (sentence.isBlank) continue;
-            final row = flow.lookupInTable(sentence);
-            if (row != null) {
-              debugPrint('VoiceFlow table hit: "$sentence" '
-                  '(err=${flow.lastCandidateError.toStringAsFixed(2)}) '
-                  '-> "${row.standardCall}"');
-              later(() {
-                _isVoiceCall = true;
-                _sendOneLine(model, row.standardCall);
-              });
-              tableMatched = true;
+        //     命中则直接取该记录的第三列(标准口令)输出给系统。
+        //     Only 采表模式绝不自动执行口令
+        else if (!flow.onlyMode) {
+          var tableMatched = false;
+          final table = flow.callerTable;
+          if (table != null && flow.isActive) {
+            for (var i = 0;
+                i < speech.lastResult!.alternates.length && !tableMatched;
+                i++) {
+              final sentence = speech.lastResult!.alternates[i]
+                  .recognizedWords.replaceAll('\W'.r, ' ').trim();
+              if (sentence.isBlank) continue;
+              final row = flow.lookupInTable(sentence);
+              if (row != null) {
+                debugPrint('VoiceFlow table hit: "$sentence" '
+                    '(err=${flow.lastCandidateError.toStringAsFixed(2)}) '
+                    '-> "${row.standardCall}"');
+                later(() {
+                  _isVoiceCall = true;
+                  _sendOneLine(model, row.standardCall);
+                });
+                tableMatched = true;
+              }
             }
           }
+          if (!tableMatched) {
+            //  喊口令时映射表未查到:不予理睬(完全忽略,不执行)
+            debugPrint('VoiceFlow table miss -> ignored');
+          }
         }
-        if (!tableMatched) {
-          //  喊口令时映射表未查到:不予理睬(完全忽略,不执行)。
-          //  映射表可通过"补全"预写入全部口令,或用"按下说话"
-          //  采样按钮补充口令员自己的说法
-          debugPrint('VoiceFlow table miss -> ignored');
-        }
-        //  持续监听模式下 Provider 会自动开始下一轮识别,
-        //  这里不再需要手动 stop + listen 重启
         //  处理完一条结果后立即清空,防止 build 重复消费同一结果
         speech.clearResults();
       }
