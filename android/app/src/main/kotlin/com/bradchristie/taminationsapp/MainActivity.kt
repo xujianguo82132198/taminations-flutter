@@ -654,10 +654,13 @@ class MainActivity : FlutterActivity() {
     val grammar = call.argument<String>("grammar")
     synchronized(voskLock) {
       try {
-        voskRecognizer = if (grammar != null && grammar.length > 2)
+        val rec = if (grammar != null && grammar.length > 2)
             Recognizer(model, 16000f, grammar)
         else
             Recognizer(model, 16000f)
+        //  一次给出多个候选:由 Dart 侧挑选与表内口令最接近的
+        try { rec.setMaxAlternatives(10) } catch (_: Exception) {}
+        voskRecognizer = rec
         voskFeed = true
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
       } catch (e: Exception) {

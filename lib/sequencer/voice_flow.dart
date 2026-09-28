@@ -208,10 +208,30 @@ class VoiceFlow extends ChangeNotifier {
     final result = s.lastResult;
     if (result == null || !result.finalResult) return;
     String text = '';
-    for (final alt in result.alternates) {
-      final t = alt.recognizedWords
-          .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
-      if (t.isNotEmpty) { text = t; break; }
+    //  多候选时:挑与表内标准口令误差最小的候选
+    //  (识别器一次给出多种听法,靠近真口令的即正确解码)
+    final t = callerTable;
+    if (t != null && result.alternates.length > 1) {
+      var bestErr = double.infinity;
+      for (final alt in result.alternates) {
+        final a = alt.recognizedWords
+            .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
+        if (a.isEmpty) continue;
+        for (final row in t.rows) {
+          final e = CallerTable.sentenceError(a, row.standardCall);
+          if (e < bestErr) {
+            bestErr = e;
+            text = a;
+          }
+        }
+      }
+    }
+    if (text.isEmpty) {
+      for (final alt in result.alternates) {
+        final t2 = alt.recognizedWords
+            .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
+        if (t2.isNotEmpty) { text = t2; break; }
+      }
     }
     _sampleTimeout?.cancel();
     //  [unk]=语法没匹配上(读音与所有口令都太远):不写入,

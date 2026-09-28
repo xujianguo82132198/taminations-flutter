@@ -263,13 +263,14 @@ class VoskSpeechToText extends ChangeNotifier {
     try {
       json = await musicMonitor.voskFinal();
     } catch (_) {}
-    final text = _textField(json, 'text');
-    if (text != null && text.isNotEmpty) {
-      _sessionText =
-          _sessionText.isEmpty ? text : '$_sessionText $text';
-      _log('finish: final "$_sessionText"');
+    final texts = _textsOf(json);
+    if (texts.isNotEmpty) {
+      _sessionText = _sessionText.isEmpty
+          ? texts.first : '$_sessionText ${texts.first}';
+      _log('finish: final "$_sessionText" alts=$texts');
       _lastResult = SpeechRecognitionResult(
-          [SpeechRecognitionAlternative(_sessionText, 1.0)], true);
+          [for (final t in texts) SpeechRecognitionAlternative(t, 1.0)],
+          true);
     } else if (_sessionText.isNotEmpty) {
       _log('finish: using accumulated "$_sessionText"');
       _lastResult = SpeechRecognitionResult(
@@ -296,14 +297,15 @@ class VoskSpeechToText extends ChangeNotifier {
         break;
       case 'vosk_final':
         //  断句自动给出的最终结果;采样期间累计拼接,
-        //  避免多词口令只取到前半段
-        final text = _textField(event.text, 'text');
-        _log('final: "$text"');
-        if (text != null && text.isNotEmpty) {
-          _sessionText =
-              _sessionText.isEmpty ? text : '$_sessionText $text';
+        //  避免多词口令只取到前半段(带全部候选供上层挑选)
+        final texts = _textsOf(event.text);
+        _log('final: $texts');
+        if (texts.isNotEmpty) {
+          _sessionText = _sessionText.isEmpty
+              ? texts.first : '$_sessionText ${texts.first}';
           _lastResult = SpeechRecognitionResult(
-              [SpeechRecognitionAlternative(_sessionText, 1.0)], true);
+              [for (final t in texts) SpeechRecognitionAlternative(t, 1.0)],
+              true);
           _notify();
         }
         break;
@@ -317,6 +319,32 @@ class VoskSpeechToText extends ChangeNotifier {
         _lastError = 'native capture failed';
         _notify();
         break;
+    }
+  }
+
+  //  从结果 JSON 取全部候选文本(去重,首选在前);
+  //  setMaxAlternatives 开启后 JSON 带 alternatives 数组
+  List<String> _textsOf(String? json) {
+    if (json == null || json.isEmpty) return const [];
+    try {
+      final v = jsonDecode(json);
+      if (v is! Map) return const [];
+      final out = <String>[];
+      if (v['text'] is String && (v['text'] as String).trim().isNotEmpty) {
+        out.add((v['text'] as String).trim());
+      }
+      final alts = v['alternatives'];
+      if (alts is List) {
+        for (final a in alts) {
+          if (a is Map && a['text'] is String) {
+            final t = (a['text'] as String).trim();
+            if (t.isNotEmpty && !out.contains(t)) out.add(t);
+          }
+        }
+      }
+      return out;
+    } catch (_) {
+      return const [];
     }
   }
 
