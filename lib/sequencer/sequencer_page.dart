@@ -119,12 +119,13 @@ class _SequencerPageState extends fm.State<SequencerPage> {
               if (isSmallDevice(context)) {
                 //  Only 采表模式:跳舞区缩为窄条,表格区最大化;
                 //  其他模式:动画 3 : 输入区 2
-                //  Only 采表:上部表格区,下方约1/3留给跳舞区
+                //  Only 采表:上方跳舞区(高度保证右侧按钮列
+                //  与节拍数字可见),下方表格占满剩余屏幕
                 if (VoiceFlow.instance.onlyMode)
                   return  fm.Column(
                     children: [
-                      fm.Expanded(flex: 8, child: SequenceFrame()),
-                      fm.Expanded(flex: 4, child: PortraitSequencerAnimationFrame()),
+                      fm.Expanded(flex: 5, child: PortraitSequencerAnimationFrame()),
+                      fm.Expanded(flex: 11, child: SequenceFrame()),
                     ],
                   );
                 return  fm.Column(
