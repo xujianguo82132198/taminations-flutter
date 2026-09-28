@@ -77,11 +77,10 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
            return fm.LayoutBuilder(
              builder: (context,constraints) => fm.Column(
                children: [
-                 //  Only 采表:识别结果大字只读显示(独立监听组件)
-                 OnlyCombinedBar(),
-
-                 //  口令输入行(始终显示,采表模式也不遮挡)
+                 //  口令输入行(原来的位置:紧跟动画区,始终显示)
                  SequencerEditLine(),
+                 //  Only 采表:识别结果大字显示(显示框+圆钮+表退出)
+                 OnlyCombinedBar(),
                  //  音乐功能开关(可选)
                  if (TamUtils.canListen)
                    MusicDanceButton(),
@@ -893,7 +892,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       );
     //  展开时固定高度(150),不自动扩大,不影响跳舞区域
     return fm.Container(
-      height: flow.onlyMode ? 400 : 240,
+      height: flow.onlyMode ? 320 : 240,
       color: Color.WHITE,
       child: fm.LayoutBuilder(builder: (context, constraints) {
         //  两列(识别结果/标准口令)总宽 =
