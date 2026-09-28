@@ -85,7 +85,9 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                  if (TamUtils.canListen)
                    MusicDanceButton(),
                  CallerTablePanel(),
-                 if (!isSmallAndCompact(context))
+                 //  采表模式不需要序列列表(表格独占剩余空间)
+                 if (!isSmallAndCompact(context) &&
+                     !VoiceFlow.instance.onlyMode)
                    fm.Expanded(
                        child: ScrollablePositionedList.builder(
                          itemScrollController: itemScrollController,
