@@ -314,7 +314,9 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                 : (flow.lastError == 'not_heard'
                     ? '✕ 没听清,请再按住重念'
                     : (flow.pttActive
-                    ? '● 正在聆听…(松开结束)'
+                    ? (flow.dictationPartial.isNotBlank
+                        ? '● ${flow.dictationPartial}'
+                        : '● 正在聆听…(松开结束)')
                     : (flow.dictationText.isNotBlank
                         ? '${flow.dictationText} →'
                         : '🎙 朗读'))),

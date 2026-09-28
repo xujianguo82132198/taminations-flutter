@@ -115,9 +115,9 @@ class VoiceFlow extends ChangeNotifier {
     //  Only 采表:限定口令词表解码(口音发音吸附到标准口令词汇,
     //  大幅提高识别准确率);流式喊口令仍为自由识别
     speech?.setSampleGrammar(_onlyTableWords());
-    //  不立即 notify:重建 widget 树会导致 Listener 指针被取消,
-    //  采样刚启动就被 stop(73ms 后被杀)。推迟到微任务。
-    speech?.sample(localeId: 'en_US');
+    dictationPartial = '';
+    //  开实时中间结果:边念边显示,反馈更快
+    speech?.sample(localeId: 'en_US', partialResults: true);
     //  Only 模式:结果直接在 VoiceFlow 处理(输入行隐藏时 build 不跑)
     if (onlyMode)
       speech?.addListener(_onSampleResult);
@@ -201,11 +201,20 @@ class VoiceFlow extends ChangeNotifier {
   void _onSampleResult() {
     final s = speech;
     if (s == null || !pttActive || !s.hasResults) return;
+    final result = s.lastResult;
+    //  中间结果:实时更新显示(不作确认内容)
+    if (!result!.finalResult) {
+      final p = result.recognizedWords.trim();
+      if (p != dictationPartial) {
+        dictationPartial = p;
+        _notify();
+      }
+      return;
+    }
     //  只在采样会话完全结束后取结果:识别器在口令中间停顿时
     //  会先交出一段"最终结果"(如 "u turn"),不能当完整结果用,
     //  否则后面的词(back)全部丢失
     if (s.isListening) return;
-    final result = s.lastResult;
     if (result == null || !result.finalResult) return;
     String text = '';
     //  多候选时:挑与表内标准口令误差最小的候选
@@ -326,6 +335,9 @@ class VoiceFlow extends ChangeNotifier {
   ///  Only 采表:待确认的识别文字(识别结果暂存,
   ///  "识别确认"后写入表中)
   String dictationText = '';
+
+  ///  采样中的实时中间结果(边念边显示,只作提示)
+  String dictationPartial = '';
 
   ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
   bool get onlyMode =>

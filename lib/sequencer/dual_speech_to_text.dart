@@ -138,8 +138,9 @@ class DualSpeechProvider extends ChangeNotifier {
     _active.listen(localeId: localeId);
   }
 
-  void sample({String? localeId}) {
-    _active.sample(localeId: localeId);
+  void sample({String? localeId, bool partialResults = true}) {
+    _active.sample(
+        localeId: localeId, partialResults: partialResults);
   }
 
   ///  采表采样限定口令词表(null=自由识别)

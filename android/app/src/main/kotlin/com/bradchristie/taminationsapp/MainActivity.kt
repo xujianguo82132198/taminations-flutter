@@ -689,7 +689,7 @@ class MainActivity : FlutterActivity() {
       val rec = voskRecognizer
       if (rec != null) {
         try {
-          val silence = ByteArray(16000 * 6 / 10)   //  0.6s @16kHz
+          val silence = ByteArray(16000 * 4 / 10)   //  0.4s @16kHz
           rec.acceptWaveForm(silence, silence.size)
           json = rec.finalResult
         } catch (e: Exception) {
