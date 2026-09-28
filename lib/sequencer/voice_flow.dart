@@ -130,6 +130,7 @@ class VoiceFlow extends ChangeNotifier {
   static const _wordVariants = <String, List<String>>{
     'dosado': ['do sa do', 'doe sah doe', 'do si do', 'dos a do'],
     'dosados': ['do sa does', 'do si does'],
+    'u': ['you'],
     'allemande': ['alley mande', 'alley mond', 'alley man'],
     'gnat': ['nat'],
     'thru': ['through'],
@@ -158,11 +159,13 @@ class VoiceFlow extends ChangeNotifier {
            .replaceAll(RegExp(r' +'), ' ').trim();
       if (s.isEmpty) continue;
       phrases.add(s);
-      //  追加读法变体(逐词替换,一次换一个)
+      //  追加读法变体(整词替换,一次换一个;
+      //  单字母词如 u 必须整词匹配,不能子串匹配)
       for (final e in _wordVariants.entries) {
-        if (s.contains(e.key)) {
+        final re = RegExp('\\b${e.key}\\b');
+        if (re.hasMatch(s)) {
           for (final v in e.value) {
-            phrases.add(s.replaceAll(e.key, v));
+            phrases.add(s.replaceAll(re, v));
           }
         }
       }
@@ -198,6 +201,10 @@ class VoiceFlow extends ChangeNotifier {
   void _onSampleResult() {
     final s = speech;
     if (s == null || !pttActive || !s.hasResults) return;
+    //  只在采样会话完全结束后取结果:识别器在口令中间停顿时
+    //  会先交出一段"最终结果"(如 "u turn"),不能当完整结果用,
+    //  否则后面的词(back)全部丢失
+    if (s.isListening) return;
     final result = s.lastResult;
     if (result == null || !result.finalResult) return;
     String text = '';
