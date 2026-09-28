@@ -890,11 +890,9 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
           ]),
         ),
       );
-    //  展开时固定高度(150),不自动扩大,不影响跳舞区域
-    return fm.Container(
-      height: flow.onlyMode ? 320 : 240,
-      color: Color.WHITE,
-      child: fm.LayoutBuilder(builder: (context, constraints) {
+    //  展开时:Only 采表占满剩余空间(表面板最大化);
+    //  其他模式固定高度,不自动扩大,不影响跳舞区域
+    final body = fm.LayoutBuilder(builder: (context, constraints) {
         //  两列(识别结果/标准口令)总宽 =
         //  面板宽 - 内边距 - 序号列 - 两个把手槽
         _twoColsW = constraints.maxWidth -
@@ -1070,8 +1068,12 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
             ),
           ],
         );
-      }),
-    );
+      });
+    //  Only 采表:面板占满剩余空间;其他模式固定高度 240
+    return flow.onlyMode
+        ? fm.Expanded(
+            child: fm.Container(color: Color.WHITE, child: body))
+        : fm.Container(height: 240, color: Color.WHITE, child: body);
   }
 
   //  列头行(表顶端):序号 / 语音识别结果 / 标准口令 标题,
@@ -1434,6 +1436,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         });
                       },
                       child: fm.Text('Tap mic or this space',
+                          maxLines: 1,
+                          overflow: fm.TextOverflow.ellipsis,
                           style: fm.TextStyle(fontSize: 20)),
                     ),
                   )
