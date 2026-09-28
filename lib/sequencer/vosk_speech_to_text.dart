@@ -57,6 +57,10 @@ class VoskSpeechToText extends ChangeNotifier {
   //  采表词表(null=自由识别);仅下一轮采样会话使用
   List<String>? _grammarWords;
 
+  //  本会话已确定的最终文字(识别器可能分段多次给最终结果,
+  //  采样期间累计拼接,避免多词口令只取到前半段)
+  String _sessionText = '';
+
   //  模型加载去重:并发的 initialize 共享同一次加载
   Future<bool>? _initFuture;
 
@@ -233,6 +237,7 @@ class VoskSpeechToText extends ChangeNotifier {
 
   Future<void> _startSession() async {
     try {
+      _sessionText = '';
       _sub?.cancel();
       _sub = musicMonitor.events.listen(_onEvent);
       await musicMonitor.voskStart(
@@ -260,9 +265,15 @@ class VoskSpeechToText extends ChangeNotifier {
     } catch (_) {}
     final text = _textField(json, 'text');
     if (text != null && text.isNotEmpty) {
-      _log('finish: final "$text"');
+      _sessionText =
+          _sessionText.isEmpty ? text : '$_sessionText $text';
+      _log('finish: final "$_sessionText"');
       _lastResult = SpeechRecognitionResult(
-          [SpeechRecognitionAlternative(text, 1.0)], true);
+          [SpeechRecognitionAlternative(_sessionText, 1.0)], true);
+    } else if (_sessionText.isNotEmpty) {
+      _log('finish: using accumulated "$_sessionText"');
+      _lastResult = SpeechRecognitionResult(
+          [SpeechRecognitionAlternative(_sessionText, 1.0)], true);
     } else {
       _log('finish: final text empty');
     }
@@ -284,12 +295,15 @@ class VoskSpeechToText extends ChangeNotifier {
         }
         break;
       case 'vosk_final':
-        //  断句自动给出的最终结果;持续监听下识别继续进行
+        //  断句自动给出的最终结果;采样期间累计拼接,
+        //  避免多词口令只取到前半段
         final text = _textField(event.text, 'text');
         _log('final: "$text"');
         if (text != null && text.isNotEmpty) {
+          _sessionText =
+              _sessionText.isEmpty ? text : '$_sessionText $text';
           _lastResult = SpeechRecognitionResult(
-              [SpeechRecognitionAlternative(text, 1.0)], true);
+              [SpeechRecognitionAlternative(_sessionText, 1.0)], true);
           _notify();
         }
         break;

@@ -677,13 +677,19 @@ class MainActivity : FlutterActivity() {
     stopSpeechCapture()
   }
 
-  //  停止识别并把剩余语音收尾成最终结果返回(采样抬起场景)
+  //  停止识别并把剩余语音收尾成最终结果返回(采样抬起场景)。
+  //  先喂 0.6 秒静音:端点检测需要静音尾帧才能把最后一个词
+  //  完整收尾,否则多词口令的尾部会被截掉
   private fun voskFinal(result: MethodChannel.Result) {
     var json: String? = null
     synchronized(voskLock) {
       val rec = voskRecognizer
       if (rec != null) {
-        try { json = rec.finalResult } catch (e: Exception) {
+        try {
+          val silence = ByteArray(16000 * 6 / 10)   //  0.6s @16kHz
+          rec.acceptWaveForm(silence, silence.size)
+          json = rec.finalResult
+        } catch (e: Exception) {
           Log.e(TAG, "vosk: final failed", e)
         }
       }
