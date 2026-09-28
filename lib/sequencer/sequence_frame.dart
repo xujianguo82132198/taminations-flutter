@@ -1446,34 +1446,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             //  Mic icon for touch devices to do voice input
             //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
             //  该口令员的映射表,之后才开始语音识别
-            if (TamUtils.canListen)
-              //  Mic icon for touch devices to do voice input
-              //  点击麦克风:登录(姓名下拉选择已有表)→ 打开口令员表
-              //  → 直接进入语音识别(音乐功能默认关闭)
-              //  流程进行中再点 = 结束语音呼叫并恢复原 Dance Speed
-              //  Only 采表模式:识别确认 + 完成建表按钮
-              if (flow.onlyMode) ...[
-                fm.TextButton(onPressed: () {
-                  flow.confirmDictation(textFieldController.text);
-                  textFieldController.clear();
-                }, child: fm.Text('识别确认',
-                    style: fm.TextStyle(fontSize: 14,
-                        color: Color.WHITE,
-                        backgroundColor: Color.BLUE))),
-                fm.TextButton(onPressed: () async {
-                  final n = await flow.finishOnlyTable();
-                  if (n != null && mounted)
-                    fm.ScaffoldMessenger.of(context).showSnackBar(
-                        fm.SnackBar(backgroundColor: Color.BLUE,
-                            content: fm.Text(
-                                '已另存 ${flow.onlyTargetName}(共$n条)',
-                                style: fm.TextStyle(fontSize: 18))));
-                }, child: fm.Text('完成建表',
-                    style: fm.TextStyle(fontSize: 14,
-                        color: Color.WHITE,
-                        backgroundColor: Color.GREEN))),
-              ],
-              //  打开表按钮:负责映射表的选择与打开/退出
+            //  Only 采表的识别确认/完成建表由黄色显示框承担:
+            //  点一下=确认,长按=完成建表(编辑行不再放这两个按钮)
+            //  打开表按钮:负责映射表的选择与打开/退出
               if (TamUtils.canListen)
                 fm.TextButton(
                   //  已打开表时禁止操作(变灰);关闭表后恢复
