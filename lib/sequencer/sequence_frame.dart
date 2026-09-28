@@ -1104,22 +1104,20 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
             ),
           ),
         );
+    //  列标题:单行显示,列宽不足时自动缩小字号,绝不换行
+    fm.Widget label(String t) => fm.FittedBox(
+        fit: fm.BoxFit.scaleDown,
+        child: fm.Text(t, maxLines: 1, style: style));
     return fm.Container(
       width: double.infinity,
       color: Color(0xffe8e8e8),
       padding: fm.EdgeInsets.only(left: 12, right: 8, top: 1, bottom: 1),
       child: fm.Row(children: [
-        fm.SizedBox(
-            width: _seqColW,
-            child: fm.FittedBox(
-                fit: fm.BoxFit.scaleDown,
-                child: fm.Text('序号',
-                    maxLines: 1, style: style))),
+        fm.SizedBox(width: _seqColW, child: label('序号')),
         handle(_onSeqDrag),
-        fm.SizedBox(
-            width: recogW, child: fm.Text('语音识别结果', style: style)),
+        fm.SizedBox(width: recogW, child: label('识别结果')),
         handle(_onDividerDrag),
-        fm.Expanded(child: fm.Text('标准口令', style: style)),
+        fm.Expanded(child: label('标准口令')),
       ]),
     );
   }
