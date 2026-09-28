@@ -311,11 +311,13 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
         child: fm.Text(
             flow.lastError == 'licc_quota'
                 ? '⚠ 额度'
-                : (flow.pttActive
+                : (flow.lastError == 'not_heard'
+                    ? '✕ 没听清,请再按住重念'
+                    : (flow.pttActive
                     ? '● 正在聆听…(松开结束)'
                     : (flow.dictationText.isNotBlank
                         ? '${flow.dictationText} →'
-                        : '🎙 朗读')),
+                        : '🎙 朗读'))),
             style: fm.TextStyle(fontSize: 20,
                 fontWeight: fm.FontWeight.bold)),
       ),

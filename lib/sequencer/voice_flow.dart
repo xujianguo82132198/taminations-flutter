@@ -125,6 +125,22 @@ class VoiceFlow extends ChangeNotifier {
     return true;
   }
 
+  ///  非英语/易错口令词的读法变体(法裔词、缩写等),
+  ///  生成语法时对含这些词的口令追加变体短语,提高口音容错
+  static const _wordVariants = <String, List<String>>{
+    'dosado': ['do sa do', 'doe sah doe', 'do si do', 'dos a do'],
+    'dosados': ['do sa does', 'do si does'],
+    'allemande': ['alley mande', 'alley mond', 'alley man'],
+    'gnat': ['nat'],
+    'thru': ['through'],
+    'flutterwheel': ['flutter wheel'],
+    'rollaway': ['roll away'],
+    'uturn': ['you turn'],
+    'paso': ['pah so', 'pass oh'],
+    'cloverleaf': ['clover leaf'],
+    'squarethru': ['square through'],
+  };
+
   ///  采表语法:当前表第3列(标准口令)的全部口令短语。
   ///  整条口令作为可选短语,识别结果直接吸附到完整口令;
   ///  数字分数换成读法(1/4 -> one quarter);[unk] 兜底防卡
@@ -140,7 +156,16 @@ class VoiceFlow extends ChangeNotifier {
            .replaceAll('2/3', ' two third ');
       s = s.replaceAll(RegExp(r'[^a-z ]+'), ' ')
            .replaceAll(RegExp(r' +'), ' ').trim();
-      if (s.isNotEmpty) phrases.add(s);
+      if (s.isEmpty) continue;
+      phrases.add(s);
+      //  追加读法变体(逐词替换,一次换一个)
+      for (final e in _wordVariants.entries) {
+        if (s.contains(e.key)) {
+          for (final v in e.value) {
+            phrases.add(s.replaceAll(e.key, v));
+          }
+        }
+      }
     }
     if (phrases.isEmpty) return null;
     return [...phrases, '[unk]'];
@@ -182,7 +207,26 @@ class VoiceFlow extends ChangeNotifier {
       if (t.isNotEmpty) { text = t; break; }
     }
     _sampleTimeout?.cancel();
+    //  [unk]=语法没匹配上(读音与所有口令都太远):不写入,
+    //  显示框提示没听清,采样状态复位以便再按重念
+    if (text.isEmpty || text == 'unk' || text == '[unk]') {
+      debugPrint('Only result: [unk] -> not accepted');
+      dictationText = '';
+      pttActive = false;
+      s.removeListener(_onSampleResult);
+      s.clearResults();
+      lastError = 'not_heard';
+      _notify();
+      Future.delayed(const Duration(seconds: 3), () {
+        if (lastError == 'not_heard') {
+          lastError = null;
+          _notify();
+        }
+      });
+      return;
+    }
     debugPrint('Only result: "$text"');
+    lastError = null;
     dictationText = text;
     pttActive = false;
     s.removeListener(_onSampleResult);
