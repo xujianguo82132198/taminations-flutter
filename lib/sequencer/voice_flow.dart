@@ -130,7 +130,7 @@ class VoiceFlow extends ChangeNotifier {
   ///  数字分数换成读法(1/4 -> one quarter);[unk] 兜底防卡
   List<String>? _onlyTableWords() {
     final t = callerTable;
-    if (t == null || !onlyMode) return null;
+    if (t == null) return null;
     final phrases = <String>{};
     for (final r in t.rows) {
       var s = r.standardCall.toLowerCase();
@@ -603,6 +603,9 @@ class VoiceFlow extends ChangeNotifier {
   void startListening() {
     final s = speech;
     if (s == null) return;
+    //  流式喊口令:同样限定口令短语,识别结果即为口令,
+    //  查映射表(Levenshtein)直接命中,口音容错更好
+    s.setSampleGrammar(_onlyTableWords());
     s.initialize().whenComplete(() {
       if (s.isAvailable) {
         s.listen(localeId: 'en_US');

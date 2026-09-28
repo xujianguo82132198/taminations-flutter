@@ -135,8 +135,7 @@ class VoskSpeechToText extends ChangeNotifier {
       _toggleOff();
       return;
     }
-    _log('listen: toggle ON');
-    _grammarWords = null;   //  流式喊口令:自由识别
+    _log('listen: toggle ON (grammar=${_grammarWords?.length ?? 0} phrases)');
     _lastResult = null;
     _lastError = null;
     _lastLevel = 0;
