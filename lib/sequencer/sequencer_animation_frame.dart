@@ -48,9 +48,11 @@ class SequencerAnimationFrame extends fm.StatelessWidget {
         ]
       ),
       //  音乐节拍按钮:跳舞区左下角叠加
+      //  音乐节拍按钮:跳舞区左侧,位于底部播放控制条上方
+      //  (贴底会挡住最左的播放控制钮)
       if (TamUtils.canListen)
         fm.Positioned(
-            left: 6, bottom: 0, child: MusicDanceButton()),
+            left: 6, bottom: 56, child: MusicDanceButton()),
     ]);
   }
 
@@ -90,9 +92,11 @@ class PortraitSequencerAnimationFrame extends fm.StatelessWidget {
       ],
       ),
       //  音乐节拍按钮:跳舞区左下角叠加
+      //  音乐节拍按钮:跳舞区左侧,位于底部播放控制条上方
+      //  (贴底会挡住最左的播放控制钮)
       if (TamUtils.canListen)
         fm.Positioned(
-            left: 6, bottom: 0, child: MusicDanceButton()),
+            left: 6, bottom: 56, child: MusicDanceButton()),
     ]);
   }
 
