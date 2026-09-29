@@ -31,7 +31,7 @@ class SequencerAnimationFrame extends fm.StatelessWidget {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    return fm.Stack(children: [
+    return fm.Stack(fit: fm.StackFit.expand, children: [
       fm.Column(
         children: [
           BasicSequencerAnimation(),
@@ -60,7 +60,7 @@ class PortraitSequencerAnimationFrame extends fm.StatelessWidget {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    return fm.Stack(children: [
+    return fm.Stack(fit: fm.StackFit.expand, children: [
       fm.Row(
       children: [
         BasicSequencerAnimation(),
