@@ -1451,7 +1451,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           focusNode.requestFocus();
                         });
                       },
-                      child: fm.Text('Tap mic or this space',
+                      child: fm.Text('Tap here for input Call',
                           maxLines: 1,
                           overflow: fm.TextOverflow.ellipsis,
                           style: fm.TextStyle(fontSize: 20)),
@@ -1500,61 +1500,57 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   child: fm.Container(
                     padding: fm.EdgeInsets.all(4),
                     child: fm.Icon(
-                      //  采样中蓝色(按住);平时黑色
+                      //  未开表:灰色禁用;采样中蓝色(按住);平时黑色
                       fm.Icons.record_voice_over,
-                      color: flow.pttActive ? fm.Colors.blue : Color.BLACK,
+                      color: !flow.isActive
+                          ? Color.GRAY
+                          : (flow.pttActive
+                              ? fm.Colors.blue
+                              : Color.BLACK),
                       size: 28),
                   ),
                 ),
+              //  语音识别钮:未开表时禁用(灰色,开表走"打开"钮);
+              //  开表后点击=开关流式检索
               if (TamUtils.canListen)
-                fm.TextButton(onPressed: () async {
+                fm.TextButton(
+                  onPressed: !flow.isActive ? null : () async {
                     //  采样中/音乐节拍取样中不响应
                     if (flow.pttActive) return;
                     if (flow.phase == 'awaiting' ||
                         flow.phase == 'detecting')
                       return;
-                    if (flow.isActive) {
-                      if (speechProvider.isListening) {
-                        //  流式检索中:点击结束
-                        flow.stop();
-                        speechProvider.cancel();
-                      } else {
-                        //  表管理模式:点击开始流式检索
-                        //  (只查表执行,面板自动收起)
-                        flow.startListening();
-                        flow.setPanelMinimized(true);
-                      }
-                      return;
+                    if (speechProvider.isListening) {
+                      //  流式检索中:点击结束
+                      flow.stop();
+                      speechProvider.cancel();
+                    } else {
+                      //  表管理模式:点击开始流式检索
+                      //  (只查表执行,面板自动收起)
+                      flow.startListening();
+                      flow.setPanelMinimized(true);
                     }
-                    //  已有打开的映射表:直接利用此表进入
-                    //  流式检索,不再进入映射表选择
-                    if (flow.callerTable != null) {
-                      flow.start();
-                      return;
-                    }
-                    //  无表:登录(映射表选择)→ 进入流式检索
-                    if (!await _loginAndOpenTable()) return;
-                    flow.start();
                   },
                   //  长按麦克风:退出当前表,回到映射表选择
                   //  (可删除/重命名/另存/导入导出/换表)
-                  onLongPress: () async {
+                  onLongPress: !flow.isActive ? null : () async {
                     if (flow.pttActive) return;
-                    if (flow.isActive) {
-                      flow.stop();
-                      speechProvider.cancel();
-                    }
+                    flow.stop();
+                    speechProvider.cancel();
                     await _loginAndOpenTable();
                   },
                   child: fm.Icon(
                   fm.Icons.mic,
+                  //  未开表:灰色禁用;
                   //  红色仅表示流式识别进行中(采样/表管理模式不红,
                   //  流式与间歇重合即为错误);节拍检测中蓝色闪烁;
                   //  平时黑色
-                  color: flow.phase == 'detecting'
-                      ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
-                      : ((speechProvider.isListening && !flow.pttActive)
-                          ? Color.RED : Color.BLACK),
+                  color: !flow.isActive
+                      ? Color.GRAY
+                      : (flow.phase == 'detecting'
+                          ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
+                          : ((speechProvider.isListening && !flow.pttActive)
+                              ? Color.RED : Color.BLACK)),
                   size: 32
                   )
                   )
