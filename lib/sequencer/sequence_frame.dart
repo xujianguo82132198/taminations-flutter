@@ -579,11 +579,18 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton>
     final active = detecting || dancing;
     final fm.Widget content;
     if (dancing) {
-      content = fm.Text('按下退出',
-          style: fm.TextStyle(
-              fontWeight: fm.FontWeight.bold,
-              fontSize: 15,
-              color: Color.WHITE));
+      content = fm.Column(
+          mainAxisSize: fm.MainAxisSize.min,
+          crossAxisAlignment: fm.CrossAxisAlignment.center,
+          children: [
+            fm.Text('音乐停止或',
+                style: fm.TextStyle(fontSize: 11, color: Color.WHITE)),
+            fm.Text('按下退出',
+                style: fm.TextStyle(
+                    fontWeight: fm.FontWeight.bold,
+                    fontSize: 15,
+                    color: Color.WHITE)),
+          ]);
     } else if (detecting) {
       content = fm.Text(flow.phase == 'awaiting' ? '请播放音乐' : '节拍检测中',
           style: fm.TextStyle(
