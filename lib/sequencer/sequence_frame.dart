@@ -81,9 +81,8 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                  SequencerEditLine(),
                  //  Only 采表:识别结果大字显示(显示框+圆钮+表退出)
                  OnlyCombinedBar(),
-                 //  音乐功能开关(可选)
-                 if (TamUtils.canListen)
-                   MusicDanceButton(),
+                 //  音乐节拍按钮已移至跳舞区左下角(叠加显示,
+                 //  不占输入区行数,降低键盘弹起时的布局挤压)
                  CallerTablePanel(),
                  //  采表模式不需要序列列表(表格独占剩余空间)
                  if (!isSmallAndCompact(context) &&
@@ -533,100 +532,102 @@ class MusicDanceButton extends fm.StatefulWidget {
   _MusicDanceButtonState createState() => _MusicDanceButtonState();
 }
 
-class _MusicDanceButtonState extends fm.State<MusicDanceButton> {
+///  音乐节拍按钮(叠加在跳舞区左下角,不占布局行):
+///  - 平时:"按下" + 小字"测音乐节拍"
+///  - 取样/检测中:文字提示 + 按钮闪烁
+///  - 节拍生效中:"按下退出"
+class _MusicDanceButtonState extends fm.State<MusicDanceButton>
+    with fm.SingleTickerProviderStateMixin {
 
   final flow = VoiceFlow.instance;
+  fm.AnimationController? _blink;
+
+  bool get _detecting =>
+      flow.phase == 'awaiting' || flow.phase == 'detecting';
 
   @override
   void initState() {
     super.initState();
+    _blink = fm.AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 500));
     flow.addListener(_onChanged);
   }
 
   @override
   void dispose() {
     flow.removeListener(_onChanged);
+    _blink?.dispose();
     super.dispose();
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    //  检测中闪烁,其余状态常亮
+    if (_detecting) {
+      if (!(_blink!.isAnimating)) _blink!.repeat(reverse: true);
+    } else {
+      _blink!.stop();
+      _blink!.value = 1;
+    }
+    setState(() {});
   }
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    //  常显(独立于语音流程/表管理模式)
-    final enabled = flow.musicDancing || flow.phase == 'awaiting'
-        || flow.phase == 'detecting';
-    final color = enabled ? Color.WHITE : Color.BLACK;
-    //  所有提示都显示在按钮上:
-    //  取样中:请播放音乐 / 节拍检测中
-    //  生效中:N bpm 再按退出;停用但有缓存:按下则…(有N bpm)
-    //  默认:按下 则以外来音乐节拍跳舞 再按退出
-    String? prompt;
-    if (flow.phase == 'awaiting')
-      prompt = '请播放音乐';
-    else if (flow.phase == 'detecting')
-      prompt = '节拍检测中…';
-    else if (flow.musicDancing)
-      prompt = '${flow.cachedBpm}bpm 再按退出';
-    //  退出后恢复默认文案(缓存保留但静默,再按直接生效)
-    return fm.Padding(
-      padding: fm.EdgeInsets.fromLTRB(4, 2, 4, 2),
+    final detecting = _detecting;
+    final dancing = flow.musicDancing;
+    final active = detecting || dancing;
+    final fm.Widget content;
+    if (dancing) {
+      content = fm.Text('按下退出',
+          style: fm.TextStyle(
+              fontWeight: fm.FontWeight.bold,
+              fontSize: 15,
+              color: Color.WHITE));
+    } else if (detecting) {
+      content = fm.Text(flow.phase == 'awaiting' ? '请播放音乐' : '节拍检测中',
+          style: fm.TextStyle(
+              fontWeight: fm.FontWeight.bold,
+              fontSize: 14,
+              color: Color.WHITE));
+    } else {
+      content = fm.Column(
+          mainAxisSize: fm.MainAxisSize.min,
+          crossAxisAlignment: fm.CrossAxisAlignment.center,
+          children: [
+            fm.Text('按下',
+                style: fm.TextStyle(
+                    fontWeight: fm.FontWeight.bold,
+                    fontSize: 16,
+                    color: Color.BLACK)),
+            fm.Text('测音乐节拍',
+                style: fm.TextStyle(fontSize: 11, color: Color.BLACK)),
+          ]);
+    }
+    return fm.FadeTransition(
+      opacity: fm.Tween<double>(begin: 0.35, end: 1.0)
+          .animate(_blink!),
       child: fm.Material(
-        elevation: 4.0,
+        elevation: 3.0,
         color: Color(0),
         shape: fm.RoundedRectangleBorder(
-            borderRadius: fm.BorderRadius.circular(10)),
-        child: fm.Semantics(
-          button: true,
-          enabled: true,
-          label: prompt ?? '按下则以外来音乐节拍跳舞再按退出',
-          identifier: '按播放音乐节拍跳舞',
-          child: fm.InkWell(
-            onTap: () => flow.toggleMusic(),
-            child: fm.Container(
-              width: double.infinity,
-              decoration: fm.ShapeDecoration(
-                  shape: fm.RoundedRectangleBorder(
-                      side: fm.BorderSide(
-                          color: enabled ? Color.BLUE : Color.GRAY.darker()),
-                      borderRadius: fm.BorderRadius.circular(10)),
-                  gradient: fm.LinearGradient(
-                      begin: fm.Alignment.topCenter,
-                      end: fm.Alignment.bottomCenter,
-                      colors: enabled
-                          ? [fm.Colors.blue, fm.Colors.blue.shade800]
-                          : [Color.WHITE, Color(0xffa0a0a0)])),
-              //  高度约为原来的 2/3:垂直内边距压缩
-              padding: fm.EdgeInsets.fromLTRB(8, 1, 8, 1),
-              child: fm.Center(
-                child: prompt != null
-                    ? fm.Text(prompt,
-                        maxLines: 1,
-                        overflow: fm.TextOverflow.ellipsis,
-                        style: fm.TextStyle(
-                            fontWeight: fm.FontWeight.bold,
-                            fontSize: 20,
-                            color: color))
-                    : fm.Text.rich(
-                        fm.TextSpan(
-                            style: fm.TextStyle(
-                                fontWeight: fm.FontWeight.bold,
-                                fontSize: 20,
-                                color: color),
-                            children: [
-                              fm.TextSpan(text: '按下'),
-                              fm.TextSpan(
-                                  text: '则以外来音乐节拍跳舞',
-                                  //  说明文字字高取 2/3
-                                  style: fm.TextStyle(fontSize: 20 * 2 / 3)),
-                              fm.TextSpan(text: '再按退出'),
-                            ]),
-                        maxLines: 1,
-                      ),
-              ),
-            ),
+            borderRadius: fm.BorderRadius.circular(8)),
+        child: fm.InkWell(
+          onTap: () => flow.toggleMusic(),
+          child: fm.Container(
+            padding: fm.EdgeInsets.fromLTRB(10, 3, 10, 3),
+            decoration: fm.ShapeDecoration(
+                shape: fm.RoundedRectangleBorder(
+                    side: fm.BorderSide(
+                        color: active ? Color.BLUE : Color.GRAY.darker()),
+                    borderRadius: fm.BorderRadius.circular(8)),
+                gradient: fm.LinearGradient(
+                    begin: fm.Alignment.topCenter,
+                    end: fm.Alignment.bottomCenter,
+                    colors: active
+                        ? [fm.Colors.blue, fm.Colors.blue.shade800]
+                        : [Color.WHITE, Color(0xffc0c0c0)])),
+            child: content,
           ),
         ),
       ),

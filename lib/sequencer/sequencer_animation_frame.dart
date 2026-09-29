@@ -31,23 +31,27 @@ class SequencerAnimationFrame extends fm.StatelessWidget {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    return fm.Column(
-      children: [
-        BasicSequencerAnimation(),
-        fm.Container(
-          color: Color.FLOOR,
-          child: fm.Row(
-            children: [
-              _SequencerHelpButton(),
-              _SequencerSettingsButton(),
-              _SequencerAbbrevButton(),
-              _SequencerCallsButton(),
-              CopyImageButton()  // from animation_page
-            ]
-          )
-        )
-      ]
-    );
+    return fm.Stack(children: [
+      fm.Column(
+        children: [
+          BasicSequencerAnimation(),
+          fm.Container(
+              color: Color.FLOOR,
+              child: fm.Row(
+                  children: [
+                    _SequencerHelpButton(),
+                    _SequencerSettingsButton(),
+                    _SequencerAbbrevButton(),
+                    _SequencerCallsButton(),
+                    CopyImageButton()  // from animation_page
+                  ]))
+        ]
+      ),
+      //  音乐节拍按钮:跳舞区左下角叠加
+      if (TamUtils.canListen)
+        fm.Positioned(
+            left: 6, bottom: 6, child: MusicDanceButton()),
+    ]);
   }
 
 }
@@ -56,7 +60,8 @@ class PortraitSequencerAnimationFrame extends fm.StatelessWidget {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    return fm.Row(
+    return fm.Stack(children: [
+      fm.Row(
       children: [
         BasicSequencerAnimation(),
         fm.Expanded(
@@ -83,7 +88,12 @@ class PortraitSequencerAnimationFrame extends fm.StatelessWidget {
           ),
         )
       ],
-    );
+      ),
+      //  音乐节拍按钮:跳舞区左下角叠加
+      if (TamUtils.canListen)
+        fm.Positioned(
+            left: 6, bottom: 6, child: MusicDanceButton()),
+    ]);
   }
 
 }
