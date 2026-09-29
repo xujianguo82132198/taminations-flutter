@@ -1311,6 +1311,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         //     口令语音采集。Only 模式由 VoiceFlow 处理(黄框待确认),
         //     非 Only 模式进入记录初始化
         if (flow.pttActive) {
+          //  采样只以松开按钮为准结束:按住期间识别器在停顿处
+          //  给出的分段最终结果由 VoiceFlow 拼接累计,这里不消费,
+          //  否则采样会中途自行退出(结果不出黄框)
+          if (speech.isListening) {
+            //  仍在按住中:不处理
+          } else {
           final sample = speech.lastResult!.alternates
               .map((a) => a.recognizedWords.replaceAll('\W'.r, ' ').trim())
               .firstWhere((st) => st.isNotBlank, orElse: () => '');
@@ -1341,6 +1347,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       style: GoogleFonts.roboto(fontSize: 20))));
             });
             speech.clearResults();
+          }
           }
         }
         //  1) 喊口令流式结果:口令员映射表顺序查找,对每个候选识别句,
