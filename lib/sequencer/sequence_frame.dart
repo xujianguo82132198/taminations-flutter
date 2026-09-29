@@ -577,20 +577,20 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton>
     final detecting = _detecting;
     final dancing = flow.musicDancing;
     final active = detecting || dancing;
+    //  单行文字(小字+大字混排),高度与跳舞区右下的 bpm 显示对齐
     final fm.Widget content;
     if (dancing) {
-      content = fm.Column(
-          mainAxisSize: fm.MainAxisSize.min,
-          crossAxisAlignment: fm.CrossAxisAlignment.center,
-          children: [
-            fm.Text('音乐停止或',
-                style: fm.TextStyle(fontSize: 11, color: Color.WHITE)),
-            fm.Text('按下退出',
-                style: fm.TextStyle(
-                    fontWeight: fm.FontWeight.bold,
-                    fontSize: 15,
-                    color: Color.WHITE)),
-          ]);
+      content = fm.Text.rich(fm.TextSpan(children: [
+        fm.TextSpan(
+            text: '音乐停止或',
+            style: fm.TextStyle(fontSize: 11, color: Color.WHITE)),
+        fm.TextSpan(
+            text: '按下退出',
+            style: fm.TextStyle(
+                fontSize: 15,
+                fontWeight: fm.FontWeight.bold,
+                color: Color.WHITE)),
+      ]));
     } else if (detecting) {
       content = fm.Text(flow.phase == 'awaiting' ? '请播放音乐' : '节拍检测中',
           style: fm.TextStyle(
@@ -598,18 +598,17 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton>
               fontSize: 14,
               color: Color.WHITE));
     } else {
-      content = fm.Column(
-          mainAxisSize: fm.MainAxisSize.min,
-          crossAxisAlignment: fm.CrossAxisAlignment.center,
-          children: [
-            fm.Text('按下',
-                style: fm.TextStyle(
-                    fontWeight: fm.FontWeight.bold,
-                    fontSize: 16,
-                    color: Color.BLACK)),
-            fm.Text('测音乐节拍',
-                style: fm.TextStyle(fontSize: 11, color: Color.BLACK)),
-          ]);
+      content = fm.Text.rich(fm.TextSpan(children: [
+        fm.TextSpan(
+            text: '按下',
+            style: fm.TextStyle(
+                fontSize: 16,
+                fontWeight: fm.FontWeight.bold,
+                color: Color.BLACK)),
+        fm.TextSpan(
+            text: '测音乐节拍',
+            style: fm.TextStyle(fontSize: 11, color: Color.BLACK)),
+      ]));
     }
     return fm.FadeTransition(
       opacity: fm.Tween<double>(begin: 0.35, end: 1.0)
@@ -622,7 +621,7 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton>
         child: fm.InkWell(
           onTap: () => flow.toggleMusic(),
           child: fm.Container(
-            padding: fm.EdgeInsets.fromLTRB(10, 3, 10, 3),
+            padding: fm.EdgeInsets.fromLTRB(8, 1, 8, 1),
             decoration: fm.ShapeDecoration(
                 shape: fm.RoundedRectangleBorder(
                     side: fm.BorderSide(

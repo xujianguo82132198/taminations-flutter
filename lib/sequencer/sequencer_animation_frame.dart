@@ -50,7 +50,7 @@ class SequencerAnimationFrame extends fm.StatelessWidget {
       //  音乐节拍按钮:跳舞区左下角叠加
       if (TamUtils.canListen)
         fm.Positioned(
-            left: 6, bottom: 6, child: MusicDanceButton()),
+            left: 6, bottom: 0, child: MusicDanceButton()),
     ]);
   }
 
@@ -92,7 +92,7 @@ class PortraitSequencerAnimationFrame extends fm.StatelessWidget {
       //  音乐节拍按钮:跳舞区左下角叠加
       if (TamUtils.canListen)
         fm.Positioned(
-            left: 6, bottom: 6, child: MusicDanceButton()),
+            left: 6, bottom: 0, child: MusicDanceButton()),
     ]);
   }
 
