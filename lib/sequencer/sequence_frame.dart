@@ -882,8 +882,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   @override
   fm.Widget build(fm.BuildContext context) {
     final table = flow.callerTable;
-    //  流程未激活或尚无表时不占空间
-    if (!flow.isActive || table == null)
+    //  有表即显示(收起条);语音会话是否激活不影响
+    if (table == null)
       return fm.SizedBox.shrink();
     //  极小化:只显示标题行
     if (minimized)
@@ -1457,7 +1457,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           focusNode.requestFocus();
                         });
                       },
-                      child: fm.Text('Tap here for input Call',
+                      //  提示按表状态区分:
+                      //  Only表=圆钮采表;非Only表=麦克风喊口令
+                      child: fm.Text(
+                          flow.callerTable == null
+                              ? 'Tap here for input Call'
+                              : (flow.onlyMode
+                                  ? '圆钮按下,读口令,读完抬起'
+                                  : '按下麦克风钮,语音发布口令'),
                           maxLines: 1,
                           overflow: fm.TextOverflow.ellipsis,
                           style: fm.TextStyle(fontSize: 20)),
@@ -2152,6 +2159,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       return;
     }
     await flow.openCallerTable(names.first);
+    //  非Only表后台运行:面板收起,可手动展开
+    flow.setPanelMinimized(true);
     if (!mounted) return;
     fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
         backgroundColor: Color.BLUE,

@@ -513,6 +513,9 @@ class VoiceFlow extends ChangeNotifier {
     restoreDancerSpeed();
     await start(listen: false);
     tableMode = true;
+    //  Only 表采表需要看表(展开);非 Only 表后台运行(收起,
+    //  可手动展开),喊口令时面板也默认收起
+    panelMinimized = !onlyMode;
     _notify();
   }
 
