@@ -129,20 +129,15 @@ class VoiceFlow extends ChangeNotifier {
     return true;
   }
 
-  ///  非英语/易错口令词的读法变体(法裔词、缩写等),
-  ///  作为额外词汇进入语法,提高口音容错
+  ///  读法变体:仅针对模型词典缺失的词(实测被忽略的只有
+  ///  allemande/dosado/flutterwheel/rollaway 四个)。
+  ///  变体词要少而稳——多余的短词(如 nat/sa)会与真口令词
+  ///  (如 left)抢解码,反而把正确听法挤掉
   static const _wordVariants = <String, List<String>>{
-    'dosado': ['do', 'sa', 'doe', 'si'],
-    'dosados': ['do', 'sa', 'does', 'si'],
-    'allemande': ['alley', 'mande', 'mond', 'man'],
-    'gnat': ['nat'],
-    'thru': ['through'],
+    'dosado': ['doe', 'dough'],
+    'allemande': ['alley', 'mande', 'mond'],
     'flutterwheel': ['flutter', 'wheel'],
     'rollaway': ['roll', 'away'],
-    'uturn': ['you', 'turn'],
-    'paso': ['pah', 'so', 'pass', 'oh'],
-    'cloverleaf': ['clover', 'leaf'],
-    'u': ['you'],
   };
 
   ///  采表语法:当前表全部口令的**单词表**(词循环)。
