@@ -48,11 +48,15 @@ class SequencerAnimationFrame extends fm.StatelessWidget {
         ]
       ),
       //  音乐节拍按钮:跳舞区左下角叠加
-      //  音乐节拍按钮:跳舞区左侧,位于底部播放控制条上方
-      //  (贴底会挡住最左的播放控制钮)
-      if (TamUtils.canListen)
-        fm.Positioned(
-            left: 6, bottom: 56, child: MusicDanceButton()),
+      //  跳舞区叠加对齐行(播放控制条上方):
+      //  左=音乐节拍按钮,右=bpm显示,同一行自动同高对齐
+      fm.Positioned(
+          left: 6, right: 6, bottom: 56,
+          child: fm.Row(children: [
+            if (TamUtils.canListen) MusicDanceButton(),
+            fm.Spacer(),
+            BpmModeText(),
+          ])),
     ]);
   }
 
@@ -92,11 +96,15 @@ class PortraitSequencerAnimationFrame extends fm.StatelessWidget {
       ],
       ),
       //  音乐节拍按钮:跳舞区左下角叠加
-      //  音乐节拍按钮:跳舞区左侧,位于底部播放控制条上方
-      //  (贴底会挡住最左的播放控制钮)
-      if (TamUtils.canListen)
-        fm.Positioned(
-            left: 6, bottom: 56, child: MusicDanceButton()),
+      //  跳舞区叠加对齐行(播放控制条上方):
+      //  左=音乐节拍按钮,右=bpm显示,同一行自动同高对齐
+      fm.Positioned(
+          left: 6, right: 6, bottom: 56,
+          child: fm.Row(children: [
+            if (TamUtils.canListen) MusicDanceButton(),
+            fm.Spacer(),
+            BpmModeText(),
+          ])),
     ]);
   }
 

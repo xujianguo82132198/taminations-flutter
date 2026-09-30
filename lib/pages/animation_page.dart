@@ -337,15 +337,17 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                                     fm.Positioned(
                                       bottom: 0.0,
                                       right: 0.0,
-                                      child: isSequencer
-                                          ? _BpmModeText()
-                                          : fm.Row(
+                                      //  Sequencer 场景的 bpm 显示
+                                      //  移至跳舞区左下音乐钮同一行(自动对齐)
+                                      child: !isSequencer
+                                          ? fm.Row(
                                               spacing: 10,
                                               children: [
                                                 _SpeedText(),
                                                 _LoopText()
                                               ],
                                             )
+                                          : fm.SizedBox.shrink()
                                     )
                                   ]),
                             )
@@ -378,12 +380,12 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
 //  音乐节拍生效时模式显示为 "Music"。
 //  监听 VoiceFlow 与 Settings:节拍生效/退出、速度档位变化
 //  都立即刷新显示
-class _BpmModeText extends fm.StatefulWidget {
+class BpmModeText extends fm.StatefulWidget {
   @override
   _BpmModeTextState createState() => _BpmModeTextState();
 }
 
-class _BpmModeTextState extends fm.State<_BpmModeText> {
+class _BpmModeTextState extends fm.State<BpmModeText> {
 
   final flow = VoiceFlow.instance;
   final settings = Settings();
