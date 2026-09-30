@@ -129,52 +129,48 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  非英语/易错口令词的读法变体(法裔词、缩写等),
-  ///  生成语法时对含这些词的口令追加变体短语,提高口音容错
+  ///  作为额外词汇进入语法,提高口音容错
   static const _wordVariants = <String, List<String>>{
-    'dosado': ['do sa do', 'doe sah doe', 'do si do', 'dos a do'],
-    'dosados': ['do sa does', 'do si does'],
-    'u': ['you'],
-    'allemande': ['alley mande', 'alley mond', 'alley man'],
+    'dosado': ['do', 'sa', 'doe', 'si'],
+    'dosados': ['do', 'sa', 'does', 'si'],
+    'allemande': ['alley', 'mande', 'mond', 'man'],
     'gnat': ['nat'],
     'thru': ['through'],
-    'flutterwheel': ['flutter wheel'],
-    'rollaway': ['roll away'],
-    'uturn': ['you turn'],
-    'paso': ['pah so', 'pass oh'],
-    'cloverleaf': ['clover leaf'],
-    'squarethru': ['square through'],
+    'flutterwheel': ['flutter', 'wheel'],
+    'rollaway': ['roll', 'away'],
+    'uturn': ['you', 'turn'],
+    'paso': ['pah', 'so', 'pass', 'oh'],
+    'cloverleaf': ['clover', 'leaf'],
+    'u': ['you'],
   };
 
-  ///  采表语法:当前表第3列(标准口令)的全部口令短语。
-  ///  整条口令作为可选短语,识别结果直接吸附到完整口令;
-  ///  数字分数换成读法(1/4 -> one quarter);[unk] 兜底防卡
+  ///  采表语法:当前表全部口令的**单词表**(词循环)。
+  ///  只约束词汇范围,不强制组成完整口令——避免解码器
+  ///  把短促发音"联想补全"成整条口令(如 step -> Scoot back),
+  ///  保证"同一人多次读同一口令,识别结果相近"这一映射表
+  ///  设计前提成立。
   List<String>? _onlyTableWords() {
     final t = callerTable;
     if (t == null) return null;
-    final phrases = <String>{};
+    final words = <String>{};
     for (final r in t.rows) {
       var s = r.standardCall.toLowerCase();
       s = s.replaceAll('1/4', ' one quarter ')
            .replaceAll('1/2', ' one half ')
            .replaceAll('3/4', ' three quarter ')
            .replaceAll('2/3', ' two third ');
-      s = s.replaceAll(RegExp(r'[^a-z ]+'), ' ')
-           .replaceAll(RegExp(r' +'), ' ').trim();
-      if (s.isEmpty) continue;
-      phrases.add(s);
-      //  追加读法变体(整词替换,一次换一个;
-      //  单字母词如 u 必须整词匹配,不能子串匹配)
-      for (final e in _wordVariants.entries) {
-        final re = RegExp('\\b${e.key}\\b');
-        if (re.hasMatch(s)) {
-          for (final v in e.value) {
-            phrases.add(s.replaceAll(re, v));
-          }
-        }
+      for (final w in s.replaceAll(RegExp(r'[^a-z ]'), ' ')
+          .split(RegExp(r' +'))) {
+        if (w.isNotEmpty) words.add(w);
       }
     }
-    if (phrases.isEmpty) return null;
-    return [...phrases, '[unk]'];
+    //  追加读法变体词(拆成单词加入)
+    for (final w in words.toList()) {
+      final vs = _wordVariants[w];
+      if (vs != null) words.addAll(vs);
+    }
+    if (words.isEmpty) return null;
+    return [...words, '[unk]'];
   }
 
   ///  抬起:收尾给出结果(结果在 hasResults 中被取走)
