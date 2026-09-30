@@ -76,6 +76,9 @@ class VoiceFlow extends ChangeNotifier {
   ///  已取样的节拍缓存:再次按下直接采用,不必重新取样
   int cachedBpm = 0;
 
+  ///  等待音乐的超时定时器(半分钟没听到音乐自动取消)
+  Timer? _musicAwaitTimer;
+
   ///  音乐功能(播放提示/节拍检测/节拍接管/停止检测)开关。
   ///  默认关闭:登录后直接语音识别,动态小人按系统原设定节拍跳。
   ///  屏幕上的音乐按钮可随时开/关。
@@ -563,8 +566,11 @@ class VoiceFlow extends ChangeNotifier {
       _musicOff();
       return;
     }
-    if (phase == 'awaiting' || phase == 'detecting')
-      return;   //  正在取样中
+    if (phase == 'awaiting' || phase == 'detecting') {
+      //  等待/检测中再击一次:取消音乐节拍,退出取样
+      _cancelMusicSampling();
+      return;
+    }
     //  有缓存且外部音乐仍在播放:直接采用上次节拍,不必重测;
     //  音乐已停止:不用旧值,重新要求播放并重新检测
     if (cachedBpm > 0 && await musicMonitor.isMusicPlaying()) {
@@ -578,11 +584,34 @@ class VoiceFlow extends ChangeNotifier {
     phase = 'awaiting';
     _notify();
     await musicMonitor.startMicMonitor();
+    //  半分钟没听到音乐:自动取消退出(不影响其他过程)
+    _musicAwaitTimer?.cancel();
+    _musicAwaitTimer = Timer(const Duration(seconds: 30), () {
+      if (phase == 'awaiting') {
+        debugPrint('music await timeout -> auto cancel');
+        _cancelMusicSampling();
+      }
+    });
+  }
+
+  //  取消音乐节拍取样(等待中再击 / 30秒超时 / 检测中再击):
+  //  停麦监测、退出取样阶段、恢复语音,不影响其他过程
+  void _cancelMusicSampling() {
+    _musicAwaitTimer?.cancel();
+    _musicAwaitTimer = null;
+    musicMonitor.stopMicMonitor();
+    musicEnabled = false;
+    if (phase == 'awaiting' || phase == 'detecting')
+      phase = callerTable != null ? 'calling' : 'idle';
+    speech?.resume();
+    _notify();
   }
 
   //  节拍生效:接管速度,并开启音乐停止检测;
   //  若此前为取样暂停了流式识别,现在自动恢复
   void _musicOn(int bpm) {
+    _musicAwaitTimer?.cancel();
+    _musicAwaitTimer = null;
     speech?.resume();
     cachedBpm = bpm;
     takeOverDancerSpeed(bpm);

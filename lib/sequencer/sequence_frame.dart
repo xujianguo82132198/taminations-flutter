@@ -592,11 +592,17 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton>
                 color: Color.WHITE)),
       ]));
     } else if (detecting) {
-      content = fm.Text(flow.phase == 'awaiting' ? '请播放音乐' : '节拍检测中',
-          style: fm.TextStyle(
-              fontWeight: fm.FontWeight.bold,
-              fontSize: 14,
-              color: Color.WHITE));
+      content = fm.Text.rich(fm.TextSpan(children: [
+        fm.TextSpan(
+            text: flow.phase == 'awaiting' ? '请播放音乐' : '节拍检测中',
+            style: fm.TextStyle(
+                fontSize: 14,
+                fontWeight: fm.FontWeight.bold,
+                color: Color.WHITE)),
+        fm.TextSpan(
+            text: '再击退出',
+            style: fm.TextStyle(fontSize: 11, color: Color.WHITE)),
+      ]));
     } else {
       content = fm.Text.rich(fm.TextSpan(children: [
         fm.TextSpan(
