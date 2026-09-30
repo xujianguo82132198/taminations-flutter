@@ -311,6 +311,28 @@ class VoiceFlow extends ChangeNotifier {
   CallerTable? callerTable;
 
   ///  打开(或新建)口令员映射表,记录变化会转发通知 UI 刷新
+  ///  表退出:复位到进入时的画面状态,不影响原有功能。
+  ///  停语音识别、清采表/候选/提示状态、解除表监听、
+  ///  取消音乐取样(音乐生效中除外,其为独立功能)
+  void exitTable() {
+    if (phase == 'awaiting' || phase == 'detecting')
+      _cancelMusicSampling();
+    speech?.cancel();
+    pttActive = false;
+    pendingRecord = null;
+    lastCandidate = null;
+    lastError = null;
+    dictationText = '';
+    dictationPartial = '';
+    dictationSeqOverride = null;
+    callerTable?.removeListener(_onTableChanged);
+    callerTable = null;
+    tableMode = false;
+    panelMinimized = false;
+    phase = 'idle';
+    _notify();
+  }
+
   Future<CallerTable> openCallerTable(String name) async {
     final old = callerTable;
     if (old != null)

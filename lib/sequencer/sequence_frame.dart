@@ -228,15 +228,7 @@ class _OnlyExitButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final flow = VoiceFlow.instance;
     return fm.InkWell(
-      onTap: () {
-        //  最小化退出:不用 flow.stop()(级联重建跳页)
-        flow.callerTable = null;
-        flow.tableMode = false;
-        flow.phase = 'idle';
-        flow.dictationText = '';
-        flow.dictationSeqOverride = null;
-        flow.notifyListeners();
-      },
+      onTap: () => flow.exitTable(),
       child: fm.Container(
         height: 48,
         padding: fm.EdgeInsets.symmetric(horizontal: 12),
@@ -945,13 +937,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                   margin: fm.EdgeInsets.only(right: 6),
                   child: fm.InkWell(
                     onTap: () {
-                      //  最小化退出:不用 flow.stop()(级联重建跳页)
-                      flow.callerTable = null;
-                      flow.tableMode = false;
-                      flow.phase = 'idle';
-                      flow.dictationText = '';
-                      flow.dictationSeqOverride = null;
-                      flow.notifyListeners();
+                      //  退出:完整复位到进入时画面
+                      flow.exitTable();
                     },
                     borderRadius: fm.BorderRadius.circular(6),
                     child: fm.Padding(
