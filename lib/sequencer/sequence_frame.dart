@@ -1299,12 +1299,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
           if (bestRow != null && bestErr <= 0.6) {
             //  用最优候选再查一次,刷新界面高亮显示
             flow.lookupInTable(bestSentence);
+            final hitRow = bestRow!;
             debugPrint('VoiceFlow table hit: "$bestSentence" '
                 '(err=${bestErr.toStringAsFixed(2)}) '
-                '-> "${bestRow.standardCall}"');
+                '-> "${hitRow.standardCall}"');
             later(() {
               _isVoiceCall = true;
-              _sendOneLine(model, bestRow.standardCall);
+              _sendOneLine(model, hitRow.standardCall);
             });
           } else {
             //  喊口令时映射表未查到(或误差过大):
