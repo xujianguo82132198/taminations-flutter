@@ -119,6 +119,7 @@ class VoiceFlow extends ChangeNotifier {
     //  大幅提高识别准确率);流式喊口令仍为自由识别
     speech?.setSampleGrammar(_onlyTableWords());
     dictationPartial = '';
+    dictationCandidates = [];
     //  开实时中间结果:边念边显示,反馈更快
     speech?.sample(localeId: 'en_US', partialResults: true);
     //  Only 模式:结果直接在 VoiceFlow 处理(输入行隐藏时 build 不跑)
@@ -234,13 +235,17 @@ class VoiceFlow extends ChangeNotifier {
         }
       }
     }
-    if (text.isEmpty) {
-      for (final alt in result.alternates) {
-        final t2 = alt.recognizedWords
-            .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
-        if (t2.isNotEmpty) { text = t2; break; }
-      }
+    //  全部候选(去重,去 unk,最多 5 条)供点选;
+    //  text 为其中与表内口令误差最小者(默认值)
+    final candidates = <String>[];
+    for (final alt in result.alternates) {
+      final t2 = alt.recognizedWords
+          .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
+      if (t2.isEmpty || t2 == 'unk' || t2 == '[unk]') continue;
+      if (!candidates.contains(t2)) candidates.add(t2);
+      if (candidates.length >= 5) break;
     }
+    if (text.isEmpty && candidates.isNotEmpty) text = candidates.first;
     _sampleTimeout?.cancel();
     //  [unk]=语法没匹配上(读音与所有口令都太远):不写入,
     //  显示框提示没听清,采样状态复位以便再按重念
@@ -260,9 +265,10 @@ class VoiceFlow extends ChangeNotifier {
       });
       return;
     }
-    debugPrint('Only result: "$text"');
+    debugPrint('Only result: "$text" candidates=$candidates');
     lastError = null;
     dictationText = text;
+    dictationCandidates = candidates.length > 1 ? candidates : [];
     pttActive = false;
     s.removeListener(_onSampleResult);
     s.clearResults();
@@ -320,6 +326,7 @@ class VoiceFlow extends ChangeNotifier {
     lastError = null;
     dictationText = '';
     dictationPartial = '';
+    dictationCandidates = [];
     dictationSeqOverride = null;
     callerTable?.removeListener(_onTableChanged);
     callerTable = null;
@@ -359,6 +366,17 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  采样中的实时中间结果(边念边显示,只作提示)
   String dictationPartial = '';
+
+  ///  采样结束的候选识别结果(供口令员点选;
+  ///  第一个为自动挑选的默认值)
+  List<String> dictationCandidates = [];
+
+  ///  口令员从候选中点选一条作为采表结果
+  void chooseDictation(String text) {
+    dictationText = text;
+    dictationCandidates = [];
+    _notify();
+  }
 
   ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
   bool get onlyMode =>
@@ -405,6 +423,7 @@ class VoiceFlow extends ChangeNotifier {
     if (t == null || row == null || text.isBlank) return false;
     await t.updateRow(row.seq, recognized: text.trim(), sort: false);
     dictationText = '';
+    dictationCandidates = [];
     //  确认后:光标移到下一个需要录入的行(第2列为空)。
     //  物理的下一行已录完则继续往下找,直到找到空行为止;
     //  后面全满时回到表内第一个空行补漏,全表录满则不设光标

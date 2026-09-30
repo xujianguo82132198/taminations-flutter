@@ -299,7 +299,9 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
             : (flow.dictationText.isNotBlank ? Color.YELLOW : Color.WHITE),
         constraints: fm.BoxConstraints(minHeight: 44),
         alignment: fm.Alignment.centerLeft,
-        child: fm.Text(
+        //  有候选时:上方当前结果,下方候选条(点选即采用)
+        child: flow.dictationCandidates.isEmpty
+            ? fm.Text(
             flow.lastError == 'licc_quota'
                 ? '⚠ 额度'
                 : (flow.lastError == 'not_heard'
@@ -312,7 +314,43 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                         ? '${flow.dictationText} →'
                         : '🎙 朗读'))),
             style: fm.TextStyle(fontSize: 20,
-                fontWeight: fm.FontWeight.bold)),
+                fontWeight: fm.FontWeight.bold))
+            : fm.Column(
+                mainAxisSize: fm.MainAxisSize.min,
+                crossAxisAlignment: fm.CrossAxisAlignment.start,
+                children: [
+                  fm.Text(
+                      flow.dictationText.isNotBlank
+                          ? '${flow.dictationText} →'
+                          : '🎙 朗读',
+                      style: fm.TextStyle(fontSize: 20,
+                          fontWeight: fm.FontWeight.bold)),
+                  //  候选条:点一下即选为采表结果
+                  fm.Wrap(
+                      spacing: 6,
+                      runSpacing: 2,
+                      children: [
+                        for (final c in flow.dictationCandidates)
+                          fm.InkWell(
+                            onTap: () => flow.chooseDictation(c),
+                            child: fm.Container(
+                              padding: fm.EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: fm.BoxDecoration(
+                                  border: fm.Border.all(
+                                      color: Color.BLUE, width: 1.5),
+                                  borderRadius:
+                                      fm.BorderRadius.circular(6),
+                                  color: Color.WHITE),
+                              child: fm.Text(c,
+                                  style: fm.TextStyle(
+                                      fontSize: 16,
+                                      color: Color.BLUE,
+                                      fontWeight: fm.FontWeight.bold)),
+                            ),
+                          )
+                      ]),
+                ]),
       ),
     );
   }
