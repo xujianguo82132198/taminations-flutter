@@ -219,6 +219,7 @@ class VoiceFlow extends ChangeNotifier {
     //  记号原则:默认取识别器自己的第一候选(原始听法),
     //  不做向口令靠拢的"联想纠正"——同一发音次次出同一记号,
     //  映射表负责"记号->口令"的对应;其余候选列出供点选
+    String text = '';
     //  全部候选(去重,去 unk,最多 5 条)供点选;
     //  text 为第一候选(原始记号)
     final candidates = <String>[];
