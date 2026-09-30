@@ -1445,16 +1445,45 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         });
                       },
                       //  提示按表状态区分:
-                      //  Only表=圆钮采表;非Only表=麦克风喊口令
-                      child: fm.Text(
-                          flow.callerTable == null
-                              ? 'Tap here for input Call'
-                              : (flow.onlyMode
+                      //  无表=三行操作指引;Only表=圆钮采表;非Only表=麦克风喊口令
+                      child: flow.callerTable == null
+                          ? fm.Text.rich(
+                              fm.TextSpan(children: [
+                                const fm.TextSpan(
+                                    text: 'Tap here for KEY input\n'),
+                                const fm.TextSpan(
+                                    text:
+                                        'Tap CALL for selection input\n'),
+                                fm.TextSpan(children: [
+                                  const fm.TextSpan(text: 'Tap '),
+                                  fm.WidgetSpan(
+                                      alignment:
+                                          fm.PlaceholderAlignment.middle,
+                                      child: fm.Icon(
+                                          fm.Icons.folder_open,
+                                          size: 20)),
+                                  const fm.TextSpan(
+                                      text:
+                                          ' for open Mapping Table and '),
+                                  fm.WidgetSpan(
+                                      alignment:
+                                          fm.PlaceholderAlignment.middle,
+                                      child: fm.Icon(fm.Icons.mic,
+                                          size: 20)),
+                                  const fm.TextSpan(text: ' input'),
+                                ]),
+                              ]),
+                              maxLines: 3,
+                              overflow: fm.TextOverflow.ellipsis,
+                              style: fm.TextStyle(
+                                  fontSize: 16, height: 1.4))
+                          : fm.Text(
+                              flow.onlyMode
                                   ? '圆钮按下,读口令,读完抬起'
-                                  : '按下麦克风钮,语音发布口令'),
-                          maxLines: 1,
-                          overflow: fm.TextOverflow.ellipsis,
-                          style: fm.TextStyle(fontSize: 20)),
+                                  : '按下麦克风钮,语音发布口令',
+                              maxLines: 1,
+                              overflow: fm.TextOverflow.ellipsis,
+                              style: fm.TextStyle(fontSize: 20)),
                     ),
                   )
               ),
