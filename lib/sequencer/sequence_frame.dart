@@ -1410,8 +1410,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               //  语音识别钮:无表时点击=选级别自动打开该级别
               //  映射表(不带 Only);开表后点击=开关流式检索
               if (TamUtils.canListen)
+                //  麦克风钮:仅打开了非Only映射表才可操作
+                //  (识别在该表内选择,表已含级别)
                 fm.TextButton(
-                  onPressed: flow.callerTable == null ? null : () async {
+                  onPressed: flow.callerTable == null || flow.onlyMode
+                      ? null : () async {
                     //  采样中/音乐节拍取样中不响应
                     if (flow.pttActive) return;
                     if (flow.phase == 'awaiting' ||
@@ -1435,7 +1438,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   },
                   //  长按麦克风:退出当前表,回到映射表选择
                   //  (可删除/重命名/另存/导入导出/换表)
-                  onLongPress: flow.callerTable == null ? null : () async {
+                  onLongPress:
+                      flow.callerTable == null || flow.onlyMode
+                          ? null : () async {
                     if (flow.pttActive) return;
                     flow.stop();
                     speechProvider.cancel();
@@ -1448,7 +1453,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   width: 38,
                   height: 38,
                   decoration: fm.BoxDecoration(
-                      color: flow.callerTable == null
+                      color: flow.callerTable == null || flow.onlyMode
                           ? Color.GRAY
                           : (flow.phase == 'detecting'
                               ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
