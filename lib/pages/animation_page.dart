@@ -24,6 +24,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart' as pp;
 import 'package:taminations/animated_call.dart';
 
+import '../sequencer/music_dance_button.dart';
 import '../sequencer/sequencer_model.dart';
 import '../sequencer/voice_flow.dart';
 import '../beat_notifier.dart';
@@ -365,6 +366,18 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                 //  (Sequencer 场景连同滑条一起取消标尺)
             if (!isSmall && !isSequencer)
               _SliderTicks(),
+
+                //  Sequencer 场景:音乐节拍钮(左)+ bpm 显示(右),
+                //  作为布局行紧贴播放控制条上方 —— 位置随画面
+                //  缩放始终相对一致,不用绝对坐标
+                if (isSequencer)
+                  fm.Container(
+                      padding: fm.EdgeInsets.symmetric(horizontal: 6),
+                      child: fm.Row(children: [
+                        if (TamUtils.canListen) MusicDanceButton(),
+                        fm.Spacer(),
+                        BpmModeText(),
+                      ])),
 
                 //  Buttons to control the animation
             _AnimationButtons()
