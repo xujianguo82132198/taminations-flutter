@@ -1272,31 +1272,45 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         //     命中则直接取该记录的第三列(标准口令)输出给系统。
         //     Only 采表模式绝不自动执行口令
         else if (!flow.onlyMode) {
-          var tableMatched = false;
+          //  所有候选逐个查表,取误差最小者;误差过大则忽略不执行
+          //  (识别器常把 "circle left" 首选听成 "circle lead",
+          //   而正确听法就在后面的候选里)
+          CallerRow? bestRow;
+          var bestSentence = '';
+          var bestErr = double.infinity;
           final table = flow.callerTable;
           if (table != null && flow.isActive) {
             for (var i = 0;
-                i < speech.lastResult!.alternates.length && !tableMatched;
+                i < speech.lastResult!.alternates.length;
                 i++) {
               final sentence = speech.lastResult!.alternates[i]
                   .recognizedWords.replaceAll('\W'.r, ' ').trim();
               if (sentence.isBlank) continue;
               final row = flow.lookupInTable(sentence);
-              if (row != null) {
-                debugPrint('VoiceFlow table hit: "$sentence" '
-                    '(err=${flow.lastCandidateError.toStringAsFixed(2)}) '
-                    '-> "${row.standardCall}"');
-                later(() {
-                  _isVoiceCall = true;
-                  _sendOneLine(model, row.standardCall);
-                });
-                tableMatched = true;
+              if (row != null &&
+                  flow.lastCandidateError < bestErr) {
+                bestErr = flow.lastCandidateError;
+                bestRow = row;
+                bestSentence = sentence;
               }
             }
           }
-          if (!tableMatched) {
-            //  喊口令时映射表未查到:不予理睬(完全忽略,不执行)
-            debugPrint('VoiceFlow table miss -> ignored');
+          //  误差门槛:超过 0.6 视为未查到(不执行,防止张冠李戴)
+          if (bestRow != null && bestErr <= 0.6) {
+            //  用最优候选再查一次,刷新界面高亮显示
+            flow.lookupInTable(bestSentence);
+            debugPrint('VoiceFlow table hit: "$bestSentence" '
+                '(err=${bestErr.toStringAsFixed(2)}) '
+                '-> "${bestRow.standardCall}"');
+            later(() {
+              _isVoiceCall = true;
+              _sendOneLine(model, bestRow.standardCall);
+            });
+          } else {
+            //  喊口令时映射表未查到(或误差过大):
+            //  不予理睬(完全忽略,不执行)
+            debugPrint('VoiceFlow table miss '
+                '(bestErr=${bestErr.toStringAsFixed(2)}) -> ignored');
           }
         }
         //  处理完一条结果后立即清空,防止 build 重复消费同一结果
