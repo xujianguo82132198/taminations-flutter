@@ -379,9 +379,13 @@ class CallerTable extends ChangeNotifier {
       } on FormatException {}
     }
     for (final r in only.rows) {
-      if (r.recognized.isNotBlank)
+      //  已录记号的行用记号;未录的行用口令名本身当记号
+      //  (标准读法可命中),保证合并后全表覆盖、无遗漏
+      final token = r.recognized.isNotBlank
+          ? r.recognized : r.standardCall;
+      if (token.isNotBlank)
         merged.add(CallerRow(seq: 0,
-            recognized: r.recognized, standardCall: r.standardCall));
+            recognized: token, standardCall: r.standardCall));
     }
     merged.sort((a, b) =>
         a.recognized.toLowerCase().compareTo(b.recognized.toLowerCase()));
