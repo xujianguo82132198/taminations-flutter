@@ -419,6 +419,10 @@ class CallerTable extends ChangeNotifier {
   static String _normalize(String s) =>
       s.toLowerCase()
           .replaceAll(RegExp(r'[^a-z0-9\u4e00-\u9fa5]+'), ' ')
+          //  同音写法统一,降低记号的表面差异
+          .replaceAll(RegExp(r'\bu\b'), 'you')
+          .replaceAll(RegExp(r'\baways?\b'), 'a')
+          .replaceAll(RegExp(r' +'), ' ')
           .trim();
 
   ///  计算两句话的误差(归一化编辑距离 / 较长者长度,0~1,越小越相似)
@@ -462,7 +466,13 @@ class CallerTable extends ChangeNotifier {
     CallerRow? best;
     var bestErr = double.infinity;
     for (final row in rows) {
-      final err = sentenceError(row.recognized, sentence);
+      //  行内可存多笔记号(以 | 分隔):同一口令的多种听法
+      //  都留在行里,与任意一笔比对,取最小误差
+      var err = double.infinity;
+      for (final token in row.recognized.split('|')) {
+        final e = sentenceError(token, sentence);
+        if (e < err) err = e;
+      }
       if (err < bestErr) {
         bestErr = err;
         best = row;
