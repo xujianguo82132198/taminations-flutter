@@ -1411,17 +1411,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               //  映射表(不带 Only);开表后点击=开关流式检索
               if (TamUtils.canListen)
                 fm.TextButton(
-                  onPressed: () async {
+                  onPressed: flow.callerTable == null ? null : () async {
                     //  采样中/音乐节拍取样中不响应
                     if (flow.pttActive) return;
                     if (flow.phase == 'awaiting' ||
                         flow.phase == 'detecting')
                       return;
-                    //  无表:问级别 -> 打开该级别的映射表
-                    if (flow.callerTable == null) {
-                      await _pickLevelAndOpenTable();
-                      return;
-                    }
                     if (flow.isActive) {
                       if (speechProvider.isListening) {
                         //  流式检索中:点击结束
@@ -1440,26 +1435,25 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   },
                   //  长按麦克风:退出当前表,回到映射表选择
                   //  (可删除/重命名/另存/导入导出/换表)
-                  onLongPress: () async {
+                  onLongPress: flow.callerTable == null ? null : () async {
                     if (flow.pttActive) return;
-                    if (flow.callerTable == null) {
-                      await _loginAndOpenTable();
-                      return;
-                    }
                     flow.stop();
                     speechProvider.cancel();
                     await _loginAndOpenTable();
                   },
                   //  开表后麦克风以"圆钮"样式显示(黑圆白图):
-                  //  红圆=流式识别进行中;蓝闪=节拍检测中;平时黑圆
+                  //  无表=灰圆禁用;红圆=流式识别进行中;
+                  //  蓝闪=节拍检测中;平时黑圆
                   child: fm.Container(
                   width: 38,
                   height: 38,
                   decoration: fm.BoxDecoration(
-                      color: flow.phase == 'detecting'
-                          ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
-                          : ((speechProvider.isListening && !flow.pttActive)
-                              ? Color.RED : Color.BLACK),
+                      color: flow.callerTable == null
+                          ? Color.GRAY
+                          : (flow.phase == 'detecting'
+                              ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
+                              : ((speechProvider.isListening && !flow.pttActive)
+                                  ? Color.RED : Color.BLACK)),
                       shape: fm.BoxShape.circle),
                   child: fm.Icon(fm.Icons.mic,
                       color: Color.WHITE, size: 22),
@@ -2009,50 +2003,6 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
   //  登录并打开映射表(登录取消返回 false)
   //  麦克风按钮与音乐按钮(未登录时)共用
-  //  无表时点语音识别钮:选级别 -> 查该级别的映射表(不带 Only,
-  //  表名以 _<级别> 结尾,如合并生成的 XuJianguo__ms) -> 打开它
-  Future<void> _pickLevelAndOpenTable() async {
-    final levels = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
-    final level = await fm.showDialog<String>(
-        context: context,
-        builder: (ctx) => fm.SimpleDialog(
-            title: fm.Text('选择口令级别',
-                style: fm.TextStyle(fontSize: 22)),
-            children: [
-              for (final l in levels)
-                fm.SimpleDialogOption(
-                    onPressed: () => fm.Navigator.of(ctx).pop(l),
-                    child: fm.Text(l.toUpperCase(),
-                        style: fm.TextStyle(fontSize: 26)))
-            ]));
-    if (level == null || !mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    final names = CallerTable.listTableNames(prefs)
-        .where((n) => !n.endsWith('_Only') &&
-            n.toLowerCase().endsWith('_$level'))
-        .toList();
-    if (!mounted) return;
-    if (names.isEmpty) {
-      fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-          backgroundColor: Color.RED,
-          duration: const Duration(seconds: 4),
-          content: fm.Text(
-              '没有 ${level.toUpperCase()} 级别的映射表,'
-              '请先用打开钮建表或导入。',
-              style: GoogleFonts.roboto(fontSize: 20))));
-      return;
-    }
-    await flow.openCallerTable(names.first);
-    //  非Only表后台运行:面板收起,可手动展开
-    flow.setPanelMinimized(true);
-    if (!mounted) return;
-    fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-        backgroundColor: Color.BLUE,
-        duration: const Duration(seconds: 2),
-        content: fm.Text('已打开 ${names.first},可语音识别输入。',
-            style: GoogleFonts.roboto(fontSize: 20))));
-  }
-
   Future<bool> _loginAndOpenTable() async {
     if (!await _showCallerLogin(context)) return false;
     await _openCallerTable(context);
