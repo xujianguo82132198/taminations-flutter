@@ -216,27 +216,11 @@ class VoiceFlow extends ChangeNotifier {
     //  否则后面的词(back)全部丢失
     if (s.isListening) return;
     if (result == null || !result.finalResult) return;
-    String text = '';
-    //  多候选时:挑与表内标准口令误差最小的候选
-    //  (识别器一次给出多种听法,靠近真口令的即正确解码)
-    final t = callerTable;
-    if (t != null && result.alternates.length > 1) {
-      var bestErr = double.infinity;
-      for (final alt in result.alternates) {
-        final a = alt.recognizedWords
-            .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
-        if (a.isEmpty) continue;
-        for (final row in t.rows) {
-          final e = CallerTable.sentenceError(a, row.standardCall);
-          if (e < bestErr) {
-            bestErr = e;
-            text = a;
-          }
-        }
-      }
-    }
+    //  记号原则:默认取识别器自己的第一候选(原始听法),
+    //  不做向口令靠拢的"联想纠正"——同一发音次次出同一记号,
+    //  映射表负责"记号->口令"的对应;其余候选列出供点选
     //  全部候选(去重,去 unk,最多 5 条)供点选;
-    //  text 为其中与表内口令误差最小者(默认值)
+    //  text 为第一候选(原始记号)
     final candidates = <String>[];
     for (final alt in result.alternates) {
       final t2 = alt.recognizedWords
