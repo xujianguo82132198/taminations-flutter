@@ -302,6 +302,7 @@ class VoiceFlow extends ChangeNotifier {
   ///  停语音识别、清采表/候选/提示状态、解除表监听、
   ///  取消音乐取样(音乐生效中除外,其为独立功能)
   void exitTable() {
+    debugPrint('exitTable: enter phase=$phase table=${callerTable?.callerName}');
     if (phase == 'awaiting' || phase == 'detecting')
       _cancelMusicSampling();
     speech?.cancel();
@@ -319,6 +320,7 @@ class VoiceFlow extends ChangeNotifier {
     panelMinimized = false;
     phase = 'idle';
     _notify();
+    debugPrint('exitTable: done');
   }
 
   Future<CallerTable> openCallerTable(String name) async {

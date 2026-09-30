@@ -119,6 +119,11 @@ class _SequencerPageState extends fm.State<SequencerPage> {
               if (isSmallDevice(context)) {
                 //  Only 采表模式:跳舞区缩为窄条,表格区最大化;
                 //  其他模式:动画 3 : 输入区 2
+                //  布局比例随表开关即时切换(监听 VoiceFlow:
+                //  打开/退出 Only 表时重排,退出必须回到开表前)
+                return fm.ListenableBuilder(
+                    listenable: VoiceFlow.instance,
+                    builder: (context, _) {
                 //  Only 采表:上方跳舞区(高度保证右侧按钮列
                 //  与节拍数字可见),下方表格占满剩余屏幕
                 if (VoiceFlow.instance.onlyMode)
@@ -140,6 +145,7 @@ class _SequencerPageState extends fm.State<SequencerPage> {
                     )
                   ],
                 );
+                    });
               }
               //  landscape
               return ResizableContainer(
