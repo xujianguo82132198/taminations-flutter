@@ -408,17 +408,9 @@ class VoiceFlow extends ChangeNotifier {
     debugPrint('confirmDictation: text="$text" row=${row?.seq} '
         'table=${t?.callerName}');
     if (t == null || row == null || text.isBlank) return false;
-    //  记号累积:同行已有不同记号时追加保存(不覆盖),
-    //  同一口令的多种听法都归到这一行;重复的不重复记
-    final newToken = text.trim();
-    final existing = row.recognized.trim();
-    if (existing.isEmpty) {
-      await t.updateRow(row.seq, recognized: newToken, sort: false);
-    } else if (existing.split('|')
-        .every((tk) => CallerTable.sentenceError(tk, newToken) > 0.15)) {
-      await t.updateRow(row.seq,
-          recognized: '$existing | $newToken', sort: false);
-    }
+    //  确认即替换:重新采同一条时删旧记号、记新记号
+    await t.updateRow(row.seq,
+        recognized: text.trim(), sort: false);
     dictationText = '';
     dictationCandidates = [];
     //  确认后:光标移到下一个需要录入的行(第2列为空)。
