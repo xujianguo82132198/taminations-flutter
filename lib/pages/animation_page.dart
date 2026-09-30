@@ -372,6 +372,8 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                 //  缩放始终相对一致,不用绝对坐标
                 if (isSequencer)
                   fm.Container(
+                      //  与舞池/控制条同色,消除单独行背景
+                      color: Color.FLOOR,
                       padding: fm.EdgeInsets.symmetric(horizontal: 6),
                       child: fm.Row(children: [
                         if (TamUtils.canListen) MusicDanceButton(),
