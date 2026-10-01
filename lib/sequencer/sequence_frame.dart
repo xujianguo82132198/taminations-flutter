@@ -532,14 +532,8 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
     if (!flow.onlyMode) return fm.SizedBox.shrink();
     return fm.GestureDetector(
       onTap: () {
-        if (flow.pttActive) return;
-        if (flow.dictationText.isNotBlank) {
+        if (flow.dictationText.isNotBlank)
           flow.confirmDictation(flow.dictationText);
-        } else if (flow.callerTable != null) {
-          //  空闲时点显示框:输入标准口令前几个字母,
-          //  自动查到该行并选中为当前采表行
-          _prefixSearchDialog();
-        }
       },
       onLongPress: () async {
         final n = await flow.finishOnlyTable();
