@@ -1713,7 +1713,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         flow.stopListening();
                       } else {
                         //  表管理模式:点击开始流式检索
-                        //  (只查表执行,面板自动收起)
+                        //  (只查表执行,面板自动收起);
+                        //  语音输入全程不弹键盘——收起焦点与虚拟键盘,
+                        //  防止每次执行口令后键盘弹出遮挡画面
+                        focusNode.unfocus();
+                        setState(() {
+                          virtualKeyboardSetVisible(false);
+                        });
                         flow.startListening();
                         flow.setPanelMinimized(true);
                       }
