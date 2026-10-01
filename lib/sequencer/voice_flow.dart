@@ -225,7 +225,7 @@ class VoiceFlow extends ChangeNotifier {
           .replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
       if (t2.isEmpty || t2 == 'unk' || t2 == '[unk]') continue;
       if (!candidates.contains(t2)) candidates.add(t2);
-      if (candidates.length >= 5) break;
+      if (candidates.length >= 8) break;
     }
     if (text.isEmpty && candidates.isNotEmpty) text = candidates.first;
     _sampleTimeout?.cancel();
