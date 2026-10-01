@@ -274,12 +274,65 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
     if (mounted) setState(() {});
   }
 
+  //  输入标准口令前几个字母 -> 找到该行并选中(边输边跳)
+  Future<void> _prefixSearchDialog() async {
+    final controller = fm.TextEditingController();
+    await fm.showDialog(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+              title: fm.Text('输入口令前几个字母',
+                  style: fm.TextStyle(fontSize: 20)),
+              content: fm.TextField(
+                controller: controller,
+                autofocus: true,
+                style: fm.TextStyle(fontSize: 24),
+                decoration: fm.InputDecoration(
+                    hintText: '如: cir',
+                    hintStyle: fm.TextStyle(fontSize: 20)),
+                onChanged: (v) {
+                  final p = v.trim().toLowerCase();
+                  if (p.isEmpty) return;
+                  final t = flow.callerTable;
+                  if (t == null) return;
+                  //  先按前缀找,找不到再按包含找
+                  CallerRow? m;
+                  for (final r in t.rows) {
+                    if (r.standardCall.toLowerCase().startsWith(p)) {
+                      m = r;
+                      break;
+                    }
+                  }
+                  if (m == null) {
+                    for (final r in t.rows) {
+                      if (r.standardCall.toLowerCase().contains(p)) {
+                        m = r;
+                        break;
+                      }
+                    }
+                  }
+                  if (m != null) flow.selectDictationRow(m.seq);
+                },
+              ),
+              actions: [
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(),
+                    child: fm.Text('关闭', style: fm.TextStyle(fontSize: 18))),
+              ],
+            ));
+  }
+
   @override
   fm.Widget build(fm.BuildContext context) {
     return fm.GestureDetector(
       onTap: () {
-        if (flow.dictationText.isNotBlank)
+        if (flow.pttActive) return;
+        if (flow.dictationText.isNotBlank) {
           flow.confirmDictation(flow.dictationText);
+        } else if (flow.callerTable != null) {
+          //  空闲时点显示框:输入标准口令前几个字母,
+          //  自动查到该行并选中为当前采表行
+          _prefixSearchDialog();
+        }
       },
       onLongPress: () async {
         final n = await flow.finishOnlyTable();
@@ -479,8 +532,14 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
     if (!flow.onlyMode) return fm.SizedBox.shrink();
     return fm.GestureDetector(
       onTap: () {
-        if (flow.dictationText.isNotBlank)
+        if (flow.pttActive) return;
+        if (flow.dictationText.isNotBlank) {
           flow.confirmDictation(flow.dictationText);
+        } else if (flow.callerTable != null) {
+          //  空闲时点显示框:输入标准口令前几个字母,
+          //  自动查到该行并选中为当前采表行
+          _prefixSearchDialog();
+        }
       },
       onLongPress: () async {
         final n = await flow.finishOnlyTable();
