@@ -465,6 +465,22 @@ class VoiceFlow extends ChangeNotifier {
   ///  口令员在 Calls 画面点选的口令(输入行取走后清空)
   String? callSelection;
 
+  ///  长按表名"增加记录"模式:Calls 页选中的口令
+  ///  不填输入行,而是直接加为本表新记录
+  bool awaitingAddRecord = false;
+
+  ///  增加记录:以选定的口令名新建一行(第2列空,待圆钮采样),
+  ///  光标跳到新行
+  Future<void> addRecordWithCall(String call) async {
+    final t = callerTable;
+    if (t == null) return;
+    final row = await t.addRow(
+        recognized: '', standardCall: call.trim());
+    dictationSeqOverride = row.seq;
+    dictationText = '';
+    _notify();
+  }
+
   ///  开始记录初始化:识别句写入新记录第二列。
   ///  返回新记录;表不存在时返回 null。
   Future<CallerRow?> startRecordInit(String sentence) async {

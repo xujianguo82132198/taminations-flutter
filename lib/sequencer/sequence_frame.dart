@@ -1028,11 +1028,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                             identical(flow.lastCandidate, row);
                         return fm.InkWell(
                           //  Only 模式:点行=选定为采表目标;
-                          //   长按=编辑第3列(标准口令)
-                          //  其他模式:点行=删除
+                          //   长按=编辑第3列/删除
+                          //  非Only表只读(增删只在Only表做)
                           onTap: () => flow.onlyMode
                               ? flow.selectDictationRow(row.seq)
-                              : _deleteRow(row),
+                              : null,
                           onLongPress: flow.onlyMode
                               ? () => _rowActionMenu(row)
                               : null,
