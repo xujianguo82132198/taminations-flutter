@@ -274,51 +274,80 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
     if (mounted) setState(() {});
   }
 
-  //  输入标准口令前几个字母 -> 找到该行并选中(边输边跳)
+  //  输入口令字母 -> 列出全部匹配行(行号+口令名),
+  //  边输边筛,点某行即选中该行并关闭
   Future<void> _prefixSearchDialog() async {
     final controller = fm.TextEditingController();
     await fm.showDialog(
         context: context,
-        builder: (ctx) => fm.AlertDialog(
-              title: fm.Text('输入口令前几个字母',
-                  style: fm.TextStyle(fontSize: 20)),
-              content: fm.TextField(
-                controller: controller,
-                autofocus: true,
-                style: fm.TextStyle(fontSize: 24),
-                decoration: fm.InputDecoration(
-                    hintText: '如: cir',
-                    hintStyle: fm.TextStyle(fontSize: 20)),
-                onChanged: (v) {
-                  final p = v.trim().toLowerCase();
-                  if (p.isEmpty) return;
-                  final t = flow.callerTable;
-                  if (t == null) return;
-                  //  先按前缀找,找不到再按包含找
-                  CallerRow? m;
+        builder: (ctx) => fm.StatefulBuilder(builder: (ctx, setD) {
+              //  先按前缀筛,没有再按包含筛
+              List<CallerRow> matches = [];
+              final p = controller.text.trim().toLowerCase();
+              final t = flow.callerTable;
+              if (p.isNotEmpty && t != null) {
+                for (final r in t.rows) {
+                  if (r.standardCall.toLowerCase().startsWith(p))
+                    matches.add(r);
+                }
+                if (matches.isEmpty) {
                   for (final r in t.rows) {
-                    if (r.standardCall.toLowerCase().startsWith(p)) {
-                      m = r;
-                      break;
-                    }
+                    if (r.standardCall.toLowerCase().contains(p))
+                      matches.add(r);
                   }
-                  if (m == null) {
-                    for (final r in t.rows) {
-                      if (r.standardCall.toLowerCase().contains(p)) {
-                        m = r;
-                        break;
-                      }
-                    }
-                  }
-                  if (m != null) flow.selectDictationRow(m.seq);
-                },
-              ),
-              actions: [
-                fm.TextButton(
-                    onPressed: () => fm.Navigator.of(ctx).pop(),
-                    child: fm.Text('关闭', style: fm.TextStyle(fontSize: 18))),
-              ],
-            ));
+                }
+              }
+              return fm.AlertDialog(
+                title: fm.Text('输入口令字母,列出全部匹配行',
+                    style: fm.TextStyle(fontSize: 20)),
+                content: fm.Column(
+                    mainAxisSize: fm.MainAxisSize.min,
+                    children: [
+                      fm.TextField(
+                        controller: controller,
+                        autofocus: true,
+                        style: fm.TextStyle(fontSize: 24),
+                        decoration: fm.InputDecoration(
+                            hintText: '如: spl',
+                            hintStyle: fm.TextStyle(fontSize: 20)),
+                        onChanged: (_) => setD(() {}),
+                      ),
+                      fm.SizedBox(height: 8),
+                      if (matches.isEmpty)
+                        fm.Text(p.isEmpty ? '请输入字母' : '(无匹配行)',
+                            style: fm.TextStyle(
+                                fontSize: 18, color: Color.GRAY))
+                      else
+                        fm.Container(
+                          constraints: fm.BoxConstraints(maxHeight: 340),
+                          width: double.infinity,
+                          child: fm.ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: matches.length,
+                            itemBuilder: (lctx, i) {
+                              final m = matches[i];
+                              return fm.ListTile(
+                                dense: true,
+                                title: fm.Text(
+                                    '第${m.seq}行  ${m.standardCall}',
+                                    style: fm.TextStyle(fontSize: 19)),
+                                onTap: () {
+                                  flow.selectDictationRow(m.seq);
+                                  fm.Navigator.of(ctx).pop();
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                    ]),
+                actions: [
+                  fm.TextButton(
+                      onPressed: () => fm.Navigator.of(ctx).pop(),
+                      child: fm.Text('关闭',
+                          style: fm.TextStyle(fontSize: 18))),
+                ],
+              );
+            }));
   }
 
   @override
