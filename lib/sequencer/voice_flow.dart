@@ -152,13 +152,9 @@ class VoiceFlow extends ChangeNotifier {
     if (t == null) return null;
     final words = <String>{};
     for (final r in t.rows) {
-      var s = r.standardCall.toLowerCase();
-      s = s.replaceAll('1/4', ' one quarter ')
-           .replaceAll('1/2', ' one half ')
-           .replaceAll('3/4', ' three quarter ')
-           .replaceAll('2/3', ' two third ');
-      for (final w in s.replaceAll(RegExp(r'[^a-z ]'), ' ')
-          .split(RegExp(r' +'))) {
+      //  统一用读法形式(1-1/2 -> one and a half 等)
+      final s = CallerTable.spokenForm(r.standardCall);
+      for (final w in s.split(RegExp(r' +'))) {
         if (w.isNotEmpty) words.add(w);
       }
     }

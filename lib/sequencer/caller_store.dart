@@ -381,8 +381,9 @@ class CallerTable extends ChangeNotifier {
     for (final r in only.rows) {
       //  已录记号的行用记号;未录的行用口令名本身当记号
       //  (标准读法可命中),保证合并后全表覆盖、无遗漏
+      //  未录行默认记号=口令读法(数字转单词),与实际念法一致
       final token = r.recognized.isNotBlank
-          ? r.recognized : r.standardCall;
+          ? r.recognized : spokenForm(r.standardCall);
       if (token.isNotBlank)
         merged.add(CallerRow(seq: 0,
             recognized: token, standardCall: r.standardCall));
@@ -420,6 +421,31 @@ class CallerTable extends ChangeNotifier {
   // ------------------------------------------------ 识别结果查询
 
   ///  归一化两句话(小写、去标点、压缩空白)
+  ///  口令名 -> 口头读法:分数/数字转英文单词,
+  ///  供语法词表与合并表默认记号使用(与实际念法一致)
+  static String spokenForm(String s) {
+    var t = s.toLowerCase();
+    t = t
+        .replaceAll('1-1/2', ' one and a half ')
+        .replaceAll('2-1/2', ' two and a half ')
+        .replaceAll('3-1/2', ' three and a half ')
+        .replaceAll('3/4', ' three quarter ')
+        .replaceAll('2/3', ' two third ')
+        .replaceAll('1/4', ' one quarter ')
+        .replaceAll('1/2', ' one half ');
+    const digits = {
+      '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+      '5': 'five', '6': 'six', '8': 'eight', '0': 'zero'
+    };
+    for (final e in digits.entries) {
+      t = t.replaceAll(RegExp('\\b${e.key}\\b'), ' ${e.value} ');
+    }
+    return t
+        .replaceAll(RegExp(r'[^a-z ]'), ' ')
+        .replaceAll(RegExp(r' +'), ' ')
+        .trim();
+  }
+
   static String _normalize(String s) =>
       s.toLowerCase()
           .replaceAll(RegExp(r'[^a-z0-9\u4e00-\u9fa5]+'), ' ')
