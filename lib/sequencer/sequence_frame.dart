@@ -1548,21 +1548,39 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                     text: 'Tap here for KEY input;\n'),
                                 //  Calls钮=右侧按钮列的 Calls 文字钮,
                                 //  此处内嵌迷你同款样式
+                                //  与右侧按钮列 Calls 钮同款样式
+                                //  (灰边+白灰渐变+圆角+粗体)
                                 fm.WidgetSpan(
                                     alignment:
                                         fm.PlaceholderAlignment.middle,
                                     child: fm.Container(
                                         padding: fm.EdgeInsets.symmetric(
-                                            horizontal: 4, vertical: 1),
-                                        decoration: fm.BoxDecoration(
-                                            border: fm.Border.all(
-                                                color: Color.BLACK),
-                                            borderRadius:
-                                                fm.BorderRadius.circular(4)),
+                                            horizontal: 5, vertical: 1),
+                                        decoration: fm.ShapeDecoration(
+                                            shape:
+                                                fm.RoundedRectangleBorder(
+                                                    side: fm.BorderSide(
+                                                        color: Color.GRAY
+                                                            .darker()),
+                                                    borderRadius:
+                                                        fm.BorderRadius
+                                                            .circular(10)),
+                                            gradient:
+                                                fm.LinearGradient(
+                                                    begin: fm.Alignment
+                                                        .topCenter,
+                                                    end: fm.Alignment
+                                                        .bottomCenter,
+                                                    colors: [
+                                                  Color(0xffffffff),
+                                                  Color(0xffa0a0a0)
+                                                ])),
                                         child: fm.Text('Calls',
                                             style: fm.TextStyle(
-                                                fontSize: 12)))),
-                                fm.TextSpan(text: ' ...;\n'),
+                                                fontSize: 13,
+                                                fontWeight:
+                                                    fm.FontWeight.bold)))),
+                                fm.TextSpan(text: '...;\n'),
                                 fm.TextSpan(text: 'Tap '),
                                 //  open钮=打开表按钮的文件夹图标
                                 fm.WidgetSpan(
