@@ -612,6 +612,18 @@ class VoiceFlow extends ChangeNotifier {
 
   //  结束语音流程(麦克风退出):停止语音相关监测。
   //  音乐节拍独立于语音流程,不受此影响(由其按钮单独控制)
+  ///  仅结束语音识别(表保持打开,麦克风钮再按可重启;
+  ///  不清表、不动音乐节拍状态)
+  void stopListening() {
+    debugPrint('VoiceFlow.stopListening (phase=$phase)');
+    speech?.cancel();
+    if (phase != 'awaiting' && phase != 'detecting')
+      phase = callerTable != null ? 'calling' : 'idle';
+    lastCandidate = null;
+    lastCandidateError = 1.0;
+    _notify();
+  }
+
   void stop() {
     debugPrint('VoiceFlow.stop (phase=$phase)');
     speech?.cancel();

@@ -1708,9 +1708,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       return;
                     if (flow.isActive) {
                       if (speechProvider.isListening) {
-                        //  流式检索中:点击结束
-                        flow.stop();
-                        speechProvider.cancel();
+                        //  流式检索中:点击结束——只退出语音识别,
+                        //  表保持打开(再按可重启识别)
+                        flow.stopListening();
                       } else {
                         //  表管理模式:点击开始流式检索
                         //  (只查表执行,面板自动收起)
