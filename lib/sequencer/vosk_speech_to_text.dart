@@ -331,7 +331,17 @@ class VoskSpeechToText extends ChangeNotifier {
         }
         break;
       case 'speech_error':
+        //  采集线程死亡(系统长时间录音后回收/异常):
+        //  干净复位监听状态,麦克风钮可再次启动,不卡死
         _lastError = 'native capture failed';
+        if (_isListening) {
+          _log('speech_error -> reset listening state');
+          _sub?.cancel();
+          _sub = null;
+          musicMonitor.voskStop();
+          _isListening = false;
+          _continuous = false;
+        }
         _notify();
         break;
     }
