@@ -1592,7 +1592,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                           ])),
                                               child: fm.Text('Calls',
                                                   style: fm.TextStyle(
-                                                      fontSize: 13,
+                                                      fontSize: 15,
                                                       fontWeight: fm
                                                           .FontWeight
                                                           .bold))),
