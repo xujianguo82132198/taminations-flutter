@@ -1546,10 +1546,38 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               fm.TextSpan(children: [
                                 fm.TextSpan(
                                     text: 'Tap here for KEY input;\n'),
-                                fm.TextSpan(text: 'Calls(钮)...;\n'),
+                                //  Calls钮=右侧按钮列的 Calls 文字钮,
+                                //  此处内嵌迷你同款样式
+                                fm.WidgetSpan(
+                                    alignment:
+                                        fm.PlaceholderAlignment.middle,
+                                    child: fm.Container(
+                                        padding: fm.EdgeInsets.symmetric(
+                                            horizontal: 4, vertical: 1),
+                                        decoration: fm.BoxDecoration(
+                                            border: fm.Border.all(
+                                                color: Color.BLACK),
+                                            borderRadius:
+                                                fm.BorderRadius.circular(4)),
+                                        child: fm.Text('Calls',
+                                            style: fm.TextStyle(
+                                                fontSize: 12)))),
+                                fm.TextSpan(text: ' ...;\n'),
+                                fm.TextSpan(text: 'Tap '),
+                                //  open钮=打开表按钮的文件夹图标
+                                fm.WidgetSpan(
+                                    alignment:
+                                        fm.PlaceholderAlignment.middle,
+                                    child: fm.Icon(
+                                        fm.Icons.folder_open, size: 18)),
                                 fm.TextSpan(
-                                    text: 'Tap "open"钮 to open Mapping '
-                                        'Table for "MIK"钮 input.'),
+                                    text: ' to open Mapping Table for '),
+                                //  MIK钮=麦克风图标
+                                fm.WidgetSpan(
+                                    alignment:
+                                        fm.PlaceholderAlignment.middle,
+                                    child: fm.Icon(fm.Icons.mic, size: 18)),
+                                fm.TextSpan(text: ' input.'),
                               ]),
                               style: fm.TextStyle(
                                   fontSize: 15, height: 1.4))
