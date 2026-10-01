@@ -477,11 +477,12 @@ class CallerTable extends ChangeNotifier {
         final e = sentenceError(token, sentence);
         if (e < err) err = e;
       }
+      //  全表扫描取全局最小(不早停):噪声记号下误差沿
+      //  排序并非单谷形,早停会漏掉真正的最低误差行
       if (err < bestErr) {
         bestErr = err;
         best = row;
-      } else
-        break;  //  误差变大,停止寻访,刚才那个即误差最低者
+      }
     }
     return (hit: best, candidate: best, error: bestErr);
   }
