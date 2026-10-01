@@ -61,6 +61,10 @@ class VoskSpeechToText extends ChangeNotifier {
   //  采样期间累计拼接,避免多词口令只取到前半段)
   String _sessionText = '';
 
+  //  本会话见过的全部候选文本(分段事件+收尾并集,去重):
+  //  收尾 flush 只带最后一段的候选,不能覆盖中间的完整列表
+  final List<String> _sessionAlts = [];
+
   //  模型加载去重:并发的 initialize 共享同一次加载
   Future<bool>? _initFuture;
 
@@ -238,6 +242,7 @@ class VoskSpeechToText extends ChangeNotifier {
   Future<void> _startSession() async {
     try {
       _sessionText = '';
+      _sessionAlts.clear();
       _sub?.cancel();
       _sub = musicMonitor.events.listen(_onEvent);
       await musicMonitor.voskStart(
@@ -267,14 +272,20 @@ class VoskSpeechToText extends ChangeNotifier {
     if (texts.isNotEmpty) {
       _sessionText = _sessionText.isEmpty
           ? texts.first : '$_sessionText ${texts.first}';
-      _log('finish: final "$_sessionText" alts=$texts');
-      _lastResult = SpeechRecognitionResult(
-          [for (final t in texts) SpeechRecognitionAlternative(t, 1.0)],
-          true);
-    } else if (_sessionText.isNotEmpty) {
-      _log('finish: using accumulated "$_sessionText"');
-      _lastResult = SpeechRecognitionResult(
-          [SpeechRecognitionAlternative(_sessionText, 1.0)], true);
+      for (final t in texts) {
+        if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
+      }
+    }
+    if (_sessionAlts.isNotEmpty) {
+      //  默认值=累计拼接句;其余候选按见到的顺序跟上
+      _log('finish: "$_sessionText" alts=$_sessionAlts');
+      final alts = <SpeechRecognitionAlternative>[
+        if (_sessionText.isNotEmpty)
+          SpeechRecognitionAlternative(_sessionText, 1.0),
+        for (final t in _sessionAlts)
+          if (t != _sessionText) SpeechRecognitionAlternative(t, 1.0),
+      ];
+      _lastResult = SpeechRecognitionResult(alts, true);
     } else {
       _log('finish: final text empty');
     }
@@ -303,8 +314,12 @@ class VoskSpeechToText extends ChangeNotifier {
         if (texts.isNotEmpty) {
           _sessionText = _sessionText.isEmpty
               ? texts.first : '$_sessionText ${texts.first}';
+          for (final t in texts) {
+            if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
+          }
           _lastResult = SpeechRecognitionResult(
-              [for (final t in texts) SpeechRecognitionAlternative(t, 1.0)],
+              [for (final t in _sessionAlts)
+                SpeechRecognitionAlternative(t, 1.0)],
               true);
           _notify();
         }
