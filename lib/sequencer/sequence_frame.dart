@@ -1557,6 +1557,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         mainAxisSize:
                                             fm.MainAxisSize.min,
                                         children: [
+                                          fm.Text('Tap ',
+                                              style: fm.TextStyle(
+                                                  fontSize: 15)),
                                           fm.Container(
                                               padding: fm.EdgeInsets
                                                   .symmetric(
@@ -1593,8 +1596,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                       fontWeight: fm
                                                           .FontWeight
                                                           .bold))),
-                                          fm.SizedBox(width: 4),
-                                          fm.Text('...;',
+                                          fm.Text(' for Selection input;',
                                               style: fm.TextStyle(
                                                   fontSize: 15)),
                                         ])),
