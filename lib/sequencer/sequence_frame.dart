@@ -314,9 +314,41 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       ),
                       fm.SizedBox(height: 8),
                       if (matches.isEmpty)
-                        fm.Text(p.isEmpty ? '请输入字母' : '(无匹配行)',
-                            style: fm.TextStyle(
-                                fontSize: 18, color: Color.GRAY))
+                        fm.Column(
+                            mainAxisSize: fm.MainAxisSize.min,
+                            crossAxisAlignment:
+                                fm.CrossAxisAlignment.start,
+                            children: [
+                              fm.Text(
+                                  p.isEmpty ? '请输入字母' : '(无匹配行)',
+                                  style: fm.TextStyle(
+                                      fontSize: 18, color: Color.GRAY)),
+                              //  无匹配时:把输入作为自定义口令加行
+                              //  (如 boys circulate,引擎可执行但
+                              //   口令库列表没有的应用性说法)
+                              if (p.isNotEmpty)
+                                fm.TextButton.icon(
+                                    onPressed: () async {
+                                      final t = flow.callerTable;
+                                      if (t == null) return;
+                                      final row = await t.addRow(
+                                          recognized: '',
+                                          standardCall:
+                                              controller.text.trim());
+                                      if (!mounted) return;
+                                      fm.Navigator.of(ctx).pop();
+                                      flow.selectDictationRow(row.seq);
+                                    },
+                                    icon: fm.Icon(fm.Icons.add,
+                                        color: Color.BLUE),
+                                    label: fm.Text(
+                                        '添加自定义口令「'
+                                        '${controller.text.trim()}」'
+                                        '并采样',
+                                        style: fm.TextStyle(
+                                            fontSize: 18,
+                                            color: Color.BLUE))),
+                            ])
                       else
                         fm.Container(
                           constraints: fm.BoxConstraints(maxHeight: 340),
