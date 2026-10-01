@@ -357,7 +357,10 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
             ? fm.Text(
             flow.lastError == 'licc_quota'
                 ? '⚠ 额度'
-                : (flow.lastError == 'not_heard'
+                : (flow.lastError != null &&
+                        flow.lastError!.startsWith('token_conflict')
+                    ? '✕ 与第${flow.lastError!.split(':')[1]}行记号相同,请换候选'
+                    : (flow.lastError == 'not_heard'
                     ? '✕ 没听清,请再按住重念'
                     : (flow.pttActive
                     ? (flow.dictationPartial.isNotBlank
@@ -365,7 +368,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                         : '● 正在聆听…(松开结束)')
                     : (flow.dictationText.isNotBlank
                         ? '${flow.dictationText} →'
-                        : '🎙 朗读'))),
+                        : '🎙 朗读')))),
             style: fm.TextStyle(fontSize: 20,
                 fontWeight: fm.FontWeight.bold))
             : fm.Column(

@@ -405,9 +405,31 @@ class VoiceFlow extends ChangeNotifier {
     debugPrint('confirmDictation: text="$text" row=${row?.seq} '
         'table=${t?.callerName}');
     if (t == null || row == null || text.isBlank) return false;
+    //  记号冲突检查:与其他行的记号几乎相同时两行会混淆
+    //  (查表无法区分),拒绝写入并提示换候选
+    final newToken = text.trim();
+    for (final r in t.rows) {
+      if (r.seq == row.seq) continue;
+      for (final tk in r.recognized.split('|')) {
+        if (tk.trim().isEmpty) continue;
+        if (CallerTable.sentenceError(tk, newToken) < 0.12) {
+          debugPrint('token conflict with row ${r.seq}: "$tk"');
+          lastError = 'token_conflict:${r.seq}';
+          _notify();
+          Future.delayed(const Duration(seconds: 5), () {
+            if (lastError != null &&
+                lastError!.startsWith('token_conflict')) {
+              lastError = null;
+              _notify();
+            }
+          });
+          return false;
+        }
+      }
+    }
     //  确认即替换:重新采同一条时删旧记号、记新记号
     await t.updateRow(row.seq,
-        recognized: text.trim(), sort: false);
+        recognized: newToken, sort: false);
     dictationText = '';
     dictationCandidates = [];
     //  确认后:光标移到下一个需要录入的行(第2列为空)。
