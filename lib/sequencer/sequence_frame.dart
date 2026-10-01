@@ -954,11 +954,15 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
               child: fm.Row(children: [
                 fm.Expanded(
-                  child: fm.Center(
-                    child: fm.Text(
-                        '${flow.callerName}(${table.rows.length}条)',
-                        style: fm.TextStyle(
-                            fontWeight: fm.FontWeight.bold, fontSize: 16)),
+                  child: fm.GestureDetector(
+                    onLongPress:
+                        flow.onlyMode ? _addRecordDialog : null,
+                    child: fm.Center(
+                      child: fm.Text(
+                      '${flow.callerName}(${table.rows.length}条)',
+                      style: fm.TextStyle(
+                      fontWeight: fm.FontWeight.bold, fontSize: 16)),
+                    ),
                   ),
                 ),
                 //  表退出:红底白字大按钮
@@ -1116,6 +1120,39 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
         : fm.Container(height: 240, color: Color.WHITE, child: body);
   }
 
+  //  长按表名(仅Only表):增加记录——经 CALL 口令选择,
+  //  防长口令手工输入出错;选完自动加行,再用圆钮采样
+  Future<void> _addRecordDialog() async {
+    if (!flow.onlyMode) return;
+    final go = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+              title: fm.Text('增加记录',
+                  style: fm.TextStyle(fontSize: 22)),
+              content: fm.Text(
+                  '点"去选择口令"后,在 CALL 口令列表中点选口令,'
+                  '\n选完自动加为本表新记录,然后用圆钮采样。',
+                  style: fm.TextStyle(fontSize: 18)),
+              actions: [
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(false),
+                    child: fm.Text('取消',
+                        style: fm.TextStyle(fontSize: 18))),
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(true),
+                    child: fm.Text('去选择口令',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.BLUE))),
+              ],
+            ));
+    if (go != true || !mounted) return;
+    flow.awaitingAddRecord = true;
+    try {
+      pp.Provider.of<TamState>(context, listen: false)
+          .change(detailPage: DetailPage.CALLS);
+    } catch (_) {}
+  }
+
   //  列头行(表顶端):序号 / 语音识别结果 / 标准口令 标题,
   //  两个拖动把手:序号|识别列之间、识别|标准列之间(左右拖改列宽)
   fm.Widget _headerRow(double recogW) {
@@ -1240,6 +1277,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     final selection = flow.callSelection;
     if (selection != null) {
       flow.callSelection = null;
+      //  长按表名"增加记录":不填输入行,直接加为新记录行
+      if (flow.awaitingAddRecord) {
+        flow.awaitingAddRecord = false;
+        flow.addRecordWithCall(selection);
+        return;
+      }
       textFieldController.text = selection;
       //  Only 采表模式:只填文字,不弹键盘不抢焦点
       //  (操作者用语音+确认按钮,无需键盘)
