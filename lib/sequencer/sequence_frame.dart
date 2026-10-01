@@ -1703,22 +1703,18 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                     speechProvider.cancel();
                     await _loginAndOpenTable();
                   },
-                  //  开表后麦克风以"圆钮"样式显示(黑圆白图):
-                  //  无表=灰圆禁用;红圆=流式识别进行中;
-                  //  蓝闪=节拍检测中;平时黑圆
-                  child: fm.Container(
-                  width: 38,
-                  height: 38,
-                  decoration: fm.BoxDecoration(
-                      color: flow.callerTable == null || flow.onlyMode
-                          ? Color.GRAY
-                          : (flow.phase == 'detecting'
-                              ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
-                              : ((speechProvider.isListening && !flow.pttActive)
-                                  ? Color.RED : Color.BLACK)),
-                      shape: fm.BoxShape.circle),
-                  child: fm.Icon(fm.Icons.mic,
-                      color: Color.WHITE, size: 22),
+                  //  麦克风钮保持原样式(纯图标,无圆底):
+                  //  灰=不可用;红=流式识别中;蓝闪=节拍检测中;
+                  //  平时黑色
+                  child: fm.Icon(
+                  fm.Icons.mic,
+                  color: flow.callerTable == null || flow.onlyMode
+                      ? Color.GRAY
+                      : (flow.phase == 'detecting'
+                          ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
+                          : ((speechProvider.isListening && !flow.pttActive)
+                              ? Color.RED : Color.BLACK)),
+                  size: 32,
                   )
                   )
               ]
