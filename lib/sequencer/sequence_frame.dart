@@ -1562,7 +1562,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         children: [
                                           fm.Text('Tap ',
                                               style: fm.TextStyle(
-                                                  fontSize: 15,
+                                                  fontSize: 14,
                                                   height: 1.4)),
                                           fm.Container(
                                               padding: fm.EdgeInsets
@@ -1596,13 +1596,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                           ])),
                                               child: fm.Text('Calls',
                                                   style: fm.TextStyle(
-                                                      fontSize: 15,
+                                                      fontSize: 14,
                                                       fontWeight: fm
                                                           .FontWeight
                                                           .bold))),
-                                          fm.Text(' for input;',
+                                          fm.Text(' for Selection input;',
                                               style: fm.TextStyle(
-                                                  fontSize: 15,
+                                                  fontSize: 14,
                                                   height: 1.4)),
                                         ])),
                                 fm.TextSpan(text: '\n'),
