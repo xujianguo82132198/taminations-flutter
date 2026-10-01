@@ -1544,23 +1544,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       child: flow.callerTable == null
                           ? fm.Text.rich(
                               fm.TextSpan(children: [
-                                fm.TextSpan(text: 'Tap here for KEY input\n'),
                                 fm.TextSpan(
-                                    text: 'Tap CALL for selection input\n'),
-                                fm.TextSpan(text: 'Tap '),
-                                fm.WidgetSpan(
-                                    alignment: fm.PlaceholderAlignment.middle,
-                                    child: fm.Icon(
-                                        fm.Icons.folder_open, size: 20)),
+                                    text: 'Tap here for KEY input;\n'),
+                                fm.TextSpan(text: 'Calls(钮)...;\n'),
                                 fm.TextSpan(
-                                    text: ' for open Mapping Table and '),
-                                fm.WidgetSpan(
-                                    alignment: fm.PlaceholderAlignment.middle,
-                                    child: fm.Icon(fm.Icons.mic, size: 20)),
-                                fm.TextSpan(text: ' input'),
+                                    text: 'Tap "open"钮 to open Mapping '
+                                        'Table for "MIK"钮 input.'),
                               ]),
                               style: fm.TextStyle(
-                                  fontSize: 16, height: 1.4))
+                                  fontSize: 15, height: 1.4))
                           : fm.Text(
                               flow.onlyMode
                                   ? '圆钮按下,读口令,读完抬起'
