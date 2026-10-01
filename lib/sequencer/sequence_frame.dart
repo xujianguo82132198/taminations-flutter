@@ -420,7 +420,9 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                 ? '⚠ 额度'
                 : (flow.lastError != null &&
                         flow.lastError!.startsWith('token_conflict')
-                    ? '✕ 与第${flow.lastError!.split(':')[1]}行记号相同,请换候选'
+                    ? '✕ 与第${flow.lastError!.split(':')[1]}行'
+                      '「${flow.lastError!.split(':')[2] ?? ''}」'
+                      '记号太近,请换候选'
                     : (flow.lastError == 'not_heard'
                     ? '✕ 没听清,请再按住重念'
                     : (flow.pttActive

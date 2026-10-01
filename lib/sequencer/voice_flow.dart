@@ -410,7 +410,9 @@ class VoiceFlow extends ChangeNotifier {
         if (tk.trim().isEmpty) continue;
         if (CallerTable.sentenceError(tk, newToken) < 0.12) {
           debugPrint('token conflict with row ${r.seq}: "$tk"');
-          lastError = 'token_conflict:${r.seq}';
+          //  带上撞车行的口令名,让口令员知道是和哪条混了
+          lastError =
+              'token_conflict:${r.seq}:${r.standardCall}';
           _notify();
           Future.delayed(const Duration(seconds: 5), () {
             if (lastError != null &&
