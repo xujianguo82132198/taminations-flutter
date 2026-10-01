@@ -1720,8 +1720,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         setState(() {
                           virtualKeyboardSetVisible(false);
                         });
+                        //  表保持展开:命中行居中+高亮显示
+                        flow.setPanelMinimized(false);
                         flow.startListening();
-                        flow.setPanelMinimized(true);
                       }
                       return;
                     }
