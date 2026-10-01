@@ -1539,6 +1539,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           focusNode.requestFocus();
                         });
                       },
+                      //  文字与右侧按钮留出间距,不贴不盖
+                      child: fm.Padding(
+                        padding: fm.EdgeInsets.only(right: 10),
                       //  提示按表状态区分:
                       //  无表=三行操作指引;Only表=圆钮采表;非Only表=麦克风喊口令
                       child: flow.callerTable == null
@@ -1559,7 +1562,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         children: [
                                           fm.Text('Tap ',
                                               style: fm.TextStyle(
-                                                  fontSize: 15)),
+                                                  fontSize: 15,
+                                                  height: 1.4)),
                                           fm.Container(
                                               padding: fm.EdgeInsets
                                                   .symmetric(
@@ -1598,7 +1602,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                           .bold))),
                                           fm.Text(' for Selection input;',
                                               style: fm.TextStyle(
-                                                  fontSize: 15)),
+                                                  fontSize: 15,
+                                                  height: 1.4)),
                                         ])),
                                 fm.TextSpan(text: '\n'),
                                 fm.TextSpan(text: 'Tap '),
@@ -1626,6 +1631,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               maxLines: 1,
                               overflow: fm.TextOverflow.ellipsis,
                               style: fm.TextStyle(fontSize: 20)),
+                      ),
                     ),
                   )
               ),
