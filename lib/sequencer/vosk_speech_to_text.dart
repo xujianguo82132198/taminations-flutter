@@ -65,6 +65,13 @@ class VoskSpeechToText extends ChangeNotifier {
   //  收尾 flush 只带最后一段的候选,不能覆盖中间的完整列表
   final List<String> _sessionAlts = [];
 
+  //  流式合并窗口:口令中间停顿会被断句器切成多段,
+  //  每段各自查表会错误执行两个口令(如 "split circulate one"
+  //  + "the half")。一段结束后等待此窗口,无后续才作为完整
+  //  口令送出;有后续则拼接后再送
+  Timer? _streamMergeTimer;
+  int _streamSegments = 0;
+
   //  模型加载去重:并发的 initialize 共享同一次加载
   Future<bool>? _initFuture;
 
@@ -220,6 +227,7 @@ class VoskSpeechToText extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _streamMergeTimer?.cancel();
     _continuous = false;
     _sub?.cancel();
     _sub = null;
@@ -231,6 +239,11 @@ class VoskSpeechToText extends ChangeNotifier {
   void _toggleOff() {
     _continuous = false;
     _paused = false;
+    _streamMergeTimer?.cancel();
+    _streamMergeTimer = null;
+    _streamSegments = 0;
+    _sessionText = '';
+    _sessionAlts.clear();
     _sub?.cancel();
     _sub = null;
     musicMonitor.voskStop();
@@ -313,17 +326,37 @@ class VoskSpeechToText extends ChangeNotifier {
         _log('final: $texts');
         if (texts.isNotEmpty) {
           if (_continuous) {
-            //  流式喊口令:每句是完整口令,候选以本句为准,
-            //  绝不跨句累积(否则旧句候选会永远参战,
-            //  抢走当句的查表机会)
-            _sessionText = texts.first;
-            _sessionAlts
-              ..clear()
-              ..addAll(texts);
-            _lastResult = SpeechRecognitionResult(
-                [for (final t in _sessionAlts)
-                  SpeechRecognitionAlternative(t, 1.0)],
-                true);
+            //  流式喊口令:合并窗口内拼接多段,窗口静默后
+            //  才作为完整口令送出(候选以拼接句为准;
+            //  多段拼接时片段候选不送,防片段误命中)
+            _sessionText = _sessionText.isEmpty
+                ? texts.first : '$_sessionText ${texts.first}';
+            if (_streamSegments == 0) {
+              _sessionAlts
+                ..clear()
+                ..addAll(texts);
+            }
+            _streamSegments++;
+            _streamMergeTimer?.cancel();
+            _streamMergeTimer =
+                Timer(const Duration(milliseconds: 1300), () {
+              _log('stream merged ($_streamSegments seg): '
+                  '"$_sessionText"');
+              final alts = <SpeechRecognitionAlternative>[
+                SpeechRecognitionAlternative(_sessionText, 1.0),
+                //  单段:带上本句候选;多段:只用拼接句
+                if (_streamSegments == 1)
+                  for (final t in _sessionAlts)
+                    if (t != _sessionText)
+                      SpeechRecognitionAlternative(t, 1.0),
+              ];
+              _lastResult =
+                  SpeechRecognitionResult(alts, true);
+              _sessionText = '';
+              _sessionAlts.clear();
+              _streamSegments = 0;
+              _notify();
+            });
           } else {
             //  采样:同一轮内分段拼接、候选累积
             _sessionText = _sessionText.isEmpty
