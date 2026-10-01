@@ -1600,7 +1600,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                       fontWeight: fm
                                                           .FontWeight
                                                           .bold))),
-                                          fm.Text(' for Selection input;',
+                                          fm.Text(' for input;',
                                               style: fm.TextStyle(
                                                   fontSize: 15,
                                                   height: 1.4)),
