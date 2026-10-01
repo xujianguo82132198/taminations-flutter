@@ -140,6 +140,9 @@ class VoiceFlow extends ChangeNotifier {
     'rollaway': ['roll', 'away'],
     //  "spl"三连辅音难发:给 s-p 开头的近似词多几条解码路径
     'split': ['spilt', 'spit', 'splat'],
+    //  词典缺失的法裔/复合词(实测被忽略):拆成近音常见词
+    'acey': ['a see', 'ace', 'a c'],
+    'deucey': ['do see', 'do c', 'deuce'],
   };
 
   ///  采表语法:当前表全部口令的**单词表**(词循环)。
