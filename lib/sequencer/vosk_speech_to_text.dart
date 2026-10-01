@@ -312,15 +312,30 @@ class VoskSpeechToText extends ChangeNotifier {
         final texts = _textsOf(event.text);
         _log('final: $texts');
         if (texts.isNotEmpty) {
-          _sessionText = _sessionText.isEmpty
-              ? texts.first : '$_sessionText ${texts.first}';
-          for (final t in texts) {
-            if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
+          if (_continuous) {
+            //  流式喊口令:每句是完整口令,候选以本句为准,
+            //  绝不跨句累积(否则旧句候选会永远参战,
+            //  抢走当句的查表机会)
+            _sessionText = texts.first;
+            _sessionAlts
+              ..clear()
+              ..addAll(texts);
+            _lastResult = SpeechRecognitionResult(
+                [for (final t in _sessionAlts)
+                  SpeechRecognitionAlternative(t, 1.0)],
+                true);
+          } else {
+            //  采样:同一轮内分段拼接、候选累积
+            _sessionText = _sessionText.isEmpty
+                ? texts.first : '$_sessionText ${texts.first}';
+            for (final t in texts) {
+              if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
+            }
+            _lastResult = SpeechRecognitionResult(
+                [for (final t in _sessionAlts)
+                  SpeechRecognitionAlternative(t, 1.0)],
+                true);
           }
-          _lastResult = SpeechRecognitionResult(
-              [for (final t in _sessionAlts)
-                SpeechRecognitionAlternative(t, 1.0)],
-              true);
           _notify();
         }
         break;
