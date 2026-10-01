@@ -1561,7 +1561,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                             fm.MainAxisSize.min,
                                         children: [
                                           fm.Text('Tap ',
-                                              style: fm.TextStyle(
+                                              textScaler: fm.TextScaler.noScaling,
+                                                  style: fm.TextStyle(
                                                   fontSize: 14,
                                                   height: 1.4)),
                                           fm.Container(
@@ -1595,13 +1596,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                                 0xffa0a0a0)
                                                           ])),
                                               child: fm.Text('Calls',
+                                                  textScaler: fm.TextScaler.noScaling,
                                                   style: fm.TextStyle(
                                                       fontSize: 14,
                                                       fontWeight: fm
                                                           .FontWeight
                                                           .bold))),
                                           fm.Text(' for Selection input;',
-                                              style: fm.TextStyle(
+                                              textScaler: fm.TextScaler.noScaling,
+                                                  style: fm.TextStyle(
                                                   fontSize: 14,
                                                   height: 1.4)),
                                         ])),
