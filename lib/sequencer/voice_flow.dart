@@ -476,6 +476,17 @@ class VoiceFlow extends ChangeNotifier {
   Future<void> addRecordWithCall(String call) async {
     final t = callerTable;
     if (t == null) return;
+    final name = call.trim().toLowerCase();
+    //  同口令已存在:不重复添加,直接跳到已有行
+    for (final r in t.rows) {
+      if (r.standardCall.trim().toLowerCase() == name) {
+        debugPrint('addRecord: "$call" already row ${r.seq}');
+        dictationSeqOverride = r.seq;
+        dictationText = '';
+        _notify();
+        return;
+      }
+    }
     final row = await t.addRow(
         recognized: '', standardCall: call.trim());
     dictationSeqOverride = row.seq;
