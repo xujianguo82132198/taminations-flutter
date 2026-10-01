@@ -501,19 +501,19 @@ class _OnlyPttButtonState extends fm.State<_OnlyPttButton> {
 
   @override
   fm.Widget build(fm.BuildContext context) {
+    //  图标恒定(录音图标),尺寸恒定;状态只用背景色表达:
+    //  黑=空闲,蓝=采样中——图标不切换,便于说明书描述
     final active = flow.pttActive;
     return fm.AnimatedContainer(
       duration: const Duration(milliseconds: 120),
-      width: active ? 56 : 48,
-      height: active ? 56 : 48,
+      width: 48,
+      height: 48,
       alignment: fm.Alignment.center,
       decoration: fm.BoxDecoration(
           color: active ? fm.Colors.blue : Color.BLACK,
           shape: fm.BoxShape.circle),
-      child: fm.Icon(
-          active ? fm.Icons.mic : fm.Icons.record_voice_over,
-          color: Color.WHITE,
-          size: active ? 30 : 24),
+      child: fm.Icon(fm.Icons.record_voice_over,
+          color: Color.WHITE, size: 24),
     );
   }
 }
