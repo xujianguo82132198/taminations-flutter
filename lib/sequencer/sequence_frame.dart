@@ -1483,7 +1483,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
       return fm.Container(
         color: Color.WHITE,
-        padding: fm.EdgeInsets.only(left: 10),
+        padding: fm.EdgeInsets.only(left: 3),
         child: fm.Column(
           mainAxisSize: fm.MainAxisSize.min,
           children: [
@@ -1553,34 +1553,52 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                 fm.WidgetSpan(
                                     alignment:
                                         fm.PlaceholderAlignment.middle,
-                                    child: fm.Container(
-                                        padding: fm.EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 1),
-                                        decoration: fm.ShapeDecoration(
-                                            shape:
-                                                fm.RoundedRectangleBorder(
-                                                    side: fm.BorderSide(
-                                                        color: Color.GRAY
-                                                            .darker()),
-                                                    borderRadius:
-                                                        fm.BorderRadius
-                                                            .circular(10)),
-                                            gradient:
-                                                fm.LinearGradient(
-                                                    begin: fm.Alignment
-                                                        .topCenter,
-                                                    end: fm.Alignment
-                                                        .bottomCenter,
-                                                    colors: [
-                                                  Color(0xffffffff),
-                                                  Color(0xffa0a0a0)
-                                                ])),
-                                        child: fm.Text('Calls',
-                                            style: fm.TextStyle(
-                                                fontSize: 13,
-                                                fontWeight:
-                                                    fm.FontWeight.bold)))),
-                                fm.TextSpan(text: '...;\n'),
+                                    child: fm.Row(
+                                        mainAxisSize:
+                                            fm.MainAxisSize.min,
+                                        children: [
+                                          fm.Container(
+                                              padding: fm.EdgeInsets
+                                                  .symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 1),
+                                              decoration:
+                                                  fm.ShapeDecoration(
+                                                      shape: fm
+                                                          .RoundedRectangleBorder(
+                                                              side: fm
+                                                                  .BorderSide(
+                                                                      color: Color
+                                                                          .GRAY
+                                                                              .darker()),
+                                                              borderRadius:
+                                                                  fm.BorderRadius.circular(10)),
+                                                      gradient: fm
+                                                          .LinearGradient(
+                                                              begin: fm
+                                                                  .Alignment
+                                                                  .topCenter,
+                                                              end: fm
+                                                                  .Alignment
+                                                                  .bottomCenter,
+                                                              colors: [
+                                                            Color(
+                                                                0xffffffff),
+                                                            Color(
+                                                                0xffa0a0a0)
+                                                          ])),
+                                              child: fm.Text('Calls',
+                                                  style: fm.TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: fm
+                                                          .FontWeight
+                                                          .bold))),
+                                          fm.SizedBox(width: 4),
+                                          fm.Text('...;',
+                                              style: fm.TextStyle(
+                                                  fontSize: 15)),
+                                        ])),
+                                fm.TextSpan(text: '\n'),
                                 fm.TextSpan(text: 'Tap '),
                                 //  open钮=打开表按钮的文件夹图标
                                 fm.WidgetSpan(
