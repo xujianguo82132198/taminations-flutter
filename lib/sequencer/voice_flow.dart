@@ -490,9 +490,16 @@ class VoiceFlow extends ChangeNotifier {
     final t = callerTable;
     if (t == null || !onlyMode) return null;
     final prefs = await SharedPreferences.getInstance();
-    final count = await CallerTable.mergeAndSaveAs(
-        prefs, t, onlySourceName, onlyTargetName);
-    return count;
+    try {
+      final count = await CallerTable.mergeAndSaveAs(
+          prefs, t, onlySourceName, onlyTargetName);
+      return count;
+    } catch (e) {
+      debugPrint('finishOnlyTable failed: $e');
+      lastError = 'merge_aborted:${e.toString()}';
+      _notify();
+      return null;
+    }
   }
 
   ///  口令员在 Calls 画面点选的口令(输入行取走后清空)

@@ -397,6 +397,17 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
       },
       onLongPress: () async {
         final n = await flow.finishOnlyTable();
+        if (n == null && mounted) {
+          final err = flow.lastError ?? '';
+          fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+              backgroundColor: Color.RED,
+              duration: const Duration(seconds: 5),
+              content: fm.Text(
+                  err.startsWith('merge_aborted:')
+                      ? err.replaceFirst('merge_aborted:', '')
+                      : '合并未完成',
+                  style: fm.TextStyle(fontSize: 18))));
+        }
         if (n != null && mounted)
           fm.ScaffoldMessenger.of(context).showSnackBar(
               fm.SnackBar(backgroundColor: Color.BLUE,
@@ -603,6 +614,17 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
       },
       onLongPress: () async {
         final n = await flow.finishOnlyTable();
+        if (n == null && mounted) {
+          final err = flow.lastError ?? '';
+          fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+              backgroundColor: Color.RED,
+              duration: const Duration(seconds: 5),
+              content: fm.Text(
+                  err.startsWith('merge_aborted:')
+                      ? err.replaceFirst('merge_aborted:', '')
+                      : '合并未完成',
+                  style: fm.TextStyle(fontSize: 18))));
+        }
         if (n != null && mounted)
           fm.ScaffoldMessenger.of(context).showSnackBar(
               fm.SnackBar(backgroundColor: Color.BLUE,
@@ -664,6 +686,17 @@ class _OnlyTableToolbarState extends fm.State<OnlyTableToolbar> {
         fm.SizedBox(width: 6),
         fm.Expanded(child: Button('完成建表', onPressed: () async {
           final n = await flow.finishOnlyTable();
+          if (n == null && mounted) {
+            final err = flow.lastError ?? '';
+            fm.ScaffoldMessenger.of(context).showSnackBar(
+                fm.SnackBar(backgroundColor: Color.RED,
+                    duration: const Duration(seconds: 5),
+                    content: fm.Text(
+                        err.startsWith('merge_aborted:')
+                            ? err.replaceFirst('merge_aborted:', '')
+                            : '合并未完成',
+                        style: fm.TextStyle(fontSize: 18))));
+          }
           if (n != null && mounted)
             fm.ScaffoldMessenger.of(context).showSnackBar(
                 fm.SnackBar(backgroundColor: Color.BLUE,

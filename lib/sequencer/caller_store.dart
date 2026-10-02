@@ -387,6 +387,11 @@ class CallerTable extends ChangeNotifier {
         }
       }
     }
+    //  源表不存在:中止合并并抛出提示(调用方弹出),绝不生成
+    //  缺记录的错误表(那会比没有表更误事)
+    if (src == null)
+      throw Exception('源表 "$sourceName" 不存在,合并已中止'
+          '(请先完成下一级别的合并)');
     final merged = <CallerRow>[];
     if (src != null) {
       try {
