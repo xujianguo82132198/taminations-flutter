@@ -385,15 +385,28 @@ class CallerTable extends ChangeNotifier {
         }
       } on FormatException {}
     }
+    //  级别累积合并:源表=下一级合并表(ms源=基础源表)。
+    //  源表行全部保留;Only 表已录记号的行按口令名覆盖
+    //  源表同口令行(用户最新发音优先);Only 表未录行仅在
+    //  源表没有该口令时补入(默认记号=口令读法)
     for (final r in only.rows) {
-      //  已录记号的行用记号;未录的行用口令名本身当记号
-      //  (标准读法可命中),保证合并后全表覆盖、无遗漏
-      //  未录行默认记号=口令读法(数字转单词),与实际念法一致
-      final token = r.recognized.isNotBlank
-          ? r.recognized : spokenForm(r.standardCall);
-      if (token.isNotBlank)
+      final callKey = r.standardCall.trim().toLowerCase();
+      if (callKey.isEmpty) continue;
+      final hasSource = merged.any((m) =>
+          m.standardCall.trim().toLowerCase() == callKey);
+      if (r.recognized.isNotBlank) {
+        //  用户已录:移除源表同口令行,以新记号覆盖
+        merged.removeWhere((m) =>
+            m.standardCall.trim().toLowerCase() == callKey);
         merged.add(CallerRow(seq: 0,
-            recognized: token, standardCall: r.standardCall));
+            recognized: r.recognized, standardCall: r.standardCall));
+      } else if (!hasSource) {
+        //  未录且源表没有:以口令读法当默认记号补入
+        final token = spokenForm(r.standardCall);
+        if (token.isNotBlank)
+          merged.add(CallerRow(seq: 0,
+              recognized: token, standardCall: r.standardCall));
+      }
     }
     merged.sort((a, b) =>
         a.recognized.toLowerCase().compareTo(b.recognized.toLowerCase()));

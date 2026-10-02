@@ -408,9 +408,18 @@ class VoiceFlow extends ChangeNotifier {
   ///  源表名 = Only 表名去掉 "_<级别>_Only" 后缀
   ///  (如 "XuJianguo_plus_Only" -> "XuJianguo")
   String get onlySourceName {
+    //  级别累积:plus 的 Only 表与 ms 的合并表合并(生成含
+    //  ms+plus 全部口令的表);a1 与 plus 合并表合并,依此类推;
+    //  ms 级用基础源表
     final n = callerTable?.callerName ?? '';
-    return n.replaceFirst(
-        RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b)_Only$'), '');
+    final m = RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
+        .firstMatch(n);
+    if (m == null) return n;
+    final base = n.substring(0, m.start);
+    const order = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
+    final lv = order.indexOf(m.group(1)!);
+    if (lv <= 0) return base;
+    return base + '_' + order[lv - 1];
   }
   ///  目标表名 = Only 表名去 "_Only"
   String get onlyTargetName =>

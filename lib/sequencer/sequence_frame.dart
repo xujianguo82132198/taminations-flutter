@@ -2277,9 +2277,22 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       _tableMgmtButton(ctx,
                           selected.endsWith('_Only'),
                           '合并', () async {
-                        //  源表名 = 去掉 "_<级别>_Only"
-                        final src = selected.replaceFirst(
-                            RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$'), '');
+                        //  源表名 = 下一级合并表(ms 用基础源表)
+                        //  级别累积:plus与ms合并表合并,依此类推
+                        final mReg = RegExp(
+                                r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
+                            .firstMatch(selected);
+                        const lvOrder = [
+                          'ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'
+                        ];
+                        final lvIdx = mReg == null
+                            ? 0 : lvOrder.indexOf(mReg.group(1)!);
+                        final base = mReg == null
+                            ? selected
+                            : selected.substring(0, mReg.start);
+                        final src = lvIdx > 0
+                            ? base + '_' + lvOrder[lvIdx - 1]
+                            : base;
                         //  目标表名 = 去掉 "_Only"
                         final dst = selected.replaceAll('_Only', '');
                         final ok = await fm.showDialog<bool>(
