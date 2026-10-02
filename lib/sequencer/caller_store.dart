@@ -393,6 +393,15 @@ class CallerTable extends ChangeNotifier {
     final out = CallerRow.emptyList(merged);
     await prefs.setString(_keyPrefix + targetName,
         jsonEncode({'rows': out}));
+    //  合并诊断:总数+是否含关键子口令
+    debugPrint('mergeAndSaveAs: only=${only.rows.length} '
+        '-> merged=${merged.length} ($targetName)');
+    for (final probe in ['boys turn back', 'girls turn back',
+        'u turn back', 'girls backtrack']) {
+      final hit = merged.any((r) =>
+          r.standardCall.toLowerCase().contains(probe));
+      debugPrint('merge probe "$probe": $hit');
+    }
     return merged.length;
   }
 
