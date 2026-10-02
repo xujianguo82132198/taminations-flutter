@@ -659,7 +659,7 @@ class MainActivity : FlutterActivity() {
         else
             Recognizer(model, 16000f)
         //  一次给出多个候选:由 Dart 侧挑选与表内口令最接近的
-        try { rec.setMaxAlternatives(10) } catch (_: Exception) {}
+        try { rec.setMaxAlternatives(15) } catch (_: Exception) {}
         voskRecognizer = rec
         voskFeed = true
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
@@ -689,7 +689,7 @@ class MainActivity : FlutterActivity() {
       val rec = voskRecognizer
       if (rec != null) {
         try {
-          val silence = ByteArray(16000 * 4 / 10)   //  0.4s @16kHz
+          val silence = ByteArray(16000 * 6 / 10)   //  0.6s @16kHz
           rec.acceptWaveForm(silence, silence.size)
           json = rec.finalResult
         } catch (e: Exception) {
