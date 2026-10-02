@@ -343,8 +343,15 @@ class CallerTable extends ChangeNotifier {
     await prefs.setString(_keyPrefix + tableName, '{"rows":[]}');
     final t = await CallerTable.open(tableName);
     final titles = <String>[];
+    //  级别累积:高级别表包含所有低级别口令(plus 含 ms,
+    //  a1 含 plus/ms ……)——跳舞时高低口令混用,表必须全
+    const levelOrder = [
+      'ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'
+    ];
+    final lv = levelOrder.indexOf(levelDir);
     for (final entry in callIndex) {
-      if (entry.level != levelDir) continue;
+      if (lv >= 0 && levelOrder.indexOf(entry.level) > lv) continue;
+      if (lv < 0 && entry.level != levelDir) continue;
       for (final call in flattenAnimatedCallList(entry.calls)) {
         final t = _cleanCallTitle(call.title);
         if (t.isNotBlank && !titles.contains(t))
