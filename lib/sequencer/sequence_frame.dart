@@ -805,8 +805,9 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
       target = pending;
     }
     final candidate = flow.lastCandidate;
+    //  按行号判断是否新候选(identical 在表重建后失配)
     if (target == null && candidate != null &&
-        !identical(candidate, _lastScrolledCandidate)) {
+        candidate.seq != (_lastScrolledCandidate?.seq ?? -1)) {
       _lastScrolledCandidate = candidate;
       target = candidate;
     }
