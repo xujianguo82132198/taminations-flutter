@@ -1030,8 +1030,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                         final pending = !flow.onlyMode &&
                             row.standardCall.isBlank &&
                             identical(flow.pendingRecord, row);
-                        final isCandidate =
-                            identical(flow.lastCandidate, row);
+                        //  命中候选高亮:按行号比对(identical 在
+                        //  表对象重建后会失配,导致只居中不高亮)
+                        final isCandidate = flow.lastCandidate != null &&
+                            flow.lastCandidate!.seq == row.seq;
                         return fm.InkWell(
                           //  Only 模式:点行=选定为采表目标;
                           //   长按=编辑第3列/删除
