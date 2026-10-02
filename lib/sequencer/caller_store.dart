@@ -372,7 +372,21 @@ class CallerTable extends ChangeNotifier {
   ///  按第2列总体排序,存为目标表名
   static Future<int> mergeAndSaveAs(SharedPreferences prefs,
       CallerTable only, String sourceName, String targetName) async {
-    final src = prefs.getString(_keyPrefix + sourceName);
+    //  源表名解析:允许下划线数量差异(如 XuJianguo__ms vs
+    //  XuJianguo_ms)——取存在的那个;都没有则源表为空
+    var src = prefs.getString(_keyPrefix + sourceName);
+    if (src == null) {
+      final names = listTableNames(prefs);
+      final stem = sourceName.replaceAll('_', '');
+      for (final n in names) {
+        if (n.endsWith('_Only')) continue;
+        if (n.replaceAll('_', '') == stem) {
+          src = prefs.getString(_keyPrefix + n);
+          debugPrint('merge source resolved: "$n"');
+          break;
+        }
+      }
+    }
     final merged = <CallerRow>[];
     if (src != null) {
       try {
