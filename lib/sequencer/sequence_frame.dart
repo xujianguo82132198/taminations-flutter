@@ -1460,9 +1460,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               }
             }
           }
-          //  误差门槛:实测正确命中≤0.38,垃圾误命中≥0.57,
-          //  取 0.48 分界;超过视为未查到(不执行,防止张冠李戴)
-          if (bestRow != null && bestErr <= 0.48) {
+          //  误差门槛:实测正确命中≤0.38、缺音节口令0.50-0.54,
+          //  垃圾误命中≥0.57;取 0.55 分界——放行缺音节的正确
+          //  念法,拦住杂音;超过视为未查到(不执行,防止张冠李戴)
+          if (bestRow != null && bestErr <= 0.55) {
             //  用最优候选再查一次,刷新界面高亮显示
             flow.lookupInTable(bestSentence);
             final hitRow = bestRow!;
