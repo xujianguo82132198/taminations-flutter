@@ -227,6 +227,23 @@ class VoiceFlow extends ChangeNotifier {
       if (candidates.length >= 8) break;
     }
     if (text.isEmpty && candidates.isNotEmpty) text = candidates.first;
+    //  候选中恰有与本行标准口令读法完全一致者:直接选它为默认
+    //  (识别出字面正确口令时无需人工点选)
+    if (row != null) {
+      final spoken =
+          CallerTable.spokenForm(row.standardCall).toLowerCase();
+      final plain =
+          row.standardCall.toLowerCase().replaceAll(RegExp(r'[^a-z ]'), '')
+              .replaceAll(RegExp(r' +'), ' ').trim();
+      for (final c in candidates) {
+        final cl = c.toLowerCase();
+        if (cl == spoken || cl == plain) {
+          text = c;
+          debugPrint('exact-call candidate: "$c"');
+          break;
+        }
+      }
+    }
     _sampleTimeout?.cancel();
     //  [unk]=语法没匹配上(读音与所有口令都太远):不写入,
     //  显示框提示没听清,采样状态复位以便再按重念
