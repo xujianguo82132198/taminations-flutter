@@ -2362,7 +2362,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   void _sendOneLine(SequencerModel model, String value) async {
     var hasError = false;
     //  与手动键入一致:先把口令显示到输入行,再提交
-    //  (等效"键入+回车",在禁止注入按键的设备上也能看到完整过程)
+    //  (等效"键入+回车",在禁止注入按键的设备上也能看到完整过程)。
+    //  先清后写:输入框有残留内容时会拒绝接受新数据
+    //  (等效先按框边X清除钮)
+    textFieldController.clear();
     textFieldController.text = value;
     //  Process the call
     if (!(model.loadOneCall(value))) {
