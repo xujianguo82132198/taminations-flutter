@@ -229,11 +229,13 @@ class VoiceFlow extends ChangeNotifier {
     if (text.isEmpty && candidates.isNotEmpty) text = candidates.first;
     //  候选中恰有与本行标准口令读法完全一致者:直接选它为默认
     //  (识别出字面正确口令时无需人工点选)
-    if (row != null) {
+    final curRow = currentDictationRow;
+    if (curRow != null) {
       final spoken =
-          CallerTable.spokenForm(row.standardCall).toLowerCase();
+          CallerTable.spokenForm(curRow.standardCall).toLowerCase();
       final plain =
-          row.standardCall.toLowerCase().replaceAll(RegExp(r'[^a-z ]'), '')
+          curRow.standardCall.toLowerCase()
+              .replaceAll(RegExp(r'[^a-z ]'), '')
               .replaceAll(RegExp(r' +'), ' ').trim();
       for (final c in candidates) {
         final cl = c.toLowerCase();
