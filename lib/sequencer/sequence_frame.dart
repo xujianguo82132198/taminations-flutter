@@ -958,8 +958,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               child: fm.Row(children: [
                 fm.Expanded(
                   child: fm.GestureDetector(
+                    //  Only表:长按=增加记录;非Only表:长按=按口令
+                    //  搜索行(滚动定位+高亮)
                     onLongPress:
-                        flow.onlyMode ? _addRecordDialog : null,
+                        flow.onlyMode ? _addRecordDialog : _panelSearch,
                     child: fm.Center(
                       child: fm.Text(
                       '${flow.callerName}(${table.rows.length}条)',
@@ -1123,6 +1125,92 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
         ? fm.Expanded(
             child: fm.Container(color: Color.WHITE, child: body))
         : fm.Container(height: 240, color: Color.WHITE, child: body);
+  }
+
+  //  非Only表:按第3列口令前缀搜索,点选滚动定位并高亮
+  Future<void> _panelSearch() async {
+    final controller = fm.TextEditingController();
+    await fm.showDialog(
+        context: context,
+        builder: (ctx) => fm.StatefulBuilder(builder: (ctx, setD) {
+              List<CallerRow> matches = [];
+              final p = controller.text.trim().toLowerCase();
+              final t = flow.callerTable;
+              if (p.isNotEmpty && t != null) {
+                for (final r in t.rows) {
+                  if (r.standardCall.toLowerCase().startsWith(p))
+                    matches.add(r);
+                }
+                if (matches.isEmpty) {
+                  for (final r in t.rows) {
+                    if (r.standardCall.toLowerCase().contains(p))
+                      matches.add(r);
+                  }
+                }
+              }
+              return fm.AlertDialog(
+                title: fm.Text('搜索口令(第三列)',
+                    style: fm.TextStyle(fontSize: 20)),
+                content: fm.Column(
+                    mainAxisSize: fm.MainAxisSize.min,
+                    children: [
+                      fm.TextField(
+                        controller: controller,
+                        autofocus: true,
+                        style: fm.TextStyle(fontSize: 24),
+                        decoration: fm.InputDecoration(
+                            hintText: '如: boys',
+                            hintStyle: fm.TextStyle(fontSize: 20)),
+                        onChanged: (_) => setD(() {}),
+                      ),
+                      fm.SizedBox(height: 8),
+                      if (matches.isEmpty)
+                        fm.Text(p.isEmpty ? '请输入字母' : '(无匹配行)',
+                            style: fm.TextStyle(
+                                fontSize: 18, color: Color.GRAY))
+                      else
+                        fm.Container(
+                          constraints:
+                              fm.BoxConstraints(maxHeight: 340),
+                          width: double.infinity,
+                          child: fm.ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: matches.length,
+                            itemBuilder: (lctx, i) {
+                              final m = matches[i];
+                              return fm.ListTile(
+                                dense: true,
+                                title: fm.Text(
+                                    '第${m.seq}行  ${m.standardCall}',
+                                    style:
+                                        fm.TextStyle(fontSize: 19)),
+                                onTap: () {
+                                  flow.lastCandidate = m;
+                                  final index =
+                                      t!.rows.indexOf(m);
+                                  if (index >= 0) {
+                                    fm.WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                      itemScrollController.jumpTo(
+                                          index: index,
+                                          alignment: 0.3);
+                                    });
+                                  }
+                                  fm.Navigator.of(ctx).pop();
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                    ]),
+                actions: [
+                  fm.TextButton(
+                      onPressed: () => fm.Navigator.of(ctx).pop(),
+                      child: fm.Text('关闭',
+                          style: fm.TextStyle(fontSize: 18))),
+                ],
+              );
+            }));
   }
 
   //  长按表名(仅Only表):增加记录——经 CALL 口令选择,
