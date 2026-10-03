@@ -517,6 +517,21 @@ class VoiceFlow extends ChangeNotifier {
         }
       }
     }
+    //  后面全满且无空行可补:停当前行的下一条
+    //  (末行回第一条),不跳回第一行
+    if (nextRow == null) {
+      CallerRow? afterCur;
+      bool seenCur = false;
+      for (final r in ordered) {
+        if (seenCur) {
+          afterCur = r;
+          break;
+        }
+        if (r.seq == row.seq) seenCur = true;
+      }
+      nextRow = afterCur ??
+          (ordered.isNotEmpty ? ordered.first : null);
+    }
     dictationSeqOverride = nextRow?.seq;
     _notify();
     return true;
