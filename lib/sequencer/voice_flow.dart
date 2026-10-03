@@ -228,8 +228,11 @@ class VoiceFlow extends ChangeNotifier {
       if (candidates.length >= 8) break;
     }
     if (text.isEmpty && candidates.isNotEmpty) text = candidates.first;
-    //  候选中恰有与本行标准口令读法完全一致者:直接选它为默认
-    //  (识别出字面正确口令时无需人工点选)
+    //  候选中恰有与本行标准口令一致者:直接选它为默认
+    //  (识别出字面正确口令时无需人工点选)。比对用结构化
+    //  分解:前缀(主语)可有可无,核心/左右/后缀须一致
+    //  ——光标在 "Square Thru 2" 而喊出 "heads square
+    //  thru two" 时也能自动选中
     final curRow = currentDictationRow;
     if (curRow != null) {
       final spoken =
@@ -238,9 +241,18 @@ class VoiceFlow extends ChangeNotifier {
           curRow.standardCall.toLowerCase()
               .replaceAll(RegExp(r'[^a-z ]'), '')
               .replaceAll(RegExp(r' +'), ' ').trim();
+      final rowDec = CallerTable.decomposeCall(curRow.standardCall);
+      final rowSig = '${rowDec.$2}|${rowDec.$3.join(' ')}'
+          '|${rowDec.$4.join(' ')}';
       for (final c in candidates) {
         final cl = c.toLowerCase();
-        if (cl == spoken || cl == plain) {
+        var hit = cl == spoken || cl == plain;
+        if (!hit) {
+          final cd = CallerTable.decomposeCall(cl);
+          hit = '${cd.$2}|${cd.$3.join(' ')}|${cd.$4.join(' ')}'
+              == rowSig;
+        }
+        if (hit) {
           text = c;
           debugPrint('exact-call candidate: "$c"');
           break;
