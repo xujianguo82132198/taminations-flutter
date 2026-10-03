@@ -593,21 +593,27 @@ class VoiceFlow extends ChangeNotifier {
     while (pre < a.length && pre < b.length && a[pre] == b[pre])
       pre++;
     //  找公共后缀
-    var suf = 0;
-    while (suf < a.length - pre &&
-        suf < b.length - pre &&
-        a[a.length - 1 - suf] == b[b.length - 1 - suf])
-      suf++;
-    final extra = b.sublist(pre, b.length - suf);
-    if (pre + suf != a.length) return null;   // 非纯插入
-    //  插入词必须是我们认识的变体词
-    const variantWords = {
-      'left', 'right', 'one', 'two', 'three', 'four',
-      'quarter', 'half', 'and', 'a', 'wrong', 'way',
-      'five', 'six'
-    };
-    if (!extra.every(variantWords.contains)) return null;
-    return (pre, extra);
+    final result = <(int, List<String>)>[];
+    var ai = 0;
+    var extra = <String>[];
+    var extraAt = 0;
+    for (var bi = 0; bi < b.length; bi++) {
+      if (ai < a.length && a[ai] == b[bi]) {
+        if (extra.isNotEmpty) {
+          result.add((extraAt, extra));
+          extra = [];
+        }
+        ai++;
+      } else if (_variantWords.contains(b[bi])) {
+        if (extra.isEmpty) extraAt = ai;
+        extra.add(b[bi]);
+      } else {
+        return null;   //  非变体词差异
+      }
+    }
+    if (extra.isNotEmpty) result.add((extraAt, extra));
+    if (ai != a.length) return null;   //  a 的词未全部对上
+    return result.isEmpty ? null : result;
   }
 
   ///  完成建表:与源表合并、总体排序、另存(去掉 Only)
