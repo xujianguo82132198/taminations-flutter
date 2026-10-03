@@ -687,6 +687,11 @@ class CallerTable extends ChangeNotifier {
       lookupSequential(String sentence) {
     if (rows.isEmpty)
       return (hit: null, candidate: null, error: 1.0);
+    //  分解诊断:前缀(主语)→口令核心→后缀,三级流水
+    final d = decomposeCall(sentence);
+    debugPrint('decompose "$sentence": '
+        'prefix=[${d.$1.join(' ')}] left=${d.$2} '
+        'core=[${d.$3.join(' ')}] suffix=[${d.$4.join(' ')}]');
     CallerRow? best;
     var bestErr = double.infinity;
     for (final row in rows) {
