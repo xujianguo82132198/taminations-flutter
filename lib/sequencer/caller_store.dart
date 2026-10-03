@@ -590,7 +590,8 @@ class CallerTable extends ChangeNotifier {
   };
   static const _suffixWords = {
     'one', 'two', 'three', 'four', 'five', 'six',
-    'quarter', 'half', 'and', 'a', 'roll', 'spread',
+    'quarter', 'half', 'and', 'a', 'an', 'the', 'of',
+    'roll', 'spread',
   };
 
   ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)
