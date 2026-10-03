@@ -346,7 +346,7 @@ class VoiceFlow extends ChangeNotifier {
     final table = await CallerTable.open(name);
     //  Only 表打开时自动清理高于本级的口令
     //  (防止测试时误加的高级口令经合并带到其他级别)
-        .firstMatch(name);
+    final m = RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
         .firstMatch(name);
     if (m != null) await table.purgeAboveLevel(m.group(1)!);
     callerTable = table;
