@@ -564,18 +564,18 @@ class VoiceFlow extends ChangeNotifier {
           .split(' ')
           .where((w) => w.isNotEmpty)
           .toList();
-      //  找插入位置:变体词列 = 基础词列 + 一段连续插入
-      final ins = _findInsertion(baseWords, varWords);
+      //  多段插入(前缀+变体+后缀可同时出现)
+      final ins = _findInsertions(baseWords, varWords);
       if (ins == null) continue;
-      final (pos, extra) = ins;
-      //  记号按比例定位插入点(记号与标准词数可能不同)
-      final tp = baseWords.isEmpty
-          ? 0
-          : ((pos * tokenWords.length) / baseWords.length).round()
-              .clamp(0, tokenWords.length);
-      final newTok =
-          [...tokenWords.sublist(0, tp), ...extra,
-           ...tokenWords.sublist(tp)].join(' ');
+      var tw = [...tokenWords];
+      for (final (pos, extra) in ins.reversed) {
+        final tp = baseWords.isEmpty
+            ? 0
+            : ((pos * tw.length) / baseWords.length).round()
+                .clamp(0, tw.length);
+        tw = [...tw.sublist(0, tp), ...extra, ...tw.sublist(tp)];
+      }
+      final newTok = tw.join(' ');
       if (newTok.trim().isEmpty) continue;
       await t.updateRow(r2.seq, recognized: newTok, sort: false);
       filled++;
@@ -585,7 +585,21 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  词列 diff:b 是 a 插入一段连续词构成时,
   ///  返回 (插入位置, 插入词列);否则 null
-  (int, List<String>)? _findInsertion(
+  ///  完整口令结构的变体词表:前缀(heads/sides/boys/
+  ///  girls/leaders/trailers/centers/ends/everyone)、
+  ///  左右变体(left/right/wrong/way)、数字分数后缀
+  ///  (one..six/quarter/half/and/a)、后缀口令(roll/spread,
+  ///  只能跟在别的口令后)
+  static const _variantWords = {
+    'heads', 'sides', 'boys', 'girls', 'leaders', 'trailers',
+    'centers', 'ends', 'everyone', 'men', 'women', 'couples',
+    'left', 'right', 'wrong', 'way',
+    'one', 'two', 'three', 'four', 'five', 'six',
+    'quarter', 'half', 'and', 'a',
+    'roll', 'spread',
+  };
+
+  List<(int, List<String>)>? _findInsertions(
       List<String> a, List<String> b) {
     if (b.length <= a.length) return null;
     //  找公共前缀
