@@ -462,31 +462,38 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                           : '🎙 朗读',
                       style: fm.TextStyle(fontSize: 20,
                           fontWeight: fm.FontWeight.bold)),
-                  //  候选条:点一下即选为采表结果
-                  fm.Wrap(
-                      spacing: 6,
-                      runSpacing: 2,
+                  //  候选条:点一下即选为采表结果。
+                  //  条目多时自动滚动(可上下滑动观察),
+                  //  不挤压显示框也不溢出屏幕
+                  fm.SingleChildScrollView(
+                    physics: fm.AlwaysScrollableScrollPhysics(),
+                    child: fm.Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
                       children: [
                         for (final c in flow.dictationCandidates)
                           fm.InkWell(
                             onTap: () => flow.chooseDictation(c),
-                            child: fm.Container(
-                              padding: fm.EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: fm.BoxDecoration(
-                                  border: fm.Border.all(
-                                      color: Color.BLUE, width: 1.5),
-                                  borderRadius:
-                                      fm.BorderRadius.circular(6),
-                                  color: Color.WHITE),
-                              child: fm.Text(c,
-                                  style: fm.TextStyle(
-                                      fontSize: 16,
-                                      color: Color.BLUE,
-                                      fontWeight: fm.FontWeight.bold)),
-                            ),
+                                child: fm.Container(
+                                  padding: fm.EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: fm.BoxDecoration(
+                                      border: fm.Border.all(
+                                          color: Color.BLUE,
+                                          width: 1.5),
+                                      borderRadius:
+                                          fm.BorderRadius.circular(6),
+                                      color: Color.WHITE),
+                                  child: fm.Text(c,
+                                      style: fm.TextStyle(
+                                          fontSize: 16,
+                                          color: Color.BLUE,
+                                          fontWeight:
+                                              fm.FontWeight.bold)),
+                                ),
                           )
                       ]),
+                  ),
                 ]),
       ),
     );
