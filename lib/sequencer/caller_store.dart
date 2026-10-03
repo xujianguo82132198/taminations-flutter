@@ -610,9 +610,19 @@ class CallerTable extends ChangeNotifier {
       prefix.add(w[i]);
       i++;
     }
-    //  左右标记:Left=左手侧;无 Left 前缀默认 Right(右手)
+    //  左右标记:Left=左手侧;无 Left 前缀默认 Right(右手)。
+    //  "left"常被识别成"lead"(音近);Lead Right/Lead Left
+    //  本身是独立口令——按人类判别法:lead 后面跟的不是
+    //  left/right 时,把 lead 理解为 Left(如 "lead square
+    //  thru"→Left Square Thru);lead 后跟 left/right 时
+    //  它就是 Lead 口令本身("lead right" 核心保留)
     var left = false;
-    if (i < w.length && w[i] == 'left') {
+    if (i < w.length &&
+        (w[i] == 'left' ||
+         (w[i] == 'lead' &&
+          i + 1 < w.length &&
+          w[i + 1] != 'left' &&
+          w[i + 1] != 'right'))) {
       left = true;
       i++;
     }
