@@ -373,6 +373,40 @@ class CallerTable extends ChangeNotifier {
   static Future<int> mergeAndSaveAs(SharedPreferences prefs,
       CallerTable only, String sourceName, String targetName,
       {bool sourceRequired = true}) async {
+    //  级别过滤:从目标表名解析级别(ms/plus/a1...),
+    //  合并结果只保留该级别及更低级别的口令——高级别口令
+    //  (如测试时误加进 MS 表的 Acey Deucey)自动剔除;
+    //  口令库中查不到的自定义口令(如 boys circulate)保留
+    const lvOrder = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
+    final lvMatch = RegExp(
+            r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)\$')
+        .firstMatch(targetName);
+    final targetLv = lvMatch == null
+        ? -1 : lvOrder.indexOf(lvMatch.group(1)!);
+    Map<String, int>? callLevels;
+    if (targetLv >= 0) {
+      callLevels = {};
+      for (final entry in callIndex) {
+        final li = lvOrder.indexOf(entry.level);
+        for (final call
+            in flattenAnimatedCallList(entry.calls)) {
+          final key = _cleanCallTitle(call.title)
+              .toLowerCase().replaceAll(RegExp(r'[^a-z ]'), '')
+              .replaceAll(RegExp(r' +'), ' ').trim();
+          if (key.isNotEmpty &&
+              (!callLevels.containsKey(key) || li < callLevels[key]!))
+            callLevels[key] = li;
+        }
+      }
+    }
+    bool keepRow(String standardCall) {
+      if (callLevels == null) return true;
+      final key = standardCall.toLowerCase()
+          .replaceAll(RegExp(r'[^a-z ]'), '')
+          .replaceAll(RegExp(r' +'), ' ').trim();
+      final li = callLevels[key];
+      return li == null || li <= targetLv;   //  未知口令保留
+    }
     //  源表名解析:允许下划线数量差异(如 XuJianguo__ms vs
     //  XuJianguo_ms)——取存在的那个;都没有则源表为空
     var src = prefs.getString(_keyPrefix + sourceName);
@@ -400,8 +434,10 @@ class CallerTable extends ChangeNotifier {
         final d = jsonDecode(src);
         if (d is Map && d['rows'] is List) {
           for (final r in d['rows']) {
-            if (r is Map)
-              merged.add(CallerRow.fromJson(r));
+            if (r is Map) {
+              final row = CallerRow.fromJson(r);
+              if (keepRow(row.standardCall)) merged.add(row);
+            }
           }
         }
       } on FormatException {}
@@ -415,6 +451,10 @@ class CallerTable extends ChangeNotifier {
       if (callKey.isEmpty) continue;
       final hasSource = merged.any((m) =>
           m.standardCall.trim().toLowerCase() == callKey);
+      if (!keepRow(r.standardCall)) {
+        //  高于目标级别的口令(测试误加):剔除不入合并表
+        continue;
+      }
       if (r.recognized.isNotBlank) {
         //  用户已录:移除源表同口令行,以新记号覆盖
         merged.removeWhere((m) =>
