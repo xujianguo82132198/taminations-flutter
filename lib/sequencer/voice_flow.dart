@@ -120,6 +120,7 @@ class VoiceFlow extends ChangeNotifier {
     speech?.setSampleGrammar(_onlyTableWords());
     dictationPartial = '';
     dictationCandidates = [];
+    conflictPending = false;
     //  开实时中间结果:边念边显示,反馈更快
     speech?.sample(localeId: 'en_US', partialResults: true);
     //  Only 模式:结果直接在 VoiceFlow 处理(输入行隐藏时 build 不跑)
@@ -373,10 +374,15 @@ class VoiceFlow extends ChangeNotifier {
   ///  第一个为自动挑选的默认值)
   List<String> dictationCandidates = [];
 
+  ///  冲突决断待定中(黄框再点一次=强制存入);
+  ///  成功存入或新采样后清除,不随提示超时消失
+  bool conflictPending = false;
+
   ///  口令员从候选中点选一条作为采表结果
   void chooseDictation(String text) {
     dictationText = text;
     dictationCandidates = [];
+    conflictPending = false;
     _notify();
   }
 
@@ -453,6 +459,7 @@ class VoiceFlow extends ChangeNotifier {
             CallerTable.sentenceError(tk, newToken) < 0.12) {
           debugPrint('token conflict with row ${r.seq}: "$tk"');
           //  带上撞车行的口令名,让口令员知道是和哪条混了
+          conflictPending = true;
           lastError =
               'token_conflict:${r.seq}:${r.standardCall}:'
               '再点一次黄框=仍要存入';
@@ -471,6 +478,7 @@ class VoiceFlow extends ChangeNotifier {
     //  确认即替换:重新采同一条时删旧记号、记新记号
     await t.updateRow(row.seq,
         recognized: newToken, sort: false);
+    conflictPending = false;
     dictationText = '';
     dictationCandidates = [];
     //  确认后:光标移到下一个需要录入的行(第2列为空)。
