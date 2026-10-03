@@ -2352,7 +2352,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         final onlyTable =
                             await flow.openCallerTable(selected);
                         final count = await CallerTable.mergeAndSaveAs(
-                            prefs, onlyTable, src, dst);
+                            prefs, onlyTable, src, dst,
+                            sourceRequired: lvIdx > 0);
                         _mgmtSnackBar(
                             '已合并另存 $dst(共$count条)');
                         await _refreshTableNames(prefs, tableNames);
