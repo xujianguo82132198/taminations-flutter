@@ -497,6 +497,14 @@ class VoiceFlow extends ChangeNotifier {
         recognized: newToken, sort: false);
     conflictPending = false;
     dictationText = '';
+    //  家族传播(人类学习法):基础口令录好后,同族的变体
+    //  (Left前缀/分数/数字)自动推算记号——变体口令的
+    //  区别词("left"/"one quarter"等)按标准口令的差异
+    //  位置插入到已录记号中,同类发音自动适用
+    final filled =
+        await _propagateToVariants(t, row, newToken);
+    if (filled > 0)
+      debugPrint('family propagation: filled $filled variants');
     dictationCandidates = [];
     //  确认后:光标移到下一个需要录入的行(第2列为空)。
     //  物理的下一行已录完则继续往下找,直到找到空行为止;
@@ -535,6 +543,71 @@ class VoiceFlow extends ChangeNotifier {
     dictationSeqOverride = nextRow?.seq;
     _notify();
     return true;
+  }
+
+  ///  家族变体传播:把已录记号按标准口令的差异结构
+  ///  推算到同族未录行(如录了 "single circle to a wave" 后,
+  ///  自动生成 "…one quarter…"、"left …" 变体的记号)
+  Future<int> _propagateToVariants(
+      CallerTable t, CallerRow row, String token) async {
+    final baseWords = CallerTable.spokenForm(row.standardCall)
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (baseWords.length < 2) return 0;
+    final tokenWords =
+        token.toLowerCase().split(' ').where((w) => w.isNotEmpty).toList();
+    var filled = 0;
+    for (final r2 in t.rows) {
+      if (r2.seq == row.seq || r2.recognized.isNotBlank) continue;
+      final varWords = CallerTable.spokenForm(r2.standardCall)
+          .split(' ')
+          .where((w) => w.isNotEmpty)
+          .toList();
+      //  找插入位置:变体词列 = 基础词列 + 一段连续插入
+      final ins = _findInsertion(baseWords, varWords);
+      if (ins == null) continue;
+      final (pos, extra) = ins;
+      //  记号按比例定位插入点(记号与标准词数可能不同)
+      final tp = baseWords.isEmpty
+          ? 0
+          : ((pos * tokenWords.length) / baseWords.length).round()
+              .clamp(0, tokenWords.length);
+      final newTok =
+          [...tokenWords.sublist(0, tp), ...extra,
+           ...tokenWords.sublist(tp)].join(' ');
+      if (newTok.trim().isEmpty) continue;
+      await t.updateRow(r2.seq, recognized: newTok, sort: false);
+      filled++;
+    }
+    return filled;
+  }
+
+  ///  词列 diff:b 是 a 插入一段连续词构成时,
+  ///  返回 (插入位置, 插入词列);否则 null
+  (int, List<String>)? _findInsertion(
+      List<String> a, List<String> b) {
+    if (b.length <= a.length) return null;
+    //  找公共前缀
+    var pre = 0;
+    while (pre < a.length && pre < b.length && a[pre] == b[pre])
+      pre++;
+    //  找公共后缀
+    var suf = 0;
+    while (suf < a.length - pre &&
+        suf < b.length - pre &&
+        a[a.length - 1 - suf] == b[b.length - 1 - suf])
+      suf++;
+    final extra = b.sublist(pre, b.length - suf);
+    if (pre + suf != a.length) return null;   // 非纯插入
+    //  插入词必须是我们认识的变体词
+    const variantWords = {
+      'left', 'right', 'one', 'two', 'three', 'four',
+      'quarter', 'half', 'and', 'a', 'wrong', 'way',
+      'five', 'six'
+    };
+    if (!extra.every(variantWords.contains)) return null;
+    return (pre, extra);
   }
 
   ///  完成建表:与源表合并、总体排序、另存(去掉 Only)
