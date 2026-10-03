@@ -602,6 +602,7 @@ class CallerTable extends ChangeNotifier {
       prefix.add(w[i]);
       i++;
     }
+    //  左右标记:Left=左手侧;无 Left 前缀默认 Right(右手)
     var left = false;
     if (i < w.length && w[i] == 'left') {
       left = true;
@@ -633,7 +634,7 @@ class CallerTable extends ChangeNotifier {
     final (pa, la, ca, sa) = _decompose(wa);
     final (pb, lb, cb, sb) = _decompose(wb);
     var err = sentenceError(ca.join(' '), cb.join(' '));
-    if (la != lb) err += 0.10;                    //  左右不一致
+    if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) err += 0.10;         //  后缀不一致
     if (pb.isNotEmpty && !_sameWords(pa, pb))
       err += 0.05;                                //  主语不一致
