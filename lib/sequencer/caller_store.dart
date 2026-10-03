@@ -379,7 +379,7 @@ class CallerTable extends ChangeNotifier {
     //  口令库中查不到的自定义口令(如 boys circulate)保留
     const lvOrder = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
     final lvMatch = RegExp(
-            r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)\$')
+            r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)$')
         .firstMatch(targetName);
     final targetLv = lvMatch == null
         ? -1 : lvOrder.indexOf(lvMatch.group(1)!);
