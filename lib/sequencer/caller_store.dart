@@ -593,6 +593,13 @@ class CallerTable extends ChangeNotifier {
     'quarter', 'half', 'and', 'a', 'roll', 'spread',
   };
 
+  ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)
+  static (List<String>, bool, List<String>, List<String>)
+      decomposeCall(String s) => _decompose(_normalize(s)
+          .split(' ')
+          .where((w) => w.isNotEmpty)
+          .toList());
+
   ///  分解:(前缀词列, 是否Left, 口令核心词列, 后缀词列)
   static (List<String>, bool, List<String>, List<String>)
       _decompose(List<String> w) {

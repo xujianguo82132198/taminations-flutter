@@ -545,46 +545,41 @@ class VoiceFlow extends ChangeNotifier {
     return true;
   }
 
-  ///  家族变体传播:把已录记号按标准口令的差异结构
-  ///  推算到同族未录行(如录了 "single circle to a wave" 后,
-  ///  自动生成 "…one quarter…"、"left …" 变体的记号)
+  ///  家族变体传播(人类学习法):录好一条口令后,同族
+  ///  未录行(前缀/Left/数字/分数/后缀口令不同,口令核心
+  ///  相同的行)自动推算记号——保留听到的口令核心,按变体
+  ///  行的前缀/左右/后缀重组。例:录了 "Square Thru 4"
+  ///  (听到 "square thru"),"Square Thru 3" 得
+  ///  "square thru three","Left Square Thru 4" 得
+  ///  "left square thru four"
   Future<int> _propagateToVariants(
       CallerTable t, CallerRow row, String token) async {
-    final baseWords = CallerTable.spokenForm(row.standardCall)
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .toList();
-    if (baseWords.length < 2) return 0;
-    final tokenWords =
-        token.toLowerCase().split(' ').where((w) => w.isNotEmpty).toList();
+    final rowCore =
+        CallerTable.decomposeCall(row.standardCall).$3.join(' ');
+    if (rowCore.isEmpty) return 0;
+    final tokCore = CallerTable.decomposeCall(token).$3;
+    if (tokCore.isEmpty) return 0;
     var filled = 0;
     for (final r2 in t.rows) {
       if (r2.seq == row.seq || r2.recognized.isNotBlank) continue;
-      final varWords = CallerTable.spokenForm(r2.standardCall)
-          .split(' ')
-          .where((w) => w.isNotEmpty)
-          .toList();
-      //  多段插入(前缀+变体+后缀可同时出现)
-      final ins = _findInsertions(baseWords, varWords);
-      if (ins == null) continue;
-      var tw = [...tokenWords];
-      for (final (pos, extra) in ins.reversed) {
-        final tp = baseWords.isEmpty
-            ? 0
-            : ((pos * tw.length) / baseWords.length).round()
-                .clamp(0, tw.length);
-        tw = [...tw.sublist(0, tp), ...extra, ...tw.sublist(tp)];
-      }
-      final newTok = tw.join(' ');
-      if (newTok.trim().isEmpty) continue;
+      final p2 = CallerTable.decomposeCall(r2.standardCall);
+      //  口令核心必须相同(核心不同的行不传播)
+      if (p2.$3.join(' ') != rowCore) continue;
+      final words = [
+        ...p2.$1,          //  变体行的前缀(heads/boys...)
+        if (p2.$2) 'left', //  变体行的左右
+        ...tokCore,        //  听到的口令核心(用户发音)
+        ...p2.$4,          //  变体行的后缀(four/quarter/roll)
+      ];
+      final newTok = words.join(' ').trim();
+      if (newTok.isEmpty) continue;
       await t.updateRow(r2.seq, recognized: newTok, sort: false);
       filled++;
     }
     return filled;
   }
 
-  ///  词列 diff:b 是 a 插入一段连续词构成时,
-  ///  返回 (插入位置, 插入词列);否则 null
+
   ///  完整口令结构的变体词表:前缀(heads/sides/boys/
   ///  girls/leaders/trailers/centers/ends/everyone)、
   ///  左右变体(left/right/wrong/way)、数字分数后缀
