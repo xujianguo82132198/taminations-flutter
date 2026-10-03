@@ -1283,8 +1283,51 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     child: fm.Text('去选择口令',
                         style: fm.TextStyle(
                             fontSize: 18, color: Color.BLUE))),
+                //  换识别体系后整体重录:清空全部记号
+                fm.TextButton(
+                    onPressed: () =>
+                        fm.Navigator.of(ctx).pop('clear'),
+                    child: fm.Text('清空全部记号',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.RED))),
               ],
             ));
+    if (go == 'clear') {
+      final ok2 = await fm.showDialog<bool>(
+          context: context,
+          builder: (cctx) => fm.AlertDialog(
+                title: fm.Text('清空全部记号?',
+                    style: fm.TextStyle(fontSize: 22)),
+                content: fm.Text(
+                    '将清空本表全部已录记号(第2列),\n'
+                    '标准口令保留。之后每个口令家族\n'
+                    '重录一条即可自动填满全族。\n'
+                    '确定清空?',
+                    style: fm.TextStyle(fontSize: 18)),
+                actions: [
+                  fm.TextButton(
+                      onPressed: () =>
+                          fm.Navigator.of(cctx).pop(false),
+                      child: fm.Text('取消',
+                          style: fm.TextStyle(fontSize: 18))),
+                  fm.TextButton(
+                      onPressed: () =>
+                          fm.Navigator.of(cctx).pop(true),
+                      child: fm.Text('确定清空',
+                          style: fm.TextStyle(
+                              fontSize: 18, color: Color.RED))),
+                ],
+              ));
+      if (ok2 == true && mounted) {
+        final n = await flow.clearTableTokens();
+        if (mounted)
+          fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+              backgroundColor: Color.BLUE,
+              content: fm.Text('已清空 $n 行记号,可重录',
+                  style: fm.TextStyle(fontSize: 18))));
+      }
+      return;
+    }
     if (go != true || !mounted) return;
     flow.awaitingAddRecord = true;
     try {

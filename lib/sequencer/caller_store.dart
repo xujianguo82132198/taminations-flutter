@@ -282,6 +282,24 @@ class CallerTable extends ChangeNotifier {
     return updated;
   }
 
+  ///  清空全部记号(第2列),保留标准口令——用于换识别
+  ///  体系后整体重录。返回清空的行数
+  Future<int> clearAllTokens() async {
+    var cleared = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].recognized.isNotBlank) {
+        rows[i] = CallerRow(
+            seq: rows[i].seq,
+            recognized: '',
+            standardCall: rows[i].standardCall);
+        cleared++;
+      }
+    }
+    if (cleared > 0) await save();
+    debugPrint('clearAllTokens: cleared $cleared rows');
+    return cleared;
+  }
+
   ///  删除指定序号的行(序号从 1 开始),其余行序号自动重排
   Future<bool> removeRow(int seq) async {
     final index = rows.indexWhere((r) => r.seq == seq);

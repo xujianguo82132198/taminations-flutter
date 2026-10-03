@@ -674,6 +674,17 @@ class VoiceFlow extends ChangeNotifier {
   ///  不填输入行,而是直接加为本表新记录
   bool awaitingAddRecord = false;
 
+  ///  清空当前表全部记号(第2列),保留标准口令
+  Future<int> clearTableTokens() async {
+    final t = callerTable;
+    if (t == null) return 0;
+    final n = await t.clearAllTokens();
+    dictationText = '';
+    dictationSeqOverride = null;
+    _notify();
+    return n;
+  }
+
   ///  增加记录:以选定的口令名新建一行(第2列空,待圆钮采样),
   ///  光标跳到新行
   Future<void> addRecordWithCall(String call) async {
