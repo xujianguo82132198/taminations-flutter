@@ -414,7 +414,19 @@ class VoiceFlow extends ChangeNotifier {
     }
     for (final r in t.rows)
       if (r.recognized.isBlank) return r;
-    return null;
+    //  全部记录已录满:光标停在当前记录的下一条
+    //  (最后一条则停回第一条),不再消失
+    final cur = dictationSeqOverride;
+    CallerRow? afterCur;
+    bool seenCur = false;
+    for (final r in t.rows) {
+      if (seenCur) {
+        afterCur = r;
+        break;
+      }
+      if (r.seq == cur) seenCur = true;
+    }
+    return afterCur ?? (t.rows.isNotEmpty ? t.rows.first : null);
   }
   ///  源表名 = Only 表名去掉 "_<级别>_Only" 后缀
   ///  (如 "XuJianguo_plus_Only" -> "XuJianguo")
