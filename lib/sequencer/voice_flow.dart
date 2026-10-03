@@ -435,7 +435,8 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  采表确认:输入框文字写入当前待录行第2列,跳下一行
-  Future<bool> confirmDictation(String text) async {
+  Future<bool> confirmDictation(String text,
+      {bool force = false}) async {
     final t = callerTable;
     final row = currentDictationRow;
     debugPrint('confirmDictation: text="$text" row=${row?.seq} '
@@ -448,11 +449,13 @@ class VoiceFlow extends ChangeNotifier {
       if (r.seq == row.seq) continue;
       for (final tk in r.recognized.split('|')) {
         if (tk.trim().isEmpty) continue;
-        if (CallerTable.sentenceError(tk, newToken) < 0.12) {
+        if (!force &&
+            CallerTable.sentenceError(tk, newToken) < 0.12) {
           debugPrint('token conflict with row ${r.seq}: "$tk"');
           //  带上撞车行的口令名,让口令员知道是和哪条混了
           lastError =
-              'token_conflict:${r.seq}:${r.standardCall}';
+              'token_conflict:${r.seq}:${r.standardCall}:'
+              '再点一次黄框=仍要存入';
           _notify();
           Future.delayed(const Duration(seconds: 5), () {
             if (lastError != null &&

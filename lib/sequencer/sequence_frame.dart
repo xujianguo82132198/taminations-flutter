@@ -387,6 +387,14 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
     return fm.GestureDetector(
       onTap: () {
         if (flow.pttActive) return;
+        //  冲突提示后再点一次黄框=人类决断:强制存入
+        //  (AI 已陈述理由,决定权在人类)
+        if (flow.lastError != null &&
+            flow.lastError!.startsWith('token_conflict') &&
+            flow.dictationText.isNotBlank) {
+          flow.confirmDictation(flow.dictationText, force: true);
+          return;
+        }
         if (flow.dictationText.isNotBlank) {
           flow.confirmDictation(flow.dictationText);
         } else if (flow.callerTable != null) {
