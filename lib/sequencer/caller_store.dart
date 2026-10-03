@@ -625,6 +625,33 @@ class CallerTable extends ChangeNotifier {
     return (prefix, left, w.sublist(i, j), suffix);
   }
 
+  ///  前缀单复数归一:head≡heads, side≡sides, boy≡boys...
+  static String _normPrefix(String w) => switch (w) {
+        'head' => 'heads',
+        'side' => 'sides',
+        'boy' => 'boys',
+        'girl' => 'girls',
+        'leader' => 'leaders',
+        'trailer' => 'trailers',
+        'center' => 'centers',
+        'end' => 'ends',
+        'man' => 'men',
+        'woman' => 'women',
+        'couple' => 'couples',
+        _ => w,
+      };
+
+  ///  主语比对(公开,head≡heads 单复数等价)
+  static bool samePrefix(List<String> a, List<String> b) =>
+      _samePrefix(a, b);
+
+  static bool _samePrefix(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++)
+      if (_normPrefix(a[i]) != _normPrefix(b[i])) return false;
+    return true;
+  }
+
   static bool _sameWords(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++)
@@ -644,8 +671,8 @@ class CallerTable extends ChangeNotifier {
     var err = sentenceError(ca.join(' '), cb.join(' '));
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) err += 0.10;         //  后缀不一致
-    if (pb.isNotEmpty && !_sameWords(pa, pb))
-      err += 0.05;                                //  主语不一致
+    if (pb.isNotEmpty && !_samePrefix(pa, pb))
+      err += 0.05;    //  主语不一致(head≡heads)
     return err > 1 ? 1 : err;
   }
 

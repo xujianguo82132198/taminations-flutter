@@ -244,20 +244,32 @@ class VoiceFlow extends ChangeNotifier {
       final rowDec = CallerTable.decomposeCall(curRow.standardCall);
       final rowSig = '${rowDec.$2}|${rowDec.$3.join(' ')}'
           '|${rowDec.$4.join(' ')}';
-      for (final c in candidates) {
-        final cl = c.toLowerCase();
-        var hit = cl == spoken || cl == plain;
-        if (!hit) {
+      //  先找主语也一致(head≡heads)的候选;没有再接受
+      //  主语不同但核心/左右/后缀一致的(跟哪个主语接近
+      //  就采用哪个——人类就是这样做的)
+      CallerRow? bestRow2;
+      for (final pass in [0, 1]) {
+        for (final c in candidates) {
+          final cl = c.toLowerCase();
+          if (cl == spoken || cl == plain) {
+            text = c;
+            debugPrint('exact-call candidate: "$c"');
+            break;
+          }
           final cd = CallerTable.decomposeCall(cl);
-          hit = '${cd.$2}|${cd.$3.join(' ')}|${cd.$4.join(' ')}'
-              == rowSig;
-        }
-        if (hit) {
+          final sig =
+              '${cd.$2}|${cd.$3.join(' ')}|${cd.$4.join(' ')}';
+          if (sig != rowSig) continue;
+          final prefixOk = CallerTable.samePrefix(cd.$1, rowDec.$1);
+          if (pass == 0 && !prefixOk) continue;
           text = c;
-          debugPrint('exact-call candidate: "$c"');
+          debugPrint('exact-call candidate(pass$pass): "$c"');
           break;
         }
+        if (text.isNotEmpty) break;
       }
+      //  主语一致的候选存在时,优先光标跳到该主语行
+      //  (跟哪个主语接近就调用哪个)
     }
     _sampleTimeout?.cancel();
     //  [unk]=语法没匹配上(读音与所有口令都太远):不写入,
