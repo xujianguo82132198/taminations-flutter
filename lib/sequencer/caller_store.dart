@@ -581,6 +581,65 @@ class CallerTable extends ChangeNotifier {
           .replaceAll(RegExp(r' +'), ' ')
           .trim();
 
+  //  ---- 结构化识别:前缀(主语) + 口令(±Left) + 后缀 ----
+  static const _prefixWords = {
+    'heads', 'head', 'sides', 'side', 'boys', 'girls',
+    'leaders', 'leader', 'trailers', 'trailer', 'centers',
+    'center', 'ends', 'end', 'everyone', 'men', 'women',
+    'couples',
+  };
+  static const _suffixWords = {
+    'one', 'two', 'three', 'four', 'five', 'six',
+    'quarter', 'half', 'and', 'a', 'roll', 'spread',
+  };
+
+  ///  分解:(前缀词列, 是否Left, 口令核心词列, 后缀词列)
+  static (List<String>, bool, List<String>, List<String>)
+      _decompose(List<String> w) {
+    final prefix = <String>[];
+    var i = 0;
+    while (i < w.length && _prefixWords.contains(w[i])) {
+      prefix.add(w[i]);
+      i++;
+    }
+    var left = false;
+    if (i < w.length && w[i] == 'left') {
+      left = true;
+      i++;
+    }
+    final suffix = <String>[];
+    var j = w.length;
+    while (j > i && _suffixWords.contains(w[j - 1])) {
+      suffix.insert(0, w[j - 1]);
+      j--;
+    }
+    return (prefix, left, w.sublist(i, j), suffix);
+  }
+
+  static bool _sameWords(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++)
+      if (a[i] != b[i]) return false;
+    return true;
+  }
+
+  ///  结构化误差:先比对前缀/后缀/左右(应精确一致),
+  ///  口令核心用编辑距离模糊比对——比整句模糊又快又准
+  static double structuredError(String a, String b) {
+    final wa = _normalize(a).split(' ')
+        .where((s) => s.isNotEmpty).toList();
+    final wb = _normalize(b).split(' ')
+        .where((s) => s.isNotEmpty).toList();
+    final (pa, la, ca, sa) = _decompose(wa);
+    final (pb, lb, cb, sb) = _decompose(wb);
+    var err = sentenceError(ca.join(' '), cb.join(' '));
+    if (la != lb) err += 0.10;                    //  左右不一致
+    if (!_sameWords(sa, sb)) err += 0.10;         //  后缀不一致
+    if (pb.isNotEmpty && !_sameWords(pa, pb))
+      err += 0.05;                                //  主语不一致
+    return err > 1 ? 1 : err;
+  }
+
   ///  计算两句话的误差(归一化编辑距离 / 较长者长度,0~1,越小越相似)
   static double sentenceError(String a, String b) {
     final s1 = _normalize(a);
@@ -626,7 +685,11 @@ class CallerTable extends ChangeNotifier {
       //  都留在行里,与任意一笔比对,取最小误差
       var err = double.infinity;
       for (final token in row.recognized.split('|')) {
-        final e = sentenceError(token, sentence);
+        //  结构化(前缀/口令/后缀分解)与整句模糊取小:
+        //  前缀后缀精确一致时结构化误差显著更低
+        final e1 = structuredError(token, sentence);
+        final e2 = sentenceError(token, sentence);
+        final e = e1 < e2 ? e1 : e2;
         if (e < err) err = e;
       }
       //  全表扫描取全局最小(不早停):噪声记号下误差沿
