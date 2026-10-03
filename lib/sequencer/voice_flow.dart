@@ -344,6 +344,11 @@ class VoiceFlow extends ChangeNotifier {
     if (old != null)
       old.removeListener(_onTableChanged);
     final table = await CallerTable.open(name);
+    //  Only 表打开时自动清理高于本级的口令
+    //  (防止测试时误加的高级口令经合并带到其他级别)
+        .firstMatch(name);
+        .firstMatch(name);
+    if (m != null) await table.purgeAboveLevel(m.group(1)!);
     callerTable = table;
     table.addListener(_onTableChanged);
     _notify();

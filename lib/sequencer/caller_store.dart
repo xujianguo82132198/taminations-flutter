@@ -368,6 +368,42 @@ class CallerTable extends ChangeNotifier {
     return t;
   }
 
+  ///  清理:删除口令库中级别高于 levelDir 的行
+  ///  (如 MS 的 Only 表里测试时误加的 Plus 口令)。
+  ///  口令库查不到的自定义口令(如 boys circulate)保留。
+  ///  返回删除的行数
+  Future<int> purgeAboveLevel(String levelDir) async {
+    const order = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
+    final targetLv = order.indexOf(levelDir);
+    if (targetLv < 0) return 0;
+    final callLevels = <String, int>{};
+    for (final entry in callIndex) {
+      final li = order.indexOf(entry.level);
+      for (final call in flattenAnimatedCallList(entry.calls)) {
+        final key = _cleanCallTitle(call.title)
+            .toLowerCase().replaceAll(RegExp(r'[^a-z ]'), '')
+            .replaceAll(RegExp(r' +'), ' ').trim();
+        if (key.isNotEmpty &&
+            (!callLevels.containsKey(key) || li < callLevels[key]!))
+          callLevels[key] = li;
+      }
+    }
+    final before = rows.length;
+    rows.removeWhere((r) {
+      final key = r.standardCall.toLowerCase()
+          .replaceAll(RegExp(r'[^a-z ]'), '')
+          .replaceAll(RegExp(r' +'), ' ').trim();
+      final li = callLevels[key];
+      return li != null && li > targetLv;
+    });
+    final removed = before - rows.length;
+    if (removed > 0) {
+      await _sortAndRenumber();
+      debugPrint('purgeAboveLevel($levelDir): removed $removed rows');
+    }
+    return removed;
+  }
+
   ///  合并另存:本表各行(第2列非空) + 源表全部行,
   ///  按第2列总体排序,存为目标表名
   static Future<int> mergeAndSaveAs(SharedPreferences prefs,
