@@ -425,6 +425,15 @@ class VoiceFlow extends ChangeNotifier {
   String get onlyTargetName =>
       (callerTable?.callerName ?? '').replaceAll('_Only', '');
 
+  ///  当前 Only 表的级别序号(ms=0,plus=1,…);<0 表示无级别后缀
+  int get _onlyLevelIdx {
+    final n = callerTable?.callerName ?? '';
+    const order = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
+    final m = RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
+        .firstMatch(n);
+    return m == null ? -1 : order.indexOf(m.group(1)!);
+  }
+
   ///  采表确认:输入框文字写入当前待录行第2列,跳下一行
   Future<bool> confirmDictation(String text) async {
     final t = callerTable;
@@ -492,7 +501,8 @@ class VoiceFlow extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     try {
       final count = await CallerTable.mergeAndSaveAs(
-          prefs, t, onlySourceName, onlyTargetName);
+          prefs, t, onlySourceName, onlyTargetName,
+          sourceRequired: _onlyLevelIdx > 0);
       return count;
     } catch (e) {
       debugPrint('finishOnlyTable failed: $e');

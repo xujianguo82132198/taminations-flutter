@@ -371,7 +371,8 @@ class CallerTable extends ChangeNotifier {
   ///  合并另存:本表各行(第2列非空) + 源表全部行,
   ///  按第2列总体排序,存为目标表名
   static Future<int> mergeAndSaveAs(SharedPreferences prefs,
-      CallerTable only, String sourceName, String targetName) async {
+      CallerTable only, String sourceName, String targetName,
+      {bool sourceRequired = true}) async {
     //  源表名解析:允许下划线数量差异(如 XuJianguo__ms vs
     //  XuJianguo_ms)——取存在的那个;都没有则源表为空
     var src = prefs.getString(_keyPrefix + sourceName);
@@ -387,9 +388,10 @@ class CallerTable extends ChangeNotifier {
         }
       }
     }
-    //  源表不存在:中止合并并抛出提示(调用方弹出),绝不生成
-    //  缺记录的错误表(那会比没有表更误事)
-    if (src == null)
+    //  源表不存在:高级别(需下一级合并表)时中止并抛错,
+    //  绝不生成缺记录的错误表;ms 级的基础源表是可选的
+    //  (可能从未建过基础表,直接用 Only 表也能合并)
+    if (src == null && sourceRequired)
       throw Exception('源表 "$sourceName" 不存在,合并已中止'
           '(请先完成下一级别的合并)');
     final merged = <CallerRow>[];
