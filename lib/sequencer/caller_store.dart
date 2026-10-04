@@ -901,17 +901,24 @@ class CallerTable extends ChangeNotifier {
   };
 
   static List<String> _applySwaps(List<String> words) {
-    final variants = <String>[words.join(' ')];
+    //  组合替换:多个易混词同时替换("veer and veer" ->
+    //  "wheel and deal" 需两处同时换)。逐词分支,
+    //  词数与候选都少,组合量小
+    var variants = <List<String>>[List.of(words)];
     for (var i = 0; i < words.length; i++) {
       final swaps = _acousticSwaps[words[i]];
       if (swaps == null) continue;
-      for (final s in swaps) {
-        final v = List.of(words);
-        v[i] = s;
-        variants.add(v.join(' '));
+      final next = <List<String>>[...variants];
+      for (final v in variants) {
+        for (final s in swaps) {
+          final nv = List.of(v);
+          nv[i] = s;
+          next.add(nv);
+        }
       }
+      variants = next;
     }
-    return variants;
+    return [for (final v in variants) v.join(' ')];
   }
 
   static double structuredError(String a, String b) {
