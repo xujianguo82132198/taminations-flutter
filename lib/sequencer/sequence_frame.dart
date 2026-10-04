@@ -1211,14 +1211,19 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                         onChanged: (_) => setD(() {}),
                       ),
                       fm.SizedBox(height: 8),
-                      if (matches.isEmpty)
-                        fm.Text(p.isEmpty ? '请输入字母' : '(无匹配行)',
-                            style: fm.TextStyle(
-                                fontSize: 18, color: Color.GRAY))
-                      else
+                      //  待显示行数提示(多时告知可滚动)
+                      fm.Text(
+                          matches.isEmpty
+                              ? (p.isEmpty ? '请输入字母' : '(无匹配行)')
+                              : '待显示 ${matches.length} 行'
+                                '${matches.length > 8 ? '(可上下滚动)' : ''}',
+                          style: fm.TextStyle(
+                              fontSize: 16, color: Color.GRAY)),
+                      fm.SizedBox(height: 4),
+                      if (matches.isNotEmpty)
                         fm.Container(
                           constraints:
-                              fm.BoxConstraints(maxHeight: 340),
+                              fm.BoxConstraints(maxHeight: 600),
                           width: double.infinity,
                           child: fm.ListView.builder(
                             shrinkWrap: true,
