@@ -634,9 +634,48 @@ class CallerTable extends ChangeNotifier {
           .where((w) => w.isNotEmpty)
           .toList());
 
+  ///  复数主语的多词近音等价(实测"Ends"被识别成
+  /// "an end and"/"end an" 等碎片,在前缀位置折叠回去)
+  static const _prefixEquivalents = {
+    //  ends
+    'an end': 'ends', 'end an': 'ends', 'and end': 'ends',
+    'an ends': 'ends', 'ends an': 'ends', 'end and': 'ends',
+    //  heads
+    'an head': 'heads', 'head an': 'heads', 'and head': 'heads',
+    'a head': 'heads', 'head and': 'heads',
+    //  sides
+    'an side': 'sides', 'side an': 'sides', 'and side': 'sides',
+    'a side': 'sides', 'side and': 'sides',
+    //  boys
+    'a boy': 'boys', 'an boy': 'boys', 'boy an': 'boys',
+    //  girls
+    'a girl': 'girls', 'an girl': 'girls', 'girl an': 'girls',
+    //  centers
+    'an center': 'centers', 'a center': 'centers',
+    'center an': 'centers',
+    //  trailers
+    'an trailer': 'trailers', 'a trailer': 'trailers',
+    'trailer an': 'trailers',
+    //  leaders
+    'an leader': 'leaders', 'a leader': 'leaders',
+    'leader an': 'leaders',
+  };
+
   ///  分解:(前缀词列, 是否Left, 口令核心词列, 后缀词列)
   static (List<String>, bool, List<String>, List<String>)
       _decompose(List<String> w) {
+    //  前置折叠:句首的近音碎片组合还原成主语
+    //  (最多三词窗口,只在前缀位置做,不影响口令核心)
+    for (var k = 3; k >= 2; k--) {
+      if (w.length >= k) {
+        final key = w.sublist(0, k).join(' ');
+        final eq = _prefixEquivalents[key];
+        if (eq != null) {
+          w = [eq, ...w.sublist(k)];
+          break;
+        }
+      }
+    }
     final prefix = <String>[];
     var i = 0;
     while (i < w.length && _prefixWords.contains(w[i])) {
