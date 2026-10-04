@@ -828,6 +828,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     if (table == null || minimized || !flow.onlyMode) return;
     final cursor = flow.currentDictationRow;
     if (cursor == null) return;
+    //  同一光标只定位一次:识别期间每次局部结果都会触发
+    //  _onChanged,若不判重,jumpTo 会在整个说话过程中
+    //  反复执行,面板不断跳动(用户手动滚动也被拉回)
+    if (_scrolledCursorSeq == cursor.seq) return;
+    _scrolledCursorSeq = cursor.seq;
     final index = table.rows.indexOf(cursor);
     if (index < 0) return;
     //  jumpTo 立即定位,不用动画(动画期间行会消失)
@@ -837,6 +842,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
           alignment: 0.15);  //  光标行在显示区约第2行位置
     });
   }
+  int? _scrolledCursorSeq;
 
   void _scrollToCenterIfNeeded() {
     final table = flow.callerTable;
