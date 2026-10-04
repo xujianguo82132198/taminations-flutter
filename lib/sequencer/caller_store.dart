@@ -613,6 +613,7 @@ class CallerTable extends ChangeNotifier {
     //  facing out / facing in
     'facing', 'out', 'in', 'home', 'full', 'an', 'around', 'on',
     'all', 'four', 'outer', 'six', 'outside', 'line', 'of', 'eight',
+    'ladies',
     //  分数(读法词)
     'one', 'quarter', 'half', 'three', 'and', 'a',
   };
@@ -675,6 +676,15 @@ class CallerTable extends ChangeNotifier {
     'line are way': 'line of eight',
     'line a way': 'line of eight',
     'line on way': 'line of eight',
+    //  End Ladies("End Ladies Chain…"的主语;
+    //  end 连读被听成 hand/and/an)
+    'end ladies': 'end ladies',
+    'hand ladies': 'end ladies',
+    'and ladies': 'end ladies',
+    'an ladies': 'end ladies',
+    'home ladies': 'end ladies',
+    'end the ladies': 'end ladies',
+    'hand the ladies': 'end ladies',
     //  Line of 6(六人一线;six 听成 sex/sixth 等)
     'line of six': 'line of six',
     'line of sex': 'line of six',
@@ -843,6 +853,8 @@ class CallerTable extends ChangeNotifier {
     if (joined == 'outside couples') return joined;
     if (joined == 'line of eight') return joined;
     if (joined == 'line of six') return joined;
+    if (joined == 'end ladies') return joined;
+    if (joined == 'center ladies') return joined;
     const subjects = {
       'heads', 'sides', 'boys', 'girls', 'centers', 'ends',
       'leaders', 'trailers', 'everyone', 'men', 'women',
