@@ -951,15 +951,22 @@ class CallerTable extends ChangeNotifier {
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) {
       err += 0.10;   //  后缀不一致
-      //  "Sweep a Quarter"与"Three Quarters"声学相近,
-      //  人也常混淆——这两个后缀互串时加重惩罚,
-      //  防止 Sweep 被误吃成 Three Quarters
+      //  "Sweep a Quarter"与"Three Quarters"声学相近,人也
+      //  常混淆。识别层常把 Sweep 听成 Three(词频更高)——
+      //  比对层双向纠偏:一侧 sweep 一侧 three quarter 时,
+      //  按 sweep quarter 重算误差取低者,让 Sweep 行能
+      //  吃到被听成 three quarter 的发音;同时非 Sweep 行
+      //  不会被 Sweep 行误吃(惩罚保留)
       final aSweep = sa.contains('sweep');
       final bSweep = sb.contains('sweep');
-      final aThree = sa.contains('three');
-      final bThree = sb.contains('three');
-      if (aSweep != bSweep && (aThree || bThree))
-        err += 0.15;
+      final aThree = sa.join(' ') == 'three quarter';
+      final bThree = sb.join(' ') == 'three quarter';
+      if (aSweep && bThree || aThree && bSweep) {
+        final alt = sentenceError(ca.join(' '), cb.join(' '));
+        if (alt < err) err = alt;   //  纠偏重算取低
+      } else if (aSweep != bSweep && (aThree || bThree)) {
+        err += 0.15;   //  互串加重惩罚(非sweep/3-4互串对)
+      }
     }
     if (pb.isNotEmpty && !_samePrefix(pa, pb))
       err += 0.05;    //  主语不一致(head≡heads)
