@@ -1652,6 +1652,35 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               _isVoiceCall = true;
               _sendOneLine(model, hitRow.standardCall);
             });
+            //  后缀口令(Sweep 1/4/Roll/Spread):独立口令,
+            //  只作后缀用——主口令执行后再单独执行它
+            //  (等效连发两条命令:主口令+回车、后缀口令+回车)
+            final dec =
+                CallerTable.decomposeCall(bestSentence);
+            final suf = dec.$4;
+            if (suf.contains('sweep') ||
+                suf.contains('roll') ||
+                suf.contains('spread')) {
+              final suffixCall = StringBuffer();
+              for (final w in suf) {
+                if (w == 'sweep') {
+                  suffixCall.write('Sweep 1/4');
+                } else if (w == 'roll' && suffixCall.isEmpty) {
+                  suffixCall.write('Roll');
+                } else if (w == 'spread' &&
+                    suffixCall.isEmpty) {
+                  suffixCall.write('Spread');
+                }
+              }
+              final sc = suffixCall.toString();
+              if (sc.isNotEmpty) {
+                debugPrint('suffix call -> "$sc"');
+                later(() {
+                  _isVoiceCall = true;
+                  _sendOneLine(model, sc);
+                });
+              }
+            }
           } else {
             //  喊口令时映射表未查到(或误差过大):
             //  不予理睬(完全忽略,不执行)
