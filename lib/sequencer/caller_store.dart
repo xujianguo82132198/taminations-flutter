@@ -612,7 +612,7 @@ class CallerTable extends ChangeNotifier {
     'women', 'couples',
     //  facing out / facing in
     'facing', 'out', 'in', 'home', 'full', 'an', 'around', 'on',
-    'all', 'four', 'outer', 'six', 'outside',
+    'all', 'four', 'outer', 'six', 'outside', 'line', 'of', 'eight',
     //  分数(读法词)
     'one', 'quarter', 'half', 'three', 'and', 'a',
   };
@@ -656,6 +656,12 @@ class CallerTable extends ChangeNotifier {
     'four couples': 'all four couples',
     'all for': 'all four couples',
     //  Outer 6(外六人)
+    //  Line of 8(八人一线)
+    'line of ate': 'line of eight',
+    'line have eight': 'line of eight',
+    'line a eight': 'line of eight',
+    'line eight': 'line of eight',
+    'line of eight the': 'line of eight',
     //  Outside Couples(外对)
     'outside couples': 'outside couples',
     'outside couple': 'outside couples',
@@ -811,6 +817,7 @@ class CallerTable extends ChangeNotifier {
     if (joined == 'all four couples') return joined;
     if (joined == 'outer six') return joined;
     if (joined == 'outside couples') return joined;
+    if (joined == 'line of eight') return joined;
     const subjects = {
       'heads', 'sides', 'boys', 'girls', 'centers', 'ends',
       'leaders', 'trailers', 'everyone', 'men', 'women',
@@ -836,13 +843,34 @@ class CallerTable extends ChangeNotifier {
   ///  结构化误差:先比对前缀/后缀/左右(应精确一致),
   ///  口令核心用编辑距离模糊比对——比整句模糊又快又准
   static double structuredError(String a, String b) {
-    final wa = _normalize(a).split(' ')
+    var wa = _normalize(a).split(' ')
         .where((s) => s.isNotEmpty).toList();
     final wb = _normalize(b).split(' ')
         .where((s) => s.isNotEmpty).toList();
-    final (pa, la, ca, sa) = _decompose(wa);
+    //  高频听错定向纠偏(声学高度混淆对):
+    //  "single fold"常为"single circle"的误听;
+    //  "lead"常为"left"的误听(在非Lead口令位置)
+    wa = [for (var i = 0; i < wa.length; i++)
+      i >= 1 && wa[i] == 'fold' && wa[i - 1] == 'single' &&
+              !wa.contains('circle')
+          ? 'circle'
+          : wa[i]];
+    var (pa, la, ca, sa) = _decompose(wa);
     final (pb, lb, cb, sb) = _decompose(wb);
     var err = sentenceError(ca.join(' '), cb.join(' '));
+    //  lead≈left 加强:听到 lead 开头而比对行不是 Lead 口令
+    //  (核心不含 lead)时,再按 left 试算一次取低者
+    if (!la && ca.isNotEmpty && ca.first == 'lead' &&
+        !cb.contains('lead')) {
+      final altErr = sentenceError(
+          'left ${ca.sublist(1).join(' ')}'.trim(),
+          cb.join(' '));
+      if (altErr < err) {
+        err = altErr;
+        la = true;
+        ca = ca.sublist(1);
+      }
+    }
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) err += 0.10;         //  后缀不一致
     if (pb.isNotEmpty && !_samePrefix(pa, pb))
