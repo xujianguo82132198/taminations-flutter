@@ -274,88 +274,100 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
     if (mounted) setState(() {});
   }
 
-  //  输入口令字母 -> 列出全部匹配行(行号+口令名),
-  //  边输边筛,点某行即选中该行并关闭
+  //  输入口令 -> 列出全部匹配行(全屏对话框:输入框+整屏
+  //  可滚列表,彻底避免对话框高度裁剪导致的滚不动/末行点不中)
   Future<void> _prefixSearchDialog() async {
     final controller = fm.TextEditingController();
     await fm.showDialog(
         context: context,
-        builder: (ctx) => fm.StatefulBuilder(builder: (ctx, setD) {
-              //  先按前缀筛,没有再按包含筛
-              List<CallerRow> matches = [];
-              final p = controller.text.trim().toLowerCase();
-              final t = flow.callerTable;
-              if (p.isNotEmpty && t != null) {
-                for (final r in t.rows) {
-                  if (r.standardCall.toLowerCase().startsWith(p))
-                    matches.add(r);
-                }
-                if (matches.isEmpty) {
-                  for (final r in t.rows) {
-                    if (r.standardCall.toLowerCase().contains(p))
-                      matches.add(r);
-                  }
-                }
-              }
-              return fm.AlertDialog(
-                title: fm.Text('输入口令字母,列出全部匹配行',
-                    style: fm.TextStyle(fontSize: 20)),
-                content: fm.Column(
-                    mainAxisSize: fm.MainAxisSize.min,
-                    children: [
-                      fm.TextField(
-                        controller: controller,
-                        autofocus: true,
-                        style: fm.TextStyle(fontSize: 24),
-                        decoration: fm.InputDecoration(
-                            hintText: '如: spl',
-                            hintStyle: fm.TextStyle(fontSize: 20)),
-                        onChanged: (_) => setD(() {}),
-                      ),
-                      fm.SizedBox(height: 8),
-                      if (matches.isEmpty)
-                        fm.Column(
-                            mainAxisSize: fm.MainAxisSize.min,
-                            crossAxisAlignment:
-                                fm.CrossAxisAlignment.start,
-                            children: [
-                              fm.Text(
-                                  p.isEmpty ? '请输入字母' : '(无匹配行)',
-                                  style: fm.TextStyle(
-                                      fontSize: 18, color: Color.GRAY)),
-                              //  无匹配时:把输入作为自定义口令加行
-                              //  (如 boys circulate,引擎可执行但
-                              //   口令库列表没有的应用性说法)
-                              if (p.isNotEmpty)
-                                fm.TextButton.icon(
-                                    onPressed: () async {
-                                      final t = flow.callerTable;
-                                      if (t == null) return;
-                                      final row = await t.addRow(
-                                          recognized: '',
-                                          standardCall:
-                                              controller.text.trim());
-                                      if (!mounted) return;
-                                      fm.Navigator.of(ctx).pop();
-                                      flow.selectDictationRow(row.seq);
-                                    },
-                                    icon: fm.Icon(fm.Icons.add,
-                                        color: Color.BLUE),
-                                    label: fm.Text(
-                                        '添加自定义口令「'
-                                        '${controller.text.trim()}」'
-                                        '并采样',
-                                        style: fm.TextStyle(
-                                            fontSize: 18,
-                                            color: Color.BLUE))),
-                            ])
-                      else
-                        fm.SizedBox(
-                          height: 480,
-                          width: double.infinity,
-                          child: fm.ListView.builder(
-                            physics:
-                                fm.AlwaysScrollableScrollPhysics(),
+        builder: (ctx) => fm.Dialog.fullscreen(
+              child: fm.SafeArea(
+                child: fm.Column(
+                  children: [
+                    fm.Padding(
+                        padding: fm.EdgeInsets.all(12),
+                        child: fm.Row(children: [
+                          fm.Icon(fm.Icons.search, size: 28),
+                          fm.SizedBox(width: 8),
+                          fm.Expanded(
+                              child: fm.TextField(
+                            controller: controller,
+                            autofocus: true,
+                            style: fm.TextStyle(fontSize: 26),
+                            decoration: fm.InputDecoration(
+                                hintText: '输入口令字母,如: cir',
+                                hintStyle:
+                                    fm.TextStyle(fontSize: 22)),
+                          )),
+                          fm.TextButton(
+                              onPressed: () =>
+                                  fm.Navigator.of(ctx).pop(),
+                              child: fm.Text('关闭',
+                                  style:
+                                      fm.TextStyle(fontSize: 20))),
+                        ])),
+                    fm.Builder(builder: (bctx) {
+                      //  StatefulBuilder 不嵌 Builder 时 setState
+                      //  范围不覆盖列表,这里用StatefulBuilder包整体
+                      return fm.StatefulBuilder(
+                          builder: (sctx, setD) {
+                        List<CallerRow> matches = [];
+                        final p = controller.text.trim().toLowerCase();
+                        final t = flow.callerTable;
+                        if (p.isNotEmpty && t != null) {
+                          for (final r in t.rows) {
+                            if (r.standardCall.toLowerCase()
+                                .startsWith(p)) matches.add(r);
+                          }
+                          if (matches.isEmpty) {
+                            for (final r in t.rows) {
+                              if (r.standardCall.toLowerCase()
+                                  .contains(p)) matches.add(r);
+                            }
+                          }
+                        }
+                        return fm.Column(children: [
+                          fm.Padding(
+                              padding: fm.EdgeInsets.only(
+                                  left: 14, bottom: 4),
+                              child: fm.Row(children: [
+                                fm.Text(
+                                    matches.isEmpty
+                                        ? (p.isEmpty
+                                            ? '请输入字母'
+                                            : '(无匹配行)')
+                                        : '待显示 ${matches.length} 行'
+                                          '${matches.length > 14 ? '(滑动查看全部)' : ''}',
+                                    style: fm.TextStyle(
+                                        fontSize: 16,
+                                        color: Color.GRAY)),
+                                fm.Spacer(),
+                                if (p.isNotEmpty && matches.isEmpty)
+                                  fm.TextButton.icon(
+                                      onPressed: () async {
+                                        final tb = flow.callerTable;
+                                        if (tb == null) return;
+                                        final row = await tb.addRow(
+                                            recognized: '',
+                                            standardCall:
+                                                controller.text
+                                                    .trim());
+                                        if (!mounted) return;
+                                        fm.Navigator.of(ctx).pop();
+                                        flow.selectDictationRow(
+                                            row.seq);
+                                      },
+                                      icon: fm.Icon(fm.Icons.add,
+                                          color: Color.BLUE),
+                                      label: fm.Text(
+                                          '添加自定义口令「'
+                                          '${controller.text.trim()}」',
+                                          style: fm.TextStyle(
+                                              fontSize: 18,
+                                              color: Color.BLUE))),
+                              ])),
+                          fm.Expanded(
+                              child: fm.ListView.builder(
                             itemCount: matches.length,
                             itemBuilder: (lctx, i) {
                               final m = matches[i];
@@ -363,24 +375,22 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                                 dense: true,
                                 title: fm.Text(
                                     '第${m.seq}行  ${m.standardCall}',
-                                    style: fm.TextStyle(fontSize: 19)),
+                                    style:
+                                        fm.TextStyle(fontSize: 20)),
                                 onTap: () {
                                   flow.selectDictationRow(m.seq);
                                   fm.Navigator.of(ctx).pop();
                                 },
                               );
                             },
-                          ),
-                        ),
-                    ]),
-                actions: [
-                  fm.TextButton(
-                      onPressed: () => fm.Navigator.of(ctx).pop(),
-                      child: fm.Text('关闭',
-                          style: fm.TextStyle(fontSize: 18))),
-                ],
-              );
-            }));
+                          )),
+                        ]);
+                      });
+                    }),
+                  ],
+                ),
+              ),
+            ));
   }
 
   @override
