@@ -2531,15 +2531,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   //  打开(或新建)当前口令员的映射表,并以 SnackBar 告知结果
   Future<void> _openCallerTable(fm.BuildContext context) async {
     final table = await flow.openCallerTable(flow.callerName);
-    final created = table.wasCreated;
-    if (!mounted) return;
-    fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-        backgroundColor: Color.BLUE,
-        duration: Duration(seconds: 2),
-        content: fm.Text(
-            created ? '已新建口令员 ${flow.callerName} 的数据表'
-                    : '已打开口令员 ${flow.callerName} 的数据表',
-            style: GoogleFonts.roboto(fontSize: 20))));
+    //  打开表的提示条已取消(表名在面板首行常显,无需重复提示)
   }
 
   //  ---- 背景音乐/节拍/语音识别流程(逻辑在 VoiceFlow 单例) ----
