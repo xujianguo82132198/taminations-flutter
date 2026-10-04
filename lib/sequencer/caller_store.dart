@@ -675,6 +675,13 @@ class CallerTable extends ChangeNotifier {
     'line are way': 'line of eight',
     'line a way': 'line of eight',
     'line on way': 'line of eight',
+    //  Line of 6(六人一线;six 听成 sex/sixth 等)
+    'line of six': 'line of six',
+    'line of sex': 'line of six',
+    'line of sixth': 'line of six',
+    'line all six': 'line of six',
+    'line off six': 'line of six',
+    'line off sex': 'line of six',
     'line have eight': 'line of eight',
     'line a eight': 'line of eight',
     'line eight': 'line of eight',
@@ -835,6 +842,7 @@ class CallerTable extends ChangeNotifier {
     if (joined == 'outer six') return joined;
     if (joined == 'outside couples') return joined;
     if (joined == 'line of eight') return joined;
+    if (joined == 'line of six') return joined;
     const subjects = {
       'heads', 'sides', 'boys', 'girls', 'centers', 'ends',
       'leaders', 'trailers', 'everyone', 'men', 'women',
