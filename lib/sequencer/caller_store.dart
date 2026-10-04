@@ -613,7 +613,7 @@ class CallerTable extends ChangeNotifier {
     //  facing out / facing in
     'facing', 'out', 'in', 'home', 'full', 'an', 'around', 'on',
     //  分数(读法词)
-    'one', 'quarter', 'half', 'three', 'and', 'a', 'an',
+    'one', 'quarter', 'half', 'three', 'and', 'a',
   };
   ///  后缀库(用户定义):数字1-6、分数(1/4、1/2、3/4)、
   ///  后缀口令(Sweep a quarter,"More"忽略)、
