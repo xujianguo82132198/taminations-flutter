@@ -611,7 +611,7 @@ class CallerTable extends ChangeNotifier {
     'centers', 'center', 'ends', 'end', 'everyone', 'men',
     'women', 'couples',
     //  facing out / facing in
-    'facing', 'out', 'in',
+    'facing', 'out', 'in', 'home',
     //  分数(读法词)
     'one', 'quarter', 'half', 'three', 'and', 'a', 'an',
   };
@@ -722,6 +722,7 @@ class CallerTable extends ChangeNotifier {
         'man' => 'men',
         'woman' => 'women',
         'couple' => 'couples',
+        'home' => 'ends',
         _ => w,
       };
 
