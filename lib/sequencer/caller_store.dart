@@ -890,6 +890,14 @@ class CallerTable extends ChangeNotifier {
     'curl': ['circle'],
     'pole': ['roll'],
     'bow': ['roll'],
+    'lead': ['deal'],
+    'field': ['deal'],
+    'feel': ['deal'],
+    'meal': ['deal'],
+    'seal': ['deal'],
+    'did': ['deal'],
+    'here': ['wheel'],
+    'were': ['wheel'],
   };
 
   static List<String> _applySwaps(List<String> words) {
