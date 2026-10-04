@@ -688,11 +688,24 @@ class CallerTable extends ChangeNotifier {
         }
       }
     }
-    final prefix = <String>[];
-    var i = 0;
+    //  前缀提取:循环摘词后必须归一命中唯一规范前缀
+    //  (主语或分数);匹配不上则全部退回核心——保证流水
+    //  下一级(口令核心)总能拿到干净的词列
+    final startI = i0(w);
+    final rawPrefix = <String>[];
+    var i = startI;
     while (i < w.length && _prefixWords.contains(w[i])) {
-      prefix.add(w[i]);
+      rawPrefix.add(w[i]);
       i++;
+    }
+    final prefix = <String>[];
+    if (rawPrefix.isNotEmpty) {
+      final canon = canonicalPrefix(rawPrefix);
+      if (canon != null) {
+        prefix.add(canon);   //  命中唯一规范前缀
+      } else {
+        i = startI;          //  匹配不上:退回核心,不当前缀
+      }
     }
     //  左右标记:Left=左手侧;无 Left 前缀默认 Right(右手)。
     //  "left"常被识别成"lead"(音近);Lead Right/Lead Left
@@ -750,6 +763,46 @@ class CallerTable extends ChangeNotifier {
     for (var i = 0; i < a.length; i++)
       if (_normPrefix(a[i]) != _normPrefix(b[i])) return false;
     return true;
+  }
+
+  static int i0(List<String> w) => 0;
+
+  ///  前缀归一命中:词列必须匹配唯一规范前缀,返回规范形;
+  ///  匹配不上返回 null(调用方将词退回核心)。
+  ///  规范前缀:主语(heads/sides/boys/girls/centers/ends/
+  ///  leaders/trailers/everyone…)、facing in/out、
+  ///  分数(quarter/half/three quarter/one and half)
+  static String? canonicalPrefix(List<String> words) {
+    final n = [for (final w in words) _normPrefix(w)];
+    final joined = n.join(' ');
+    //  分数规范形
+    const fractions = {
+      'quarter': 'quarter', 'one quarter': 'quarter',
+      'half': 'half', 'one half': 'half', 'a half': 'half',
+      'three quarter': 'three quarter',
+      'three quarters': 'three quarter',
+      'one and half': 'one and half',
+      'one and a half': 'one and half',
+      'one ends half': 'one and half',   //  and听成ends归一后
+    };
+    if (fractions.containsKey(joined)) return fractions[joined];
+    //  facing
+    if (joined == 'facing out' || joined == 'facing in')
+      return joined;
+    //  主语:全部归一后相同且是规范主语
+    const subjects = {
+      'heads', 'sides', 'boys', 'girls', 'centers', 'ends',
+      'leaders', 'trailers', 'everyone', 'men', 'women',
+      'couples',
+    };
+    if (n.isNotEmpty && subjects.contains(n.first)) {
+      //  多个主语词时取第一个(如 ends ends 只算一个)
+      var count = 0;
+      for (final x in n)
+        if (_normPrefix(x) == n.first) count++;
+      if (count == n.length) return n.first;
+    }
+    return null;   //  没有命中任何规范前缀
   }
 
   static bool _sameWords(List<String> a, List<String> b) {
