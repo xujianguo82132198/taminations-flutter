@@ -637,9 +637,11 @@ class CallerTable extends ChangeNotifier {
   ///  复数主语的多词近音等价(实测"Ends"被识别成
   /// "an end and"/"end an" 等碎片,在前缀位置折叠回去)
   static const _prefixEquivalents = {
-    //  ends
+    //  ends(含 home 近音)
     'an end': 'ends', 'end an': 'ends', 'and end': 'ends',
     'an ends': 'ends', 'ends an': 'ends', 'end and': 'ends',
+    'home': 'ends', 'an home': 'ends', 'home an': 'ends',
+    'home end': 'ends', 'home full': 'ends', 'on home': 'ends',
     //  heads
     'an head': 'heads', 'head an': 'heads', 'and head': 'heads',
     'a head': 'heads', 'head and': 'heads',
