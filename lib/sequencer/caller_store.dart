@@ -612,7 +612,7 @@ class CallerTable extends ChangeNotifier {
     'women', 'couples',
     //  facing out / facing in
     'facing', 'out', 'in', 'home', 'full', 'an', 'around', 'on',
-    'all', 'four',
+    'all', 'four', 'outer', 'six',
     //  分数(读法词)
     'one', 'quarter', 'half', 'three', 'and', 'a',
   };
@@ -655,6 +655,11 @@ class CallerTable extends ChangeNotifier {
     'all couples': 'all four couples',
     'four couples': 'all four couples',
     'all for': 'all four couples',
+    //  Outer 6(外六人)
+    'outer sex': 'outer six',
+    'order six': 'outer six',
+    'outer sixths': 'outer six',
+    'outer sixx': 'outer six',
     //  ends(含 home 近音)
     'an end': 'ends', 'end an': 'ends', 'and end': 'ends',
     'an ends': 'ends', 'ends an': 'ends', 'end and': 'ends',
@@ -799,6 +804,7 @@ class CallerTable extends ChangeNotifier {
       return joined;
     //  主语:全部归一后相同且是规范主语
     if (joined == 'all four couples') return joined;
+    if (joined == 'outer six') return joined;
     const subjects = {
       'heads', 'sides', 'boys', 'girls', 'centers', 'ends',
       'leaders', 'trailers', 'everyone', 'men', 'women',
