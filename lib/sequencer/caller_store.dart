@@ -658,6 +658,13 @@ class CallerTable extends ChangeNotifier {
     //  Outer 6(外六人)
     //  Line of 8(八人一线)
     'line of ate': 'line of eight',
+    'line all four eight': 'line of eight',
+    'line all for eight': 'line of eight',
+    'line of all eight': 'line of eight',
+    'line are four eight': 'line of eight',
+    'line have four eight': 'line of eight',
+    'line for eight': 'line of eight',
+    'line or eight': 'line of eight',
     'line have eight': 'line of eight',
     'line a eight': 'line of eight',
     'line eight': 'line of eight',
