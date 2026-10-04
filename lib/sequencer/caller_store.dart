@@ -879,6 +879,33 @@ class CallerTable extends ChangeNotifier {
 
   ///  结构化误差:先比对前缀/后缀/左右(应精确一致),
   ///  口令核心用编辑距离模糊比对——比整句模糊又快又准
+  ///  声学易混词对(小模型高频误听):比对时对听到侧
+  ///  试替换,取误差更低者——"wheel and deal"常被听成
+  ///  "veer arm veer"(wheel→veer, deal→veer, and→arm)
+  static const _acousticSwaps = {
+    'veer': ['wheel', 'deal'],
+    'arm': ['and'],
+    'fold': ['circle'],
+    'home': ['wheel'],
+    'curl': ['circle'],
+    'pole': ['roll'],
+    'bow': ['roll'],
+  };
+
+  static List<String> _applySwaps(List<String> words) {
+    final variants = <String>[words.join(' ')];
+    for (var i = 0; i < words.length; i++) {
+      final swaps = _acousticSwaps[words[i]];
+      if (swaps == null) continue;
+      for (final s in swaps) {
+        final v = List.of(words);
+        v[i] = s;
+        variants.add(v.join(' '));
+      }
+    }
+    return variants;
+  }
+
   static double structuredError(String a, String b) {
     var wa = _normalize(a).split(' ')
         .where((s) => s.isNotEmpty).toList();
