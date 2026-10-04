@@ -350,11 +350,12 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                                             color: Color.BLUE))),
                             ])
                       else
-                        fm.Container(
-                          constraints: fm.BoxConstraints(maxHeight: 340),
+                        fm.SizedBox(
+                          height: 480,
                           width: double.infinity,
                           child: fm.ListView.builder(
-                            shrinkWrap: true,
+                            physics:
+                                fm.AlwaysScrollableScrollPhysics(),
                             itemCount: matches.length,
                             itemBuilder: (lctx, i) {
                               final m = matches[i];
@@ -1221,12 +1222,12 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                               fontSize: 16, color: Color.GRAY)),
                       fm.SizedBox(height: 4),
                       if (matches.isNotEmpty)
-                        fm.Container(
-                          constraints:
-                              fm.BoxConstraints(maxHeight: 600),
+                        fm.SizedBox(
+                          height: 500,
                           width: double.infinity,
                           child: fm.ListView.builder(
-                            shrinkWrap: true,
+                            physics:
+                                fm.AlwaysScrollableScrollPhysics(),
                             itemCount: matches.length,
                             itemBuilder: (lctx, i) {
                               final m = matches[i];
