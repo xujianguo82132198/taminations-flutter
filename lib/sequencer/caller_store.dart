@@ -627,12 +627,22 @@ class CallerTable extends ChangeNotifier {
     'roll', 'spread', 'sweep',
   };
 
-  ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)
+  ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)。
+  ///  前缀输出已归一(home/an/full/end → ends 等),
+  ///  供选择与显示统一
   static (List<String>, bool, List<String>, List<String>)
-      decomposeCall(String s) => _decompose(_normalize(s)
-          .split(' ')
-          .where((w) => w.isNotEmpty)
-          .toList());
+      decomposeCall(String s) {
+    final d = _decompose(_normalize(s)
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .toList());
+    return (
+      [for (final w in d.$1) _normPrefix(w)],
+      d.$2,
+      d.$3,
+      d.$4,
+    );
+  }
 
   ///  复数主语的多词近音等价(实测"Ends"被识别成
   /// "an end and"/"end an" 等碎片,在前缀位置折叠回去)
