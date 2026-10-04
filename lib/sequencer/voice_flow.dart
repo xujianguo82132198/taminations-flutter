@@ -290,6 +290,10 @@ class VoiceFlow extends ChangeNotifier {
       });
       return;
     }
+    //  显示与存库用规范形:前缀归一(home→ends)、
+    //  Left标记、核心、后缀按分解重排——用户看到
+    //  "ends forward"而非"home to forward"
+    text = canonicalForm(text);
     debugPrint('Only result: "$text" candidates=$candidates');
     //  分解诊断:每个候选的前缀/核心/后缀
     for (final c in candidates.take(3)) {
@@ -415,7 +419,7 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  口令员从候选中点选一条作为采表结果
   void chooseDictation(String text) {
-    dictationText = text;
+    dictationText = canonicalForm(text);
     dictationCandidates = [];
     conflictPending = false;
     _notify();
@@ -485,6 +489,19 @@ class VoiceFlow extends ChangeNotifier {
     final m = RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
         .firstMatch(n);
     return m == null ? -1 : order.indexOf(m.group(1)!);
+  }
+
+  ///  规范形:按分解重排(前缀归一 + Left + 核心 + 后缀)
+  static String canonicalForm(String s) {
+    final d = CallerTable.decomposeCall(s);
+    final parts = <String>[
+      ...d.$1,
+      if (d.$2) 'left',
+      ...d.$3,
+      ...d.$4,
+    ];
+    final r = parts.join(' ').trim();
+    return r.isEmpty ? s : r;
   }
 
   ///  采表确认:输入框文字写入当前待录行第2列,跳下一行
