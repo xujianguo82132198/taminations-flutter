@@ -600,11 +600,20 @@ class CallerTable extends ChangeNotifier {
           .trim();
 
   //  ---- 结构化识别:前缀(主语) + 口令(±Left) + 后缀 ----
+  ///  前缀库(用户定义):主语(谁做)+ 分数。
+  ///  单复数等价由 _normPrefix 归一;
+  ///  分数读法:1/4=one quarter、1/2=one half、3/4=
+  ///  three quarter、1-1/2=one and (a) half(同一意思)
   static const _prefixWords = {
+    //  主语
     'heads', 'head', 'sides', 'side', 'boys', 'girls',
-    'leaders', 'leader', 'trailers', 'trailer', 'centers',
-    'center', 'ends', 'end', 'everyone', 'men', 'women',
-    'couples',
+    'leaders', 'leader', 'leads', 'trailers', 'trailer',
+    'centers', 'center', 'ends', 'end', 'everyone', 'men',
+    'women', 'couples',
+    //  facing out / facing in
+    'facing', 'out', 'in',
+    //  分数(读法词)
+    'one', 'quarter', 'half', 'three', 'and', 'a', 'an',
   };
   static const _suffixWords = {
     'one', 'two', 'three', 'four', 'five', 'six',
