@@ -291,6 +291,12 @@ class VoiceFlow extends ChangeNotifier {
       return;
     }
     debugPrint('Only result: "$text" candidates=$candidates');
+    //  分解诊断:每个候选的前缀/核心/后缀
+    for (final c in candidates.take(3)) {
+      final d = CallerTable.decomposeCall(c);
+      debugPrint('  decomp "$c": prefix=[${d.$1.join(' ')}] '
+          'core=[${d.$3.join(' ')}] suffix=[${d.$4.join(' ')}]');
+    }
     lastError = null;
     dictationText = text;
     dictationCandidates = candidates.length > 1 ? candidates : [];
