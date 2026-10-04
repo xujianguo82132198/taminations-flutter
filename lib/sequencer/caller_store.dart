@@ -735,6 +735,7 @@ class CallerTable extends ChangeNotifier {
         'home' => 'ends',
         'full' => 'ends',
         'an' => 'ends',
+        'and' => 'ends',
         'around' => 'ends',
         'on' => 'ends',
         _ => w,
