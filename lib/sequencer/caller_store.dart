@@ -949,7 +949,18 @@ class CallerTable extends ChangeNotifier {
       if (e < err) err = e;
     }
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
-    if (!_sameWords(sa, sb)) err += 0.10;         //  后缀不一致
+    if (!_sameWords(sa, sb)) {
+      err += 0.10;   //  后缀不一致
+      //  "Sweep a Quarter"与"Three Quarters"声学相近,
+      //  人也常混淆——这两个后缀互串时加重惩罚,
+      //  防止 Sweep 被误吃成 Three Quarters
+      final aSweep = sa.contains('sweep');
+      final bSweep = sb.contains('sweep');
+      final aThree = sa.contains('three');
+      final bThree = sb.contains('three');
+      if (aSweep != bSweep && (aThree || bThree))
+        err += 0.15;
+    }
     if (pb.isNotEmpty && !_samePrefix(pa, pb))
       err += 0.05;    //  主语不一致(head≡heads)
     return err > 1 ? 1 : err;
