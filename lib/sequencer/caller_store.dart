@@ -908,6 +908,11 @@ class CallerTable extends ChangeNotifier {
         ca = ca.sublist(1);
       }
     }
+    //  声学易混词替换试算(听到侧核心),取更低误差
+    for (final v in _applySwaps(ca)) {
+      final e = sentenceError(v, cb.join(' '));
+      if (e < err) err = e;
+    }
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) err += 0.10;         //  后缀不一致
     if (pb.isNotEmpty && !_samePrefix(pa, pb))
