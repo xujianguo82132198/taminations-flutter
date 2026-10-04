@@ -1715,7 +1715,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       hintText: 'Enter calls',
                       suffixIcon: fm.IconButton(
                           icon:fm.Icon(fm.Icons.clear),
-                        onPressed: () => { textFieldController.clear() },
+                        onPressed: () {
+                          textFieldController.clear();
+                          //  清除输入框的同时清掉错误提示
+                          //  (口令没进执行队列,只在框内;清框即恢复)
+                          if (model.errorString.isNotEmpty)
+                            model.errorString = '';
+                        },
                       ),
                       errorStyle: fm.TextStyle(fontSize: 20,
                           color: model.errorString.contains('Note') ? fm.Colors.blue : fm.Colors.red),

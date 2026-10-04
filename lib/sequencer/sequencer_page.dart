@@ -93,6 +93,12 @@ class _SequencerPageState extends fm.State<SequencerPage> {
       model.setStartingFormation(Settings.startingFormation);
       model.reset();
     }
+    //  URL 携带队形的保护只保留到首帧:此后 Settings 的
+    //  更改永远立刻生效(原逻辑一次置位后不再应用,导致
+    //  改了 Starting Formation 有时不生效需重启)
+    fm.WidgetsBinding.instance.addPostFrameCallback((_) {
+      formationSetByState = false;
+    });
     model.addListener(() {
       tamState.change(formation:model.startingFormation,helplink: model.helplink,
           calls : model.calls.map((e) => e.name).join(';'));
