@@ -274,6 +274,17 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
     if (mounted) setState(() {});
   }
 
+  //  冲突提示详细内容:与哪一行、什么口令、什么记号雷同
+  //  (err 格式:token_conflict:行号|口令|记号|操作提示)
+  String conflictMessage(String err) {
+    final p = err.split('|');
+    final seq = p[0].split(':')[1];
+    final call = p.length > 1 ? p[1] : '';
+    final token = p.length > 2 ? p[2] : '';
+    final hint = p.length > 3 ? p[3] : '';
+    return '✕ 与第$seq行雷同:「$call」(记号:$token) $hint';
+  }
+
   //  输入口令 -> 列出全部匹配行。对话框内容固定高度,
   //  列表 Expanded 填满——有界父级内滚动与点击可靠
   Future<void> _prefixSearchDialog() async {
@@ -431,9 +442,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                 ? '⚠ 额度'
                 : (flow.lastError != null &&
                         flow.lastError!.startsWith('token_conflict')
-                    ? '✕ 与第${flow.lastError!.split(':')[1]}行'
-                      '「${flow.lastError!.split(':')[2] ?? ''}」'
-                      '记号太近,请换候选'
+                    ? conflictMessage(flow.lastError!)
                     : (flow.lastError == 'not_heard'
                     ? '✕ 没听清,请再按住重念'
                     : (flow.pttActive

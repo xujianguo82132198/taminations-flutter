@@ -524,9 +524,10 @@ class VoiceFlow extends ChangeNotifier {
           debugPrint('token conflict with row ${r.seq}: "$tk"');
           //  带上撞车行的口令名,让口令员知道是和哪条混了
           conflictPending = true;
+          //  错误信息四段:行号|撞车行口令|撞车行记号|操作提示
           lastError =
-              'token_conflict:${r.seq}:${r.standardCall}:'
-              '再点一次黄框=仍要存入';
+              'token_conflict:${r.seq}|${r.standardCall}|'
+              '$tk|记号雷同,再点一次黄框=仍要存入';
           _notify();
           Future.delayed(const Duration(seconds: 5), () {
             if (lastError != null &&
