@@ -33,6 +33,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'caller_store.dart';
 import 'music_monitor.dart';
 import 'xfyun_speech_to_text.dart'
     show SpeechRecognitionAlternative, SpeechRecognitionResult;
@@ -60,6 +61,12 @@ class VoskSpeechToText extends ChangeNotifier {
   //  本会话已确定的最终文字(识别器可能分段多次给最终结果,
   //  采样期间累计拼接,避免多词口令只取到前半段)
   String _sessionText = '';
+
+  //  停顿分段:整段只有主语/分数(核心为空)时,按规范
+  //  前缀单独缓存,不与后续口令段连成乱串——下一段到来
+  //  时作为前缀拼在前面(如 "home"段 + "circulate"段 →
+  //  "ends circulate")
+  String _segmentPrefix = '';
 
   //  本会话见过的全部候选文本(分段事件+收尾并集,去重):
   //  收尾 flush 只带最后一段的候选,不能覆盖中间的完整列表
@@ -255,6 +262,7 @@ class VoskSpeechToText extends ChangeNotifier {
   Future<void> _startSession() async {
     try {
       _sessionText = '';
+      _segmentPrefix = '';
       _sessionAlts.clear();
       _sub?.cancel();
       _sub = musicMonitor.events.listen(_onEvent);
@@ -358,9 +366,32 @@ class VoskSpeechToText extends ChangeNotifier {
               _notify();
             });
           } else {
-            //  采样:同一轮内分段拼接、候选累积
-            _sessionText = _sessionText.isEmpty
-                ? texts.first : '$_sessionText ${texts.first}';
+            //  采样:同一轮内分段拼接、候选累积。
+            //  停顿产生的前缀段(整段只有主语/分数)按规范
+            //  前缀缓存,后续段拼为 "前缀 口令" 干净形式
+            final seg = texts.first;
+            final d = CallerTable.decomposeCall(seg);
+            if (d.$3.isEmpty &&
+                (d.$1.isNotEmpty || d.$4.isNotEmpty)) {
+              //  纯前缀段:记规范形,不拼入正文
+              final p = d.$1.isNotEmpty
+                  ? d.$1.join(' ') : d.$4.join(' ');
+              if (_segmentPrefix.isEmpty) {
+                _segmentPrefix = p;
+                _log('segment prefix: "$p"');
+              }
+            } else {
+              _sessionText = _sessionText.isEmpty
+                  ? (_segmentPrefix.isEmpty
+                      ? seg : '$_segmentPrefix $seg')
+                  : (_segmentPrefix.isEmpty
+                      ? '$_sessionText $seg'
+                      : '$_sessionText $seg');
+              if (_segmentPrefix.isNotEmpty &&
+                  !_sessionText.startsWith(_segmentPrefix)) {
+                _sessionText = '$_segmentPrefix $_sessionText';
+              }
+            }
             for (final t in texts) {
               if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
             }
