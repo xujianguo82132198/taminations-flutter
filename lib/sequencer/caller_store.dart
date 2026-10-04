@@ -612,6 +612,7 @@ class CallerTable extends ChangeNotifier {
     'women', 'couples',
     //  facing out / facing in
     'facing', 'out', 'in', 'home', 'full', 'an', 'around', 'on',
+    'all', 'four',
     //  分数(读法词)
     'one', 'quarter', 'half', 'three', 'and', 'a',
   };
@@ -647,6 +648,13 @@ class CallerTable extends ChangeNotifier {
   ///  复数主语的多词近音等价(实测"Ends"被识别成
   /// "an end and"/"end an" 等碎片,在前缀位置折叠回去)
   static const _prefixEquivalents = {
+    //  All 4 Couples(全部四对)
+    'all four couples': 'all four couples',
+    'all for couples': 'all four couples',
+    'all four couple': 'all four couples',
+    'all couples': 'all four couples',
+    'four couples': 'all four couples',
+    'all for': 'all four couples',
     //  ends(含 home 近音)
     'an end': 'ends', 'end an': 'ends', 'and end': 'ends',
     'an ends': 'ends', 'ends an': 'ends', 'end and': 'ends',
@@ -790,10 +798,11 @@ class CallerTable extends ChangeNotifier {
     if (joined == 'facing out' || joined == 'facing in')
       return joined;
     //  主语:全部归一后相同且是规范主语
+    if (joined == 'all four couples') return joined;
     const subjects = {
       'heads', 'sides', 'boys', 'girls', 'centers', 'ends',
       'leaders', 'trailers', 'everyone', 'men', 'women',
-      'couples',
+      'couples', 'all four couples',
     };
     if (n.isNotEmpty && subjects.contains(n.first)) {
       //  多个主语词时取第一个(如 ends ends 只算一个)
