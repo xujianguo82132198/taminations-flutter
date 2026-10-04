@@ -615,10 +615,16 @@ class CallerTable extends ChangeNotifier {
     //  分数(读法词)
     'one', 'quarter', 'half', 'three', 'and', 'a', 'an',
   };
+  ///  后缀库(用户定义):数字1-6、分数(1/4、1/2、3/4)、
+  ///  后缀口令(Sweep a quarter,"More"忽略)、
+  ///  Roll/Spread(不能单独存在,只能跟在口令后)
   static const _suffixWords = {
+    //  数字
     'one', 'two', 'three', 'four', 'five', 'six',
+    //  分数(含读法填充词)
     'quarter', 'half', 'and', 'a', 'an', 'the', 'of',
-    'roll', 'spread',
+    //  后缀口令
+    'roll', 'spread', 'sweep',
   };
 
   ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)
