@@ -703,6 +703,9 @@ class CallerTable extends ChangeNotifier {
         await updateRow(row.seq, recognized: '', sort: false);
         changed++;
       }
+      //  诊断:主语行识别列现状(排查未清空的行)
+      debugPrint('seedCheck "$display" row${row?.seq} '
+          'recognized="${row?.recognized}"');
     }
     return changed;
   }
