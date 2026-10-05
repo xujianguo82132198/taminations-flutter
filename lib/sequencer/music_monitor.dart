@@ -115,11 +115,16 @@ class MusicMonitor {
   }
 
   ///  开始离线识别(复用原生语音采集线程);
-  ///  grammar 为口令词表 JSON(限定解码词汇,null=自由识别)
-  Future<void> voskStart({String? grammar}) async {
+  ///  grammar 为口令词表 JSON(限定解码词汇,null=自由识别);
+  ///  gate 为静音门限开关(持续监听传 true:静音/环境噪音不喂
+  ///  识别器;PTT 采样传 false:按下即刻意语音)
+  Future<void> voskStart({String? grammar, bool gate = false}) async {
     try {
-      await _channel.invokeMethod(
-          'voskStart', grammar == null ? null : {'grammar': grammar});
+      final args = <String, dynamic>{
+        if (grammar != null) 'grammar': grammar,
+        'gate': gate,
+      };
+      await _channel.invokeMethod('voskStart', args);
     } on PlatformException catch (e) {
       debugPrint('MusicMonitor.voskStart failed: ${e.code} ${e.message}');
     }

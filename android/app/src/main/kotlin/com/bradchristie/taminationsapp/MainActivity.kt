@@ -73,6 +73,15 @@ class MainActivity : FlutterActivity() {
 
     //  节拍分析窗口时长(更长窗口对真实音乐更稳)
     private const val DETECT_MS = 12000
+
+    //  静音门限(VAD):持续监听模式下,只有达到人声能量的
+    //  音频才喂识别器,静音/环境噪音一律喂零。凌晨卧室噪音
+    //  曾被持续识别成 "Rollaway",此门限从声学入口根治。
+    //  阈值标定:对麦克风讲话约 -10~-25dB,环境噪音通常 <-40dB
+    private const val VAD_OPEN_DB = -35.0    //  开门(高于此能量视为有人发声)
+    private const val VAD_CLOSE_DB = -42.0   //  关门(滞回下限,防止能量抖动反复开关)
+    private const val VAD_HANG_MS = 500L     //  低于关门阈值持续此时长才关门(保留自然句尾)
+    private const val VAD_MIN_SPEECH_MS = 200L  //  开门累计不足此时长视为噪声,丢弃其结果
   }
 
   private var micThread: Thread? = null
@@ -496,29 +505,68 @@ class MainActivity : FlutterActivity() {
         var ampFrames = 0
         var ampSumSq = 0.0
         var ampLastAt = System.currentTimeMillis()
+        //  80Hz 二阶高通(仅静音门限开启时使用):滤除次声/直流/
+        //  低频隆隆声,只保留人耳可听频带(16k 采样本身已不含
+        //  >8kHz 超声成分)。PTT 采样不滤波,保持与已录记号一致
+        var hpX1 = 0.0; var hpX2 = 0.0; var hpY1 = 0.0; var hpY2 = 0.0
         while (speechRunning) {
           val n = record.read(chunk, 0, chunk.size)
           if (n <= 0) break
           //  软件增益 x3(约+9.5dB):过高会削波失真致识别失败
           val gain = 3.0f
+          val gate = voskGate
           val bytes = ByteArray(n * 2)
           var sumSq = 0.0
           for (i in 0 until n) {
-            var v = (chunk[i] * gain).toInt()
-            if (v > 32767) v = 32767 else if (v < -32768) v = -32768
-            bytes[i * 2] = (v and 0xff).toByte()
-            bytes[i * 2 + 1] = ((v shr 8) and 0xff).toByte()
-            val d = v / 32768.0
+            val v: Int = if (gate) {
+              //  高通后增益
+              val x = chunk[i] / 32768.0
+              val y = 0.97802838 * x - 1.95605675 * hpX1 +
+                  0.97802838 * hpX2 + 1.95561181 * hpY1 - 0.97779590 * hpY2
+              hpX2 = hpX1; hpX1 = x; hpY2 = hpY1; hpY1 = y
+              (y * 32768.0 * gain).toInt()
+            } else {
+              (chunk[i] * gain).toInt()
+            }
+            val cl = if (v > 32767) 32767 else if (v < -32768) -32768 else v
+            bytes[i * 2] = (cl and 0xff).toByte()
+            bytes[i * 2 + 1] = ((cl shr 8) and 0xff).toByte()
+            val d = cl / 32768.0
             sumSq += d * d
+          }
+          //  静音门限(滞回):开门后保持喂真实音频直到能量跌落
+          //  超过 VAD_HANG_MS;关门期间喂零音频,让识别器只"听到"
+          //  达到人声能量的段落,噪音再也进不了解码器
+          if (gate) {
+            val chunkMs = n * 1000L / 16000
+            val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
+            if (!vadOpen) {
+              if (db > VAD_OPEN_DB) {
+                vadOpen = true; vadSpeechMs = 0; vadQuietMs = 0
+                Log.i(TAG, "vad: OPEN (db=${"%.1f".format(db)})")
+              }
+            } else {
+              vadSpeechMs += chunkMs
+              if (db < VAD_CLOSE_DB) {
+                vadQuietMs += chunkMs
+                if (vadQuietMs >= VAD_HANG_MS) {
+                  vadLastUtteranceMs = vadSpeechMs
+                  vadOpen = false
+                  Log.i(TAG, "vad: CLOSE (utterance=${vadSpeechMs}ms)")
+                }
+              } else vadQuietMs = 0
+            }
           }
           val rec = voskRecognizer
           if (voskFeed && rec != null) {
+            val gateClosed = gate && !vadOpen
+            val feed: ByteArray = if (gateClosed) ByteArray(n * 2) else bytes
             //  离线识别:音频直接喂 Vosk,结果推给 Dart,不发音频流
             var finalJson: String? = null
             var partialJson: String? = null
             synchronized(voskLock) {
               try {
-                if (rec.acceptWaveForm(bytes, bytes.size))
+                if (rec.acceptWaveForm(feed, feed.size))
                   finalJson = rec.result
                 else
                   partialJson = rec.partialResult
@@ -527,8 +575,17 @@ class MainActivity : FlutterActivity() {
                 voskFeed = false
               }
             }
-            if (finalJson != null) sendEvent("vosk_final", finalJson)
-            else if (partialJson != null) sendEvent("vosk_partial", partialJson)
+            if (finalJson != null) {
+              //  太短的"话音"=噪声误开门,其结果丢弃
+              val speechMs = if (vadOpen) vadSpeechMs else vadLastUtteranceMs
+              if (!gate || speechMs >= VAD_MIN_SPEECH_MS)
+                sendEvent("vosk_final", finalJson)
+              else
+                Log.i(TAG, "vad: final dropped (speech=${speechMs}ms)")
+            } else if (partialJson != null && !gateClosed) {
+              //  静音期(喂零)的空 partial 不发送
+              sendEvent("vosk_partial", partialJson)
+            }
           } else {
             //  云端引擎:音频推给 Dart 转发
             sendBytes("speech_audio", bytes)
@@ -576,6 +633,17 @@ class MainActivity : FlutterActivity() {
 
   @Volatile
   private var voskFeed = false
+
+  //  本会话是否启用静音门限(持续监听开,PTT采样关——按下即刻意语音,
+  //  且保持采样音频与已录记号声学一致)
+  @Volatile
+  private var voskGate = false
+
+  //  静音门限状态(采集线程更新,voskStart 重置)
+  @Volatile private var vadOpen = false
+  @Volatile private var vadSpeechMs = 0L
+  @Volatile private var vadQuietMs = 0L
+  @Volatile private var vadLastUtteranceMs = 0L
 
   //  加载去重:Dart 侧可能有多个提供者实例并发请求初始化
   @Volatile
@@ -652,6 +720,8 @@ class MainActivity : FlutterActivity() {
     }
     //  口令词表(JSON 单词数组):限定解码词汇,提高口音容错
     val grammar = call.argument<String>("grammar")
+    //  静音门限开关(持续监听传 true,PTT 采样传 false)
+    val gate = call.argument<Boolean>("gate") ?: false
     synchronized(voskLock) {
       try {
         val rec = if (grammar != null && grammar.length > 2)
@@ -662,7 +732,10 @@ class MainActivity : FlutterActivity() {
         try { rec.setMaxAlternatives(15) } catch (_: Exception) {}
         voskRecognizer = rec
         voskFeed = true
+        voskGate = gate
+        vadOpen = false; vadSpeechMs = 0; vadQuietMs = 0; vadLastUtteranceMs = 0
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
+        Log.i(TAG, "vosk: gate=${if (gate) "on" else "off"}")
       } catch (e: Exception) {
         Log.e(TAG, "vosk: start failed", e)
         result.error("vosk_start", e.message, null)

@@ -91,7 +91,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 DancerIdentificationWidget(),
                 GeometrySettingWidget(),
                 JoinCallsWithWidget(),
-                SpeechEngineWidget()
+                SpeechEngineWidget(),
+                SilenceGateWidget()
               ]));
         });
   }
@@ -178,9 +179,26 @@ class _SpeechEngineWidgetState extends fm.State<SpeechEngineWidget> {
   }
 }
 
+///  静音门限(默认开):持续监听时只有达到人声能量的音频才
+///  进入识别。凌晨卧室噪音曾被连续误识别成 "Rollaway",
+///  此开关从声学入口根治;关闭后恢复旧行为(不推荐)
+class SilenceGateWidget extends fm.StatelessWidget {
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    return pp.Consumer<Settings>(
+      builder: (context,settings,child) => _SettingCheckbox(
+        name:'静音门限(噪音不识别)',
+        value: Settings.silenceGate,
+        onChanged: (value) {
+          Settings.silenceGate = value;
+        },
+      ),
+    );
+  }
+}
+
 //  Class for title above radio buttons
 class _SettingTitle extends fm.StatelessWidget {
-
   final String _text;
   _SettingTitle(this._text);
 

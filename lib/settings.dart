@@ -160,6 +160,15 @@ class Settings extends fm.ChangeNotifier {
     _instance.notifyListeners();
   }
 
+  ///  语音静音门限(默认开):持续监听时,只有达到人声能量的
+  ///  音频才进入识别,环境噪音不再被误识别成口令
+  static bool get silenceGate =>
+      _instance.proxy.getBool('Silence Gate') ?? true;
+  static set silenceGate(bool value) {
+    _instance.proxy.setBool('Silence Gate', value);
+    _instance.notifyListeners();
+  }
+
   static String get geometry =>
       _instance.proxy.getString('Special Geometry') ?? 'None';
   static set geometry(String value) {

@@ -33,6 +33,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../settings.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
 import 'xfyun_speech_to_text.dart'
@@ -266,9 +267,12 @@ class VoskSpeechToText extends ChangeNotifier {
       _sessionAlts.clear();
       _sub?.cancel();
       _sub = musicMonitor.events.listen(_onEvent);
+      //  静音门限:持续监听开(环境噪音不得进入识别),
+      //  PTT 采样关(按下即刻意语音,保持与已录记号声学一致)
       await musicMonitor.voskStart(
           grammar: _grammarWords == null || _grammarWords!.isEmpty
-              ? null : jsonEncode(_grammarWords));
+              ? null : jsonEncode(_grammarWords),
+          gate: _continuous && Settings.silenceGate);
       _isListening = true;
       _log('session: listening');
     } catch (e) {
