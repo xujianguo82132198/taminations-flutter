@@ -633,6 +633,57 @@ class CallerTable extends ChangeNotifier {
   ///  独立成段跟在口令后执行,分段取样时归入后缀段
   static const suffixCallWords = {'roll', 'spread', 'sweep'};
 
+  ///  前缀主语种子行(用户设计:主语映射归口令员的表管理,
+  ///  多归一——同一主语的多种读法各记一笔记号,都指向它)。
+  ///  打开 Only 表时自动补种缺失的主语行;token 由历史验证
+  ///  过的近音等价(_prefixEquivalents 反查)自动展开,此后
+  ///  口令员用采样自行增删,不再依赖程序员
+  static const _seedSubjects = <String, String>{
+    'Heads': 'heads',
+    'Sides': 'sides',
+    'Centers': 'centers',
+    'Ends': 'ends',
+    'Boys': 'boys',
+    'Girls': 'girls',
+    'Leaders': 'leaders',
+    'Trailers': 'trailers',
+    'Facing Out': 'facing out',
+    'Facing In': 'facing in',
+    'Line of 8': 'line of eight',
+    'Line of 6': 'line of six',
+    'End Ladies': 'end ladies',
+    'Center Ladies': 'center ladies',
+    'All Four Couples': 'all four couples',
+    'Outer Six': 'outer six',
+    'Outside Couples': 'outside couples',
+  };
+
+  ///  补种缺失的前缀主语行,返回新增行数。
+  ///  每行记号 = 规范读法 + 等价近音变体(多归一的初始笔数)
+  Future<int> seedPrefixRows() async {
+    var added = 0;
+    for (final display in _seedSubjects.keys) {
+      final canon = _seedSubjects[display]!;
+      final dl = display.toLowerCase();
+      final exists = rows.any((r) {
+        final s = r.standardCall.trim().toLowerCase();
+        return s == canon || s == dl;
+      });
+      if (exists) continue;
+      final tokens = <String>[canon];
+      _prefixEquivalents.forEach((k, v) {
+        if (v == canon && !tokens.contains(k)) tokens.add(k);
+      });
+      //  Ends 的单词近音归一(an/and/on/around/home/full→ends)
+      //  一并入种,保持既有识别效果
+      if (canon == 'ends')
+        tokens.addAll(['end', 'an', 'and', 'on', 'around', 'home', 'full']);
+      await addRow(recognized: tokens.join('|'), standardCall: display);
+      added++;
+    }
+    return added;
+  }
+
   ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)。
   ///  前缀输出已归一(home/an/full/end → ends 等),
   ///  供选择与显示统一

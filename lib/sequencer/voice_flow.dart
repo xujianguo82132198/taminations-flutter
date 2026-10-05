@@ -176,6 +176,14 @@ class VoiceFlow extends ChangeNotifier {
       for (final w in s.split(RegExp(r' +'))) {
         if (w.isNotEmpty) words.add(w);
       }
+      //  已录记号的词也进语法(含主语行的多归一 token):
+      //  口令员自己的读法变体(home/ate/sex…)才能被解码出来
+      for (final token in r.recognized.split('|')) {
+        for (final w in token.toLowerCase().split(RegExp(r' +'))) {
+          if (w.isEmpty || w == 'unk' || w == '[unk]') continue;
+          words.add(w);
+        }
+      }
     }
     //  追加读法变体词(拆成单词加入)
     for (final w in words.toList()) {
@@ -356,12 +364,34 @@ class VoiceFlow extends ChangeNotifier {
     if (table == null) return;
     debugPrint('seg#$i "$text" -> lookup');
     if (i == 0) {
+      //  查表优先:主语映射归表管理(多归一),段1先在表内
+      //  检索——命中纯主语行即为前缀;命中口令行则本段就是
+      //  口令(同一次查表结果直接用,不重复查)。未命中再退
+      //  回内置归一基线(表里没有主语行时)
+      final r0 = table.lookupForSample(text);
+      if (r0.hit != null && r0.error <= sampleLookupThreshold) {
+        final rd = CallerTable.decomposeCall(r0.hit!.standardCall);
+        if (rd.$3.isEmpty && rd.$1.isNotEmpty) {
+          //  纯主语行:前缀,多归一命中的规范主语
+          _segFirstWasPrefix = true;
+          dictationSegmentText = r0.hit!.standardCall;
+          debugPrint('seg#0 prefix(table): "${r0.hit!.standardCall}" '
+              '(err=${r0.error.toStringAsFixed(3)})');
+          return;
+        }
+        //  口令行:无前缀口令,本段即口令
+        _segFirstWasPrefix = false;
+        final core = rd.$3.join(' ');
+        dictationSegmentText = rd.$2 ? 'left $core' : core;
+        debugPrint('seg#0 command(table): "$dictationSegmentText"');
+        return;
+      }
       final d = CallerTable.decomposeCall(text);
-      //  整段只有主语/分数词=前缀段:前缀库归一显示规范形
+      //  内置基线:整段只有主语/分数词=前缀段,归一显示
       _segFirstWasPrefix = d.$3.isEmpty && d.$1.isNotEmpty;
       if (_segFirstWasPrefix) {
         dictationSegmentText = d.$1.join(' ');
-        debugPrint('seg#0 prefix: "${dictationSegmentText}"');
+        debugPrint('seg#0 prefix(baseline): "${dictationSegmentText}"');
         return;
       }
       _segLookupCommand(text);
@@ -485,6 +515,13 @@ class VoiceFlow extends ChangeNotifier {
     final m = RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
         .firstMatch(name);
     if (m != null) await table.purgeAboveLevel(m.group(1)!);
+    //  前缀主语归表管理(多归一):Only 表缺主语行时自动补种,
+    //  之后口令员用采样增删记号,不依赖程序员
+    if (name.endsWith('_Only')) {
+      final seeded = await table.seedPrefixRows();
+      if (seeded > 0)
+        debugPrint('seedPrefixRows: $seeded subject rows added');
+    }
     callerTable = table;
     table.addListener(_onTableChanged);
     _notify();
