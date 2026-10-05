@@ -2634,6 +2634,24 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
   void _sendOneLine(SequencerModel model, String value) async {
     var hasError = false;
+    //  纯主语(Heads/Ends/Line of 8…):不是可执行口令,Calls
+    //  里也选不到——待补全记录期间键入纯主语直接存入,
+    //  不走执行判定(分数用读法形式判定,8→eight)
+    if (flow.pendingRecord != null) {
+      final d = CallerTable.decomposeCall(
+          CallerTable.spokenForm(value));
+      if (d.$3.isEmpty && d.$1.isNotEmpty) {
+        textFieldController.clear();
+        await flow.completeRecordInit(value);
+        _closeCallsPageIfOpen();
+        later(() {
+          later(() {
+            focusNode.requestFocus();
+          });
+        });
+        return;
+      }
+    }
     //  与手动键入一致:先把口令显示到输入行,再提交
     //  (等效"键入+回车",在禁止注入按键的设备上也能看到完整过程)。
     //  先清后写:输入框有残留内容时会拒绝接受新数据

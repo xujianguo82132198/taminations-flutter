@@ -895,12 +895,29 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  口令执行正确后,把整个口令一起存入记录并恢复识别
+  ///  口令执行正确后,把整个口令一起存入记录并恢复识别。
+  ///  已存在同口令行时不重复建行:删除待补全行,光标跳到
+  ///  已有行(与"去选择口令"的增加路径一致)
   Future<bool> completeRecordInit(String wholeCall) async {
     final table = callerTable;
     final row = pendingRecord;
     if (table == null || row == null) return false;
-    await table.updateRow(row.seq, standardCall: wholeCall);
+    final name = wholeCall.trim().toLowerCase();
+    final dup = table.rows
+        .where((r) => r.seq != row.seq)
+        .cast<CallerRow?>()
+        .firstWhere((r) =>
+            r!.standardCall.trim().toLowerCase() == name,
+        orElse: () => null);
+    if (dup != null) {
+      await table.removeRow(row.seq);
+      dictationSeqOverride = dup.seq;
+      debugPrint('completeRecordInit: "$wholeCall" exists '
+          'row ${dup.seq}, pending row removed');
+    } else {
+      await table.updateRow(row.seq, standardCall: wholeCall);
+      dictationSeqOverride = null;
+    }
     pendingRecord = null;
     //  恢复语音识别
     speech?.resume();
