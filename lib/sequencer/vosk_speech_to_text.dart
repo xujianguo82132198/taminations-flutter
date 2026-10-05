@@ -343,12 +343,14 @@ class VoskSpeechToText extends ChangeNotifier {
       _sessionAlts.clear();
       _sub?.cancel();
       _sub = musicMonitor.events.listen(_onEvent);
-      //  静音门限:持续监听开(环境噪音不得进入识别),
-      //  PTT 采样关(按下即刻意语音,保持与已录记号声学一致)
+      //  静音门限:圆钮(采样)与麦克风(持续监听)走完全同一
+      //  声学处理(80Hz高通+能量闸门)——录记号和喊口令的
+      //  音频路径必须一致,否则记号对不上还难查
+      //  (用户原则:两种识别方法必须一致)
       await musicMonitor.voskStart(
           grammar: _grammarWords == null || _grammarWords!.isEmpty
               ? null : jsonEncode(_grammarWords),
-          gate: _continuous && Settings.silenceGate);
+          gate: Settings.silenceGate);
       _isListening = true;
       _log('session: listening');
     } catch (e) {
