@@ -622,6 +622,46 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
   }
   void _onChanged() {
     if (mounted) setState(() {});
+    //  记号碰撞体检:口令不同而语音识别(第2列)相同的行,
+    //  亮出行号提示重新识别(每次开表提示一次)
+    if (mounted &&
+        flow.tokenCollisionRows.isNotEmpty &&
+        !flow.collisionNoticeShown) {
+      flow.collisionNoticeShown = true;
+      Future.microtask(() => _showCollisionDialog());
+    }
+  }
+
+  //  碰撞行号清单(需重新识别)
+  Future<void> _showCollisionDialog() async {
+    await fm.showDialog(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+              title: fm.Text('记号相同,需重新识别',
+                  style: fm.TextStyle(fontSize: 22, color: Color.RED)),
+              content: fm.SizedBox(
+                width: double.maxFinite,
+                height: 420,
+                child: fm.ListView(children: [
+                  fm.Text(
+                      '以下各行标准口令不同而语音识别(第2列)相同,'
+                      '喊口令时无法区分。请对相关行用圆钮重新采样:',
+                      style: fm.TextStyle(fontSize: 18)),
+                  for (final line in flow.tokenCollisionRows)
+                    fm.Padding(
+                        padding: fm.EdgeInsets.only(top: 6),
+                        child: fm.Text(line,
+                            style: fm.TextStyle(
+                                fontSize: 18, color: Color.RED))),
+                ]),
+              ),
+              actions: [
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(),
+                    child: fm.Text('知道了',
+                        style: fm.TextStyle(fontSize: 18))),
+              ],
+            ));
   }
 
   @override

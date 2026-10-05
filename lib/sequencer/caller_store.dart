@@ -1148,6 +1148,36 @@ class CallerTable extends ChangeNotifier {
     return (hit: best, candidate: best, error: bestErr);
   }
 
+  ///  记号碰撞体检:口令不同而记号相同/雷同的行对——
+  ///  喊口令时查表无法区分,需重新识别。
+  ///  返回(行A序号,行A口令,行B序号,行B口令,雷同记号)
+  List<(int, String, int, String, String)> findTokenCollisions() {
+    final result =
+        <(int, String, int, String, String)>[];
+    for (var i = 0; i < rows.length; i++) {
+      for (var j = i + 1; j < rows.length; j++) {
+        final a = rows[i], b = rows[j];
+        if (a.standardCall.trim().toLowerCase() ==
+            b.standardCall.trim().toLowerCase()) continue;
+        outer:
+        for (final ta in a.recognized.split('|')) {
+          final t1 = ta.trim();
+          if (t1.isEmpty) continue;
+          for (final tb in b.recognized.split('|')) {
+            final t2 = tb.trim();
+            if (t2.isEmpty) continue;
+            if (sentenceError(t1, t2) < 0.12) {
+              result.add(
+                  (a.seq, a.standardCall, b.seq, b.standardCall, t1));
+              break outer;
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
   ///  分段取样检索(用户定义的取样过程,段界查表专用):
   ///  与每行的**记号**和**标准口令读法**双轨比对——采表时
   ///  记号可能尚未录上,标准口令读法保证新表也能检索。

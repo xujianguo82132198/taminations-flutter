@@ -504,6 +504,8 @@ class VoiceFlow extends ChangeNotifier {
     dictationSegmentText = '';
     _segProcessedCount = 0;
     _segFirstWasPrefix = false;
+    tokenCollisionRows = [];
+    collisionNoticeShown = false;
     dictationSeqOverride = null;
     callerTable?.removeListener(_onTableChanged);
     callerTable = null;
@@ -530,6 +532,17 @@ class VoiceFlow extends ChangeNotifier {
       final seeded = await table.seedPrefixRows();
       if (seeded > 0)
         debugPrint('seedPrefixRows: $seeded subject rows added');
+      //  记号碰撞体检:口令不同而记号相同的行,亮出行号
+      //  提示重新识别(开表时检查一次)
+      final cols = table.findTokenCollisions();
+      tokenCollisionRows = [
+        for (final c in cols)
+          '第${c.$1}行「${c.$2}」↔ 第${c.$3}行「${c.$4}」'
+          '(记号:${c.$5})'
+      ];
+      collisionNoticeShown = false;
+      if (tokenCollisionRows.isNotEmpty)
+        debugPrint('token collisions: ${tokenCollisionRows.length}');
     }
     callerTable = table;
     table.addListener(_onTableChanged);
@@ -879,6 +892,12 @@ class VoiceFlow extends ChangeNotifier {
   ///  长按表名"增加记录"模式:Calls 页选中的口令
   ///  不填输入行,而是直接加为本表新记录
   bool awaitingAddRecord = false;
+
+  ///  记号碰撞提示行(口令不同而记号相同,需重新识别),
+  ///  开 Only 表时体检生成
+  List<String> tokenCollisionRows = [];
+  ///  本次开表是否已弹过碰撞提示
+  bool collisionNoticeShown = false;
 
   ///  清空当前表全部记号(第2列),保留标准口令
   Future<int> clearTableTokens() async {
