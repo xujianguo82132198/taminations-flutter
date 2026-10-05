@@ -1287,8 +1287,9 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               title: fm.Text('增加记录',
                   style: fm.TextStyle(fontSize: 22)),
               content: fm.Text(
-                  '点"去选择口令"后,在 CALL 口令列表中点选口令,'
-                  '\n选完自动加为本表新记录,然后用圆钮采样。',
+                  '点"去选择口令"到 CALL 列表点选;\n'
+                  '或点"键入口令"用键盘手动输入。\n'
+                  '执行正确后存为新记录,再用圆钮采样。',
                   style: fm.TextStyle(fontSize: 18)),
               actions: [
                 fm.TextButton(
@@ -1300,6 +1301,12 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     child: fm.Text('去选择口令',
                         style: fm.TextStyle(
                             fontSize: 18, color: Color.BLUE))),
+                //  手动键入:输入行清空,弹键盘等口令员输入
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop('type'),
+                    child: fm.Text('键入口令',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.BLUE))),
                 //  换识别体系后整体重录:清空全部记号
                 fm.TextButton(
                     onPressed: () =>
@@ -1309,6 +1316,13 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                             fontSize: 18, color: Color.RED))),
               ],
             ));
+    if (go == 'type') {
+      //  键入路径:新建待补全记录(第2列空),输入行清空弹
+      //  键盘等手动输入;执行正确的口令即存为第3列
+      flow.awaitingTypedRecord = true;
+      await flow.startRecordInit('');
+      return;
+    }
     if (go == 'clear') {
       final ok2 = await fm.showDialog<bool>(
           context: context,
@@ -1473,6 +1487,16 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   //  流程状态变化 → 刷新 UI,并驱动闪烁与动画即时变速
   void _onFlowChanged() {
     if (!mounted) return;
+    //  "键入口令":输入行清空,弹出键盘等口令员手动输入;
+    //  执行正确的口令由提交处理存为新记录(completeRecordInit)
+    if (flow.awaitingTypedRecord) {
+      flow.awaitingTypedRecord = false;
+      textFieldController.clear();
+      focusNode.requestFocus();
+      setState(() {
+        virtualKeyboardSetVisible(true);
+      });
+    }
     //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
     final selection = flow.callSelection;
     if (selection != null) {

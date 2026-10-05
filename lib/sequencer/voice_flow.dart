@@ -837,6 +837,11 @@ class VoiceFlow extends ChangeNotifier {
   ///  不填输入行,而是直接加为本表新记录
   bool awaitingAddRecord = false;
 
+  ///  "键入口令"路径(增加记录对话框):置位后输入行清空并
+  ///  弹出键盘,等口令员手动键入;口令执行正确后由
+  ///  completeRecordInit 存为新记录(与 Calls 点选同一条路)
+  bool awaitingTypedRecord = false;
+
   ///  清空当前表全部记号(第2列),保留标准口令
   Future<int> clearTableTokens() async {
     final t = callerTable;
