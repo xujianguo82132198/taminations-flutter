@@ -1319,6 +1319,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     if (go == 'type') {
       //  键入路径:新建待补全记录(第2列空),输入行清空弹
       //  键盘等手动输入;执行正确的口令即存为第3列
+      debugPrint('增加记录: 键入口令 被点击');
       flow.awaitingTypedRecord = true;
       await flow.startRecordInit('');
       return;
@@ -1488,13 +1489,21 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   void _onFlowChanged() {
     if (!mounted) return;
     //  "键入口令":输入行清空,弹出键盘等口令员手动输入;
-    //  执行正确的口令由提交处理存为新记录(completeRecordInit)
+    //  执行正确的口令由提交处理存为新记录(completeRecordInit)。
+    //  焦点要在 TextField 重建出来之后再要(触屏设备输入框
+    //  随键盘可见性切换才存在,提前请求会被丢弃)
     if (flow.awaitingTypedRecord) {
       flow.awaitingTypedRecord = false;
+      debugPrint('键入口令: 输入行就绪,等待键入');
       textFieldController.clear();
-      focusNode.requestFocus();
       setState(() {
         virtualKeyboardSetVisible(true);
+      });
+      later(() {
+        later(() {
+          focusNode.requestFocus();
+          debugPrint('键入口令: 焦点已请求');
+        });
       });
     }
     //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
