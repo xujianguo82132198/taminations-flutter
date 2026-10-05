@@ -858,21 +858,11 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  增加记录:以选定的口令名新建一行(第2列空,待圆钮采样),
-  ///  光标跳到新行
+  ///  光标跳到新行。多对一:同一口令允许重复建行,
+  ///  每行录一笔语音读法(合并时记号自动归并)
   Future<void> addRecordWithCall(String call) async {
     final t = callerTable;
     if (t == null) return;
-    final name = call.trim().toLowerCase();
-    //  同口令已存在:不重复添加,直接跳到已有行
-    for (final r in t.rows) {
-      if (r.standardCall.trim().toLowerCase() == name) {
-        debugPrint('addRecord: "$call" already row ${r.seq}');
-        dictationSeqOverride = r.seq;
-        dictationText = '';
-        _notify();
-        return;
-      }
-    }
     final row = await t.addRow(
         recognized: '', standardCall: call.trim());
     dictationSeqOverride = row.seq;
@@ -900,30 +890,12 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  口令执行正确后,把整个口令一起存入记录并恢复识别。
-  ///  已存在同口令行时不重复建行:删除待补全行,光标跳到
-  ///  已有行(与"去选择口令"的增加路径一致)
+  ///  多对一:不去重——同口令可有多行,各存一笔读法
   Future<bool> completeRecordInit(String wholeCall) async {
     final table = callerTable;
     final row = pendingRecord;
     if (table == null || row == null) return false;
-    //  按读法等价去重:Line of 8 ≡ line of eight,1/4 ≡ one quarter
-    //  ——键入拼词形式也能落到标准数字形式的已有行
-    final name = CallerTable.spokenForm(wholeCall);
-    final dup = table.rows
-        .where((r) => r.seq != row.seq)
-        .cast<CallerRow?>()
-        .firstWhere((r) =>
-            CallerTable.spokenForm(r!.standardCall) == name,
-        orElse: () => null);
-    if (dup != null) {
-      await table.removeRow(row.seq);
-      dictationSeqOverride = dup.seq;
-      debugPrint('completeRecordInit: "$wholeCall" exists '
-          'row ${dup.seq}, pending row removed');
-    } else {
-      await table.updateRow(row.seq, standardCall: wholeCall);
-      dictationSeqOverride = null;
-    }
+    await table.updateRow(row.seq, standardCall: wholeCall);
     pendingRecord = null;
     //  恢复语音识别
     speech?.resume();

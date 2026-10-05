@@ -499,16 +499,36 @@ class CallerTable extends ChangeNotifier {
     //  级别累积合并:源表=下一级合并表(ms源=基础源表)。
     //  源表行全部保留;Only 表已录记号的行按口令名覆盖
     //  源表同口令行(用户最新发音优先);Only 表未录行仅在
-    //  源表没有该口令时补入(默认记号=口令读法)
+    //  源表没有该口令时补入(默认记号=口令读法)。
+    //  多对一:Only 表同口令可有多行(每行一笔语音读法),
+    //  先按口令归组、记号以|连接,保证合并表一行一口令
+    //  且全部读法都在
+    final onlyGrouped = <String, CallerRow>{};
     for (final r in only.rows) {
       final callKey = r.standardCall.trim().toLowerCase();
-      if (callKey.isEmpty) continue;
+      if (callKey.isEmpty || !keepRow(r.standardCall)) continue;
+      final g = onlyGrouped[callKey];
+      if (g == null) {
+        onlyGrouped[callKey] = CallerRow(seq: 0,
+            recognized: r.recognized, standardCall: r.standardCall);
+      } else {
+        final tokens = g.recognized
+            .split('|').map((t) => t.trim())
+            .where((t) => t.isNotEmpty)
+            .toSet();
+        for (final t in r.recognized.split('|')) {
+          final tt = t.trim();
+          if (tt.isNotEmpty) tokens.add(tt);
+        }
+        onlyGrouped[callKey] = CallerRow(seq: 0,
+            recognized: tokens.join('|'),
+            standardCall: g.standardCall);
+      }
+    }
+    for (final r in onlyGrouped.values) {
+      final callKey = r.standardCall.trim().toLowerCase();
       final hasSource = merged.any((m) =>
           m.standardCall.trim().toLowerCase() == callKey);
-      if (!keepRow(r.standardCall)) {
-        //  高于目标级别的口令(测试误加):剔除不入合并表
-        continue;
-      }
       if (r.recognized.isNotBlank) {
         //  用户已录:移除源表同口令行,以新记号覆盖
         merged.removeWhere((m) =>

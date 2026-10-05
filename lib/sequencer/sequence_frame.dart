@@ -1338,22 +1338,9 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
         await table.removeRow(row.seq);
         return;
       }
-      final name = CallerTable.spokenForm(text);
-      CallerRow? dup;
-      for (final r in table.rows) {
-        if (r.seq != row.seq &&
-            CallerTable.spokenForm(r.standardCall) == name) {
-          dup = r;
-          break;
-        }
-      }
-      if (dup != null) {
-        await table.removeRow(row.seq);
-        debugPrint('键入口令: "$text" 已有第${dup.seq}行,跳过去');
-        flow.selectDictationRow(dup.seq);
-      } else {
-        flow.selectDictationRow(row.seq);
-      }
+      //  多对一:同口令就要重复建行——每次键入都是新行,
+      //  各录一笔语音读法,不跳已有行(合并时记号自动归并)
+      flow.selectDictationRow(row.seq);
       return;
     }
     if (go == 'clear') {
