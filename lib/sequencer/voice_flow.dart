@@ -902,12 +902,14 @@ class VoiceFlow extends ChangeNotifier {
     final table = callerTable;
     final row = pendingRecord;
     if (table == null || row == null) return false;
-    final name = wholeCall.trim().toLowerCase();
+    //  按读法等价去重:Line of 8 ≡ line of eight,1/4 ≡ one quarter
+    //  ——键入拼词形式也能落到标准数字形式的已有行
+    final name = CallerTable.spokenForm(wholeCall);
     final dup = table.rows
         .where((r) => r.seq != row.seq)
         .cast<CallerRow?>()
         .firstWhere((r) =>
-            r!.standardCall.trim().toLowerCase() == name,
+            CallerTable.spokenForm(r!.standardCall) == name,
         orElse: () => null);
     if (dup != null) {
       await table.removeRow(row.seq);
