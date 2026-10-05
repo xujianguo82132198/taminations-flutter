@@ -532,18 +532,18 @@ class VoiceFlow extends ChangeNotifier {
       final seeded = await table.seedPrefixRows();
       if (seeded > 0)
         debugPrint('seedPrefixRows: $seeded subject rows added');
-      //  记号碰撞体检:口令不同而记号相同的行,亮出行号
-      //  提示重新识别(开表时检查一次)
-      final cols = table.findTokenCollisions();
-      tokenCollisionRows = [
-        for (final c in cols)
-          '第${c.$1}行「${c.$2}」↔ 第${c.$3}行「${c.$4}」'
-          '(记号:${c.$5})'
-      ];
-      collisionNoticeShown = false;
-      if (tokenCollisionRows.isNotEmpty)
-        debugPrint('token collisions: ${tokenCollisionRows.length}');
     }
+    //  记号碰撞体检(所有表,合并表更关键——喊口令直接查它):
+    //  口令不同而记号相同的行,亮出行号提示重新识别
+    final cols = table.findTokenCollisions();
+    tokenCollisionRows = [
+      for (final c in cols)
+        '第${c.$1}行「${c.$2}」↔ 第${c.$3}行「${c.$4}」'
+        '(记号:${c.$5})'
+    ];
+    collisionNoticeShown = false;
+    if (tokenCollisionRows.isNotEmpty)
+      debugPrint('token collisions: ${tokenCollisionRows.length}');
     callerTable = table;
     table.addListener(_onTableChanged);
     _notify();

@@ -1139,8 +1139,16 @@ class CallerTable extends ChangeNotifier {
         if (e < err) err = e;
       }
       //  全表扫描取全局最小(不早停):噪声记号下误差沿
-      //  排序并非单谷形,早停会漏掉真正的最低误差行
-      if (err < bestErr) {
+      //  排序并非单谷形,早停会漏掉真正的最低误差行。
+      //  平手裁决:记号误差相同(如裸记号被误录到带主语的行),
+      //  取标准口令结构与识别句更一致的行——喊 "pass thru"
+      //  时选「Pass Thru」而不是「Heads Pass Thru」
+      final stdErr =
+          structuredError(spokenForm(row.standardCall), sentence);
+      if (err < bestErr - 1e-9 ||
+          (err < bestErr + 1e-9 && best != null &&
+              stdErr < structuredError(
+                  spokenForm(best!.standardCall), sentence))) {
         bestErr = err;
         best = row;
       }
@@ -1202,7 +1210,14 @@ class CallerTable extends ChangeNotifier {
         final e = e1 < e2 ? e1 : e2;
         if (e < err) err = e;
       }
-      if (err < bestErr) {
+      //  平手裁决:记号误差相同时,取标准口令结构与识别句
+      //  更一致的行(同 lookupSequential)
+      final stdErr =
+          structuredError(spokenForm(row.standardCall), sentence);
+      if (err < bestErr - 1e-9 ||
+          (err < bestErr + 1e-9 && best != null &&
+              stdErr < structuredError(
+                  spokenForm(best!.standardCall), sentence))) {
         bestErr = err;
         best = row;
       }

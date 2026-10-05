@@ -919,7 +919,9 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     });
   }
 
-  //  Only 模式:长按行弹菜单(编辑第3列/删除该行)
+  //  长按行弹菜单(编辑第3列/删除该行)。
+  //  所有表可用:合并表若混入坏行(如误采样到错误行的记号),
+  //  长按删除即可修复,不必重建整表
   Future<void> _rowActionMenu(CallerRow row) async {
     final action = await fm.showDialog<String>(
         context: context,
@@ -1146,7 +1148,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                           onTap: () => flow.onlyMode
                               ? flow.selectDictationRow(row.seq)
                               : null,
-                          onLongPress: flow.onlyMode
+                          onLongPress:
+                              flow.callerTable != null
                               ? () => _rowActionMenu(row)
                               : null,
                           child: fm.Container(
