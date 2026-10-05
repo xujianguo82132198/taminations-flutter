@@ -658,30 +658,53 @@ class CallerTable extends ChangeNotifier {
     'Outside Couples': 'outside couples',
   };
 
-  ///  补种缺失的前缀主语行,返回新增行数。
-  ///  每行记号 = 规范读法 + 等价近音变体(多归一的初始笔数)
+  ///  主语规范键列表(解码层语法用)
+  static List<String> get seedSubjectCanons =>
+      _seedSubjects.values.toList();
+
+  ///  主语的历史验证近音变体(token 清单)——只用于解码层
+  ///  语法词表,不写进表:识别列(第2列)只能放口令员自己
+  ///  采样录的记号(用户原则:不能依赖程序员)
+  static List<String> seedTokensFor(String canon) {
+    final tokens = <String>[canon];
+    _prefixEquivalents.forEach((k, v) {
+      if (v == canon && !tokens.contains(k)) tokens.add(k);
+    });
+    //  Ends 的单词近音归一(an/and/on/around/home/full→ends)
+    if (canon == 'ends')
+      tokens.addAll(['end', 'an', 'and', 'on', 'around', 'home', 'full']);
+    return tokens;
+  }
+
+  ///  补种缺失的前缀主语行,返回新增/修正行数。
+  ///  识别列一律留空——记号只能来自口令员采样;
+  ///  旧版误种进识别列的变体清单自动清空
   Future<int> seedPrefixRows() async {
-    var added = 0;
+    var changed = 0;
+    final seedTexts = <String, String>{};
     for (final display in _seedSubjects.keys) {
       final canon = _seedSubjects[display]!;
+      seedTexts[canon] = seedTokensFor(canon).join('|');
       final dl = display.toLowerCase();
-      final exists = rows.any((r) {
+      CallerRow? row;
+      for (final r in rows) {
         final s = r.standardCall.trim().toLowerCase();
-        return s == canon || s == dl;
-      });
-      if (exists) continue;
-      final tokens = <String>[canon];
-      _prefixEquivalents.forEach((k, v) {
-        if (v == canon && !tokens.contains(k)) tokens.add(k);
-      });
-      //  Ends 的单词近音归一(an/and/on/around/home/full→ends)
-      //  一并入种,保持既有识别效果
-      if (canon == 'ends')
-        tokens.addAll(['end', 'an', 'and', 'on', 'around', 'home', 'full']);
-      await addRow(recognized: tokens.join('|'), standardCall: display);
-      added++;
+        if (s == canon || s == dl) {
+          row = r;
+          break;
+        }
+      }
+      if (row == null) {
+        //  新种:识别列留空
+        await addRow(recognized: '', standardCall: display);
+        changed++;
+      } else if (row.recognized == seedTexts[canon]) {
+        //  旧版种进了程序员的变体清单:清空识别列
+        await updateRow(row.seq, recognized: '', sort: false);
+        changed++;
+      }
     }
-    return added;
+    return changed;
   }
 
   ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)。

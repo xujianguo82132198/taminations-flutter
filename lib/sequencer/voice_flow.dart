@@ -176,12 +176,21 @@ class VoiceFlow extends ChangeNotifier {
       for (final w in s.split(RegExp(r' +'))) {
         if (w.isNotEmpty) words.add(w);
       }
-      //  已录记号的词也进语法(含主语行的多归一 token):
-      //  口令员自己的读法变体(home/ate/sex…)才能被解码出来
+      //  已录记号的词也进语法(口令员自己的读法变体可解码)
       for (final token in r.recognized.split('|')) {
         for (final w in token.toLowerCase().split(RegExp(r' +'))) {
           if (w.isEmpty || w == 'unk' || w == '[unk]') continue;
           words.add(w);
+        }
+      }
+    }
+    //  主语的历史验证近音变体词进语法(解码层,不进表):
+    //  口令员的自然读法(home/ate/sex…)能被解码出来;
+    //  识别列仍留空,由口令员采样填写记号
+    for (final canon in CallerTable.seedSubjectCanons) {
+      for (final t in CallerTable.seedTokensFor(canon)) {
+        for (final w in t.split(' ')) {
+          if (w.isNotEmpty) words.add(w);
         }
       }
     }
