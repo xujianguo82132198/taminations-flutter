@@ -660,15 +660,25 @@ class VoiceFlow extends ChangeNotifier {
     debugPrint('confirmDictation: text="$text" row=${row?.seq} '
         'table=${t?.callerName}');
     if (t == null || row == null || text.isBlank) return false;
-    //  记号冲突检查:与其他行的记号几乎相同时两行会混淆
-    //  (查表无法区分),拒绝写入并提示换候选
+    //  记号检查:
+    //  1) 同口令的两行记号雷同 = 两行完全相同(多对一重复建行
+    //     的自然结果)——不再拦,提示后再点一次黄框即删除旧行
+    //  2) 不同口令的记号雷同 = 真混淆(查表无法区分),保留
+    //     警示,再点一次黄框=仍要存入(人类决断)
     final newToken = text.trim();
+    CallerRow? identicalRow;
     for (final r in t.rows) {
       if (r.seq == row.seq) continue;
+      final sameCall = r.standardCall.trim().toLowerCase() ==
+          row.standardCall.trim().toLowerCase();
       for (final tk in r.recognized.split('|')) {
         if (tk.trim().isEmpty) continue;
-        if (!force &&
-            CallerTable.sentenceError(tk, newToken) < 0.12) {
+        if (CallerTable.sentenceError(tk, newToken) < 0.12) {
+          if (sameCall) {
+            debugPrint('identical rows: row ${r.seq} same call+token');
+            identicalRow = r;
+            break;
+          }
           debugPrint('token conflict with row ${r.seq}: "$tk"');
           //  带上撞车行的口令名,让口令员知道是和哪条混了
           conflictPending = true;
@@ -687,6 +697,30 @@ class VoiceFlow extends ChangeNotifier {
           return false;
         }
       }
+      if (identicalRow != null) break;
+    }
+    //  两行完全相同:提示是否删除一行(再点一次=删旧行存新行)
+    if (identicalRow != null && !force) {
+      conflictPending = true;
+      lastError =
+          'token_conflict:${identicalRow.seq}|'
+          '${identicalRow.standardCall}|'
+          '${identicalRow.recognized.split('|').first}|'
+          '两行完全相同,再点一次黄框=删除此行';
+      _notify();
+      Future.delayed(const Duration(seconds: 5), () {
+        if (lastError != null &&
+            lastError!.startsWith('token_conflict')) {
+          lastError = null;
+          _notify();
+        }
+      });
+      return false;
+    }
+    if (force && identicalRow != null) {
+      await t.removeRow(identicalRow.seq);
+      debugPrint('identical rows: old row '
+          '${identicalRow.seq} removed');
     }
     //  确认即替换:重新采同一条时删旧记号、记新记号
     await t.updateRow(row.seq,
