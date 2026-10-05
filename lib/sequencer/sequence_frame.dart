@@ -908,14 +908,16 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     }
   }
 
-  //  Only 模式:手动编辑第3列(标准口令)内容
-  Future<void> _editStandardCall(CallerRow row) async {
+  //  Only 模式:手动编辑第3列(标准口令)内容。
+  //  返回确认的文本(取消返回 null)——"键入口令"路径
+  //  复用此画面,由调用方做去重等后续处理
+  Future<String?> _editStandardCall(CallerRow row) async {
     final controller = fm.TextEditingController()
       ..text = row.standardCall;
     final confirmed = await fm.showDialog<String>(
         context: context,
         builder: (ctx) => fm.AlertDialog(
-          title: fm.Text('修改第${row.seq}行标准口令'),
+          title: fm.Text('第${row.seq}行 口令编辑'),
           content: fm.TextField(
             controller: controller,
             autofocus: true,
@@ -942,6 +944,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
         await table.updateRow(row.seq,
             standardCall: confirmed.trim(), sort: false);
     }
+    return confirmed;
   }
 
   //  口令员删除所选记录(带确认)
@@ -1320,11 +1323,37 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               ],
             ));
     if (go == 'type') {
-      //  键入路径:新建待补全记录(第2列空),输入行清空弹
-      //  键盘等手动输入;执行正确的口令即存为第3列
+      //  键入路径:先插入一条新记录,随即进入该行的"口令编辑"
+      //  画面(专用输入框,回车只存入不执行跳舞——主输入行
+      //  回车会执行跳舞,不能用)。读法等价去重:已有同口令
+      //  行则撤回新行,光标跳到已有行
       debugPrint('增加记录: 键入口令 被点击');
-      flow.awaitingTypedRecord = true;
-      await flow.startRecordInit('');
+      final table = flow.callerTable;
+      if (table == null) return;
+      final row = await table.addRow(recognized: '', standardCall: '');
+      final typed = await _editStandardCall(row);
+      final text = typed?.trim() ?? '';
+      if (text.isEmpty) {
+        //  取消/空:撤回刚插入的空行
+        await table.removeRow(row.seq);
+        return;
+      }
+      final name = CallerTable.spokenForm(text);
+      CallerRow? dup;
+      for (final r in table.rows) {
+        if (r.seq != row.seq &&
+            CallerTable.spokenForm(r.standardCall) == name) {
+          dup = r;
+          break;
+        }
+      }
+      if (dup != null) {
+        await table.removeRow(row.seq);
+        debugPrint('键入口令: "$text" 已有第${dup.seq}行,跳过去');
+        flow.selectDictationRow(dup.seq);
+      } else {
+        flow.selectDictationRow(row.seq);
+      }
       return;
     }
     if (go == 'clear') {
@@ -1491,24 +1520,6 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   //  流程状态变化 → 刷新 UI,并驱动闪烁与动画即时变速
   void _onFlowChanged() {
     if (!mounted) return;
-    //  "键入口令":输入行清空,弹出键盘等口令员手动输入;
-    //  执行正确的口令由提交处理存为新记录(completeRecordInit)。
-    //  焦点要在 TextField 重建出来之后再要(触屏设备输入框
-    //  随键盘可见性切换才存在,提前请求会被丢弃)
-    if (flow.awaitingTypedRecord) {
-      flow.awaitingTypedRecord = false;
-      debugPrint('键入口令: 输入行就绪,等待键入');
-      textFieldController.clear();
-      setState(() {
-        virtualKeyboardSetVisible(true);
-      });
-      later(() {
-        later(() {
-          focusNode.requestFocus();
-          debugPrint('键入口令: 焦点已请求');
-        });
-      });
-    }
     //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
     final selection = flow.callSelection;
     if (selection != null) {
