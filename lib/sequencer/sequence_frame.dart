@@ -1281,7 +1281,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   //  防长口令手工输入出错;选完自动加行,再用圆钮采样
   Future<void> _addRecordDialog() async {
     if (!flow.onlyMode) return;
-    final go = await fm.showDialog<bool>(
+    //  结果类型 Object:按钮返回 true/'type'/'clear' 混合类型,
+    //  用 showDialog<bool> 会在 pop('type') 时类型断言崩溃,
+    //  对话框关不掉
+    final go = await fm.showDialog<Object>(
         context: context,
         builder: (ctx) => fm.AlertDialog(
               title: fm.Text('增加记录',
