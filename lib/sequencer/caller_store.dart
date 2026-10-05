@@ -629,6 +629,10 @@ class CallerTable extends ChangeNotifier {
     'roll', 'spread', 'sweep',
   };
 
+  ///  可作后缀段的口令词(Roll/Spread/Sweep):
+  ///  独立成段跟在口令后执行,分段取样时归入后缀段
+  static const suffixCallWords = {'roll', 'spread', 'sweep'};
+
   ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)。
   ///  前缀输出已归一(home/an/full/end → ends 等),
   ///  供选择与显示统一
@@ -1045,6 +1049,38 @@ class CallerTable extends ChangeNotifier {
       }
     }
     return (hit: best, candidate: best, error: bestErr);
+  }
+
+  ///  分段取样检索(用户定义的取样过程,段界查表专用):
+  ///  与每行的**记号**和**标准口令读法**双轨比对——采表时
+  ///  记号可能尚未录上,标准口令读法保证新表也能检索。
+  ///  返回最佳行与最小误差,门槛由调用方判定(先设0.5)
+  ({CallerRow? hit, double error}) lookupForSample(String sentence) {
+    if (rows.isEmpty) return (hit: null, error: 1.0);
+    CallerRow? best;
+    var bestErr = double.infinity;
+    for (final row in rows) {
+      //  双轨目标:已录记号(多笔以|分隔) + 标准口令读法
+      final targets = row.recognized
+          .split('|')
+          .map((t) => t.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+      final spoken = spokenForm(row.standardCall);
+      if (!targets.contains(spoken)) targets.add(spoken);
+      var err = double.infinity;
+      for (final token in targets) {
+        final e1 = structuredError(token, sentence);
+        final e2 = sentenceError(token, sentence);
+        final e = e1 < e2 ? e1 : e2;
+        if (e < err) err = e;
+      }
+      if (err < bestErr) {
+        bestErr = err;
+        best = row;
+      }
+    }
+    return (hit: best, error: bestErr);
   }
 
 }

@@ -446,9 +446,13 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                     : (flow.lastError == 'not_heard'
                     ? '✕ 没听清,请再按住重念'
                     : (flow.pttActive
-                    ? (flow.dictationPartial.isNotBlank
+                    ? (flow.dictationSegmentText.isNotBlank
+                        //  分段取样:每段查表结果累加组合(不冲掉),
+                        //  后跟当前段的实时识别
+                        ? '${flow.dictationSegmentText} | ● ${flow.dictationPartial}'
+                        : (flow.dictationPartial.isNotBlank
                         ? '● ${flow.dictationPartial}'
-                        : '● 正在聆听…(松开结束)')
+                        : '● 正在聆听…(松开结束)'))
                     : (flow.dictationText.isNotBlank
                         ? '${flow.dictationText} →'
                         : '🎙 朗读')))),

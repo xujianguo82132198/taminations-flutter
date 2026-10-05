@@ -83,6 +83,80 @@ class VoskSpeechToText extends ChangeNotifier {
   //  模型加载去重:并发的 initialize 共享同一次加载
   Future<bool>? _initFuture;
 
+  //  ---- 分段取样状态机(用户定义的口令结构,仅采样模式) ----
+  //  按下=待命;声音开始一段;静音0.3秒收一段;最多3段
+  //  (前缀/口令/后缀)。静音0.9秒=本条口令结束,重新待命
+  //  (再出的声音属于新口令)。段关闭即通知上层查表,
+  //  其余时间不查表
+  static const _segCloseSilence = Duration(milliseconds: 300);
+  static const _segArmSilence = Duration(milliseconds: 900);
+  //  与原生VAD同一套阈值
+  static const _segSpeechDb = -35.0;
+  static const _segQuietDb = -42.0;
+
+  ///  已收段文本(最多3段,按收段顺序)
+  final List<String> _segments = [];
+  List<String> get segments => List.unmodifiable(_segments);
+  bool _segInSegment = false;
+  DateTime? _segLastLoudAt;
+  String _segStartKnown = '';
+  String _segKnownFinals = '';
+  String _segKnownPartial = '';
+
+  void _segReset() {
+    _segments.clear();
+    _segInSegment = false;
+    _segLastLoudAt = null;
+    _segStartKnown = '';
+    _segKnownFinals = '';
+    _segKnownPartial = '';
+  }
+
+  ///  振幅事件驱动分段(仅采样会话)
+  void _segmentStep(double db) {
+    final now = DateTime.now();
+    if (db > _segSpeechDb) {
+      _segLastLoudAt = now;
+      if (!_segInSegment && _segments.length < 3) {
+        _segInSegment = true;
+        _segStartKnown = _segKnownText();
+      }
+      return;
+    }
+    if (db >= _segQuietDb) return;   //  滞回中间带:维持现状
+    final lastLoud = _segLastLoudAt;
+    if (lastLoud == null) return;
+    final quietFor = now.difference(lastLoud);
+    if (_segInSegment) {
+      //  静音满0.3秒:收段,段文本=识别文字增量
+      if (quietFor >= _segCloseSilence) {
+        var text = _segKnownText();
+        if (_segStartKnown.isNotEmpty && text.startsWith(_segStartKnown)) {
+          text = text.substring(_segStartKnown.length);
+        }
+        text = text.trim();
+        _segInSegment = false;
+        if (text.isNotEmpty && _segments.length < 3) {
+          _segments.add(text);
+          _log('segment ${_segments.length} closed: "$text"');
+          _notify();   //  上层(VoiceFlow)收段即查表
+        }
+      }
+    } else if (_segments.isNotEmpty && quietFor >= _segArmSilence) {
+      //  静音满0.9秒:本条口令结束,重新待命
+      //  (上层组合结果已展示,由其自行保留/覆盖)
+      _log('segments re-armed after $quietFor silence');
+      _segReset();
+    }
+  }
+
+  ///  当前已知识别文字(累计final + 当前partial)
+  String _segKnownText() => _segKnownFinals.isEmpty
+      ? _segKnownPartial
+      : (_segKnownPartial.isEmpty
+          ? _segKnownFinals
+          : '$_segKnownFinals $_segKnownPartial');
+
   VoskSpeechToText();
 
   //  所有日志统一带 VOSK 前缀,便于 adb logcat -s flutter 过滤定位
@@ -185,6 +259,7 @@ class VoskSpeechToText extends ChangeNotifier {
     _continuous = false;
     _sampleSession = true;
     _paused = false;
+    _segReset();   //  按下=新口令待命
     unawaited(_startSession());
   }
 
@@ -207,6 +282,7 @@ class VoskSpeechToText extends ChangeNotifier {
     _continuous = false;
     _sampleSession = false;
     _paused = false;
+    _segReset();
     _sub?.cancel();
     _sub = null;
     musicMonitor.voskStop();
@@ -325,6 +401,7 @@ class VoskSpeechToText extends ChangeNotifier {
         if (_partialResults) {
           final text = _textField(event.text, 'partial');
           if (text != null && text.isNotEmpty) {
+            if (_sampleSession) _segKnownPartial = text;
             _lastResult = SpeechRecognitionResult(
                 [SpeechRecognitionAlternative(text, 0.0)], false);
             _notify();
@@ -337,6 +414,12 @@ class VoskSpeechToText extends ChangeNotifier {
         final texts = _textsOf(event.text);
         _log('final: $texts');
         if (texts.isNotEmpty) {
+          if (_sampleSession) {
+            //  分段取样:final并入累计,partial重置
+            _segKnownFinals = _segKnownFinals.isEmpty
+                ? texts.first : '$_segKnownFinals ${texts.first}';
+            _segKnownPartial = '';
+          }
           if (_continuous) {
             //  流式喊口令:合并窗口内拼接多段,窗口静默后
             //  才作为完整口令送出(候选以拼接句为准;
@@ -408,9 +491,13 @@ class VoskSpeechToText extends ChangeNotifier {
         }
         break;
       case 'speech_amplitude':
-        if (_soundLevel && event.level != null) {
+        if (event.level != null) {
           _lastLevel = event.level!;
-          _notify();
+          //  采样会话:振幅驱动分段(0.3s收段/0.9s重待命)
+          if (_sampleSession && _isListening) {
+            _segmentStep(event.level!);
+          }
+          if (_soundLevel) _notify();
         }
         break;
       case 'speech_error':

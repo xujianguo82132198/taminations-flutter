@@ -56,6 +56,11 @@ class DualSpeechProvider extends ChangeNotifier {
       engine == 'google' ? null : _active.lastError;
   SpeechRecognitionResult? get lastResult => _active.lastResult;
 
+  ///  分段取样(仅Vosk采样会话):已收段文本(0.3秒静音收段,
+  ///  最多3段)。其他引擎无分段,返回空表
+  List<String> get segments =>
+      engine == 'vosk' ? vosk.segments : const <String>[];
+
   DualSpeechProvider() {
     _loadSetting();
     //  任一引擎通知都向上转发

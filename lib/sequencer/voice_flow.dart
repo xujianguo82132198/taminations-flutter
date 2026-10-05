@@ -106,6 +106,18 @@ class VoiceFlow extends ChangeNotifier {
   ///  按住采样中(按钮按下)
   bool pttActive = false;
 
+  //  ---- 分段取样(用户定义的口令结构) ----
+  //  按下待命→声音起段→静音0.3秒收段;每段关闭查一次表
+  //  (全程最多3次:前缀→口令→后缀),组合不冲掉,逐段显示
+  ///  分段检索门槛(先设0.5)
+  static const sampleLookupThreshold = 0.5;
+  ///  累计组合显示(合格结果累加,不冲掉)
+  String dictationSegmentText = '';
+  ///  已查表的段数
+  int _segProcessedCount = 0;
+  ///  第1段是否为前缀(否则它本身就是口令)
+  bool _segFirstWasPrefix = false;
+
   ///  按下:开始单轮采样识别。
   ///  返回是否已启动(未登录或麦克风被音乐监测占用时不能启动)
   bool startSample() {
@@ -120,6 +132,9 @@ class VoiceFlow extends ChangeNotifier {
     speech?.setSampleGrammar(_onlyTableWords());
     dictationPartial = '';
     dictationCandidates = [];
+    dictationSegmentText = '';
+    _segProcessedCount = 0;
+    _segFirstWasPrefix = false;
     conflictPending = false;
     //  开实时中间结果:边念边显示,反馈更快
     speech?.sample(localeId: 'en_US', partialResults: true);
@@ -197,7 +212,24 @@ class VoiceFlow extends ChangeNotifier {
   ///  Only 模式采样结果处理:识别文字存入 dictationText
   void _onSampleResult() {
     final s = speech;
-    if (s == null || !pttActive || !s.hasResults) return;
+    if (s == null || !pttActive) return;
+    //  ---- 分段取样:段关闭即查表(最多3次),组合累加不冲掉 ----
+    //  (先于 hasResults 判定——收段时可能尚无中间结果)
+    final segs = s.segments;
+    if (segs.length < _segProcessedCount) {
+      //  静音0.9秒后provider重新待命:新口令开始,组合清零
+      _segProcessedCount = 0;
+      _segFirstWasPrefix = false;
+      dictationSegmentText = '';
+    }
+    var segChanged = false;
+    while (_segProcessedCount < segs.length) {
+      _processSampleSegment(_segProcessedCount, segs[_segProcessedCount]);
+      _segProcessedCount++;
+      segChanged = true;
+    }
+    if (segChanged) _notify();
+    if (!s.hasResults) return;
     final result = s.lastResult;
     //  中间结果:实时更新显示(不作确认内容)
     if (!result!.finalResult) {
@@ -316,6 +348,73 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
+  ///  分段取样:第i段收段后的查表与组合(用户定义过程)。
+  ///  段1=前缀(可无,无则它就是口令),段2=口令,段3=后缀;
+  ///  每段查一次表(全程最多3次),合格结果累加组合,不冲掉
+  void _processSampleSegment(int i, String text) {
+    final table = callerTable;
+    if (table == null) return;
+    debugPrint('seg#$i "$text" -> lookup');
+    if (i == 0) {
+      final d = CallerTable.decomposeCall(text);
+      //  整段只有主语/分数词=前缀段:前缀库归一显示规范形
+      _segFirstWasPrefix = d.$3.isEmpty && d.$1.isNotEmpty;
+      if (_segFirstWasPrefix) {
+        dictationSegmentText = d.$1.join(' ');
+        debugPrint('seg#0 prefix: "${dictationSegmentText}"');
+        return;
+      }
+      _segLookupCommand(text);
+      return;
+    }
+    if (i == 1 && _segFirstWasPrefix) {
+      _segLookupCommand(text);
+      return;
+    }
+    //  后缀段:与前面的组合一起进表匹配(查表#3)
+    final d = CallerTable.decomposeCall(text);
+    final suffixWords = <String>[...d.$4];
+    //  Roll/Spread/Sweep 等后缀口令词在分解里留在核心,归入后缀
+    if (d.$3.isNotEmpty &&
+        d.$3.every((w) => CallerTable.suffixCallWords.contains(w))) {
+      suffixWords.insertAll(0, d.$3);
+    }
+    //  纯读法分数段(one and a half)分解为主语词:同样作后缀
+    if (suffixWords.isEmpty && d.$3.isEmpty && d.$1.isNotEmpty) {
+      suffixWords.addAll(d.$1);
+    }
+    if (suffixWords.isEmpty) {
+      debugPrint('seg#$i: not a suffix, ignored');
+      return;
+    }
+    final combined =
+        '$dictationSegmentText ${suffixWords.join(' ')}'.trim();
+    final r = table.lookupForSample(combined);
+    debugPrint('seg#$i suffix match: err=${r.error.toStringAsFixed(3)} '
+        'row=${r.hit?.standardCall}');
+    dictationSegmentText = (r.hit != null &&
+            r.error <= sampleLookupThreshold)
+        ? r.hit!.standardCall
+        : combined;
+  }
+
+  ///  口令段查表(门槛 sampleLookupThreshold):命中行的
+  ///  核心口令(含Left标记)拼入组合;不合格则组合保持不变
+  void _segLookupCommand(String text) {
+    final table = callerTable;
+    if (table == null) return;
+    final r = table.lookupForSample(text);
+    debugPrint('seg command lookup: err=${r.error.toStringAsFixed(3)} '
+        'row=${r.hit?.standardCall}');
+    if (r.hit == null || r.error > sampleLookupThreshold) return;
+    final rd = CallerTable.decomposeCall(r.hit!.standardCall);
+    final core = rd.$3.join(' ');
+    final withLeft = rd.$2 ? 'left $core' : core;
+    dictationSegmentText = dictationSegmentText.isEmpty
+        ? withLeft
+        : '$dictationSegmentText $withLeft';
+  }
+
   ///  最近一次语音查表的候选记录与误差(供界面居中突出显示;
   ///  候选是顺序查找中误差最小的记录,无论是否命中)
   CallerRow? lastCandidate;
@@ -363,6 +462,9 @@ class VoiceFlow extends ChangeNotifier {
     dictationText = '';
     dictationPartial = '';
     dictationCandidates = [];
+    dictationSegmentText = '';
+    _segProcessedCount = 0;
+    _segFirstWasPrefix = false;
     dictationSeqOverride = null;
     callerTable?.removeListener(_onTableChanged);
     callerTable = null;
