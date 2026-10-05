@@ -1732,10 +1732,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               }
             }
           }
-          //  误差门槛:实测正确命中≤0.38、缺音节口令0.50-0.54,
-          //  垃圾误命中≥0.57;取 0.55 分界——放行缺音节的正确
-          //  念法,拦住杂音;超过视为未查到(不执行,防止张冠李戴)
-          if (bestRow != null && bestErr <= 0.55) {
+          //  误差门槛(用户要求收紧):实测正确命中≤0.38、
+          //  缺音节口令0.45-0.50,杂音垃圾命中也在0.31-0.50;
+          //  取 0.45 分界,配合词数比例防线(核心词数不足记号
+          //  一半=无关联不匹配)拦短杂音;超过视为未查到
+          //  (不执行,防止张冠李戴)
+          if (bestRow != null && bestErr <= 0.45) {
             //  用最优候选再查一次,刷新界面高亮显示
             flow.lookupInTable(bestSentence);
             final hitRow = bestRow!;

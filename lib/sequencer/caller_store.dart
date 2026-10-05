@@ -924,6 +924,17 @@ class CallerTable extends ChangeNotifier {
   static bool sameCommandPrefix(String a, String b) =>
       samePrefix(decomposeCall(a).$1, decomposeCall(b).$1);
 
+  ///  词数比例防线:识别句核心词数不足记号核心的一半
+  ///  (或反之) = 没有关联的短杂音(如 "dough"↔"touch a half",
+  ///  "it"↔"promenade home"),不匹配
+  static bool wordCountsPlausible(String a, String b) {
+    final da = decomposeCall(a).$3;
+    final db = decomposeCall(b).$3;
+    if (da.isEmpty || db.isEmpty) return true;
+    final r = da.length / db.length;
+    return r >= 0.5 && r <= 2.0;
+  }
+
   static bool _samePrefix(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++)
@@ -1146,6 +1157,8 @@ class CallerTable extends ChangeNotifier {
         //  主语硬界限:主语不同(有无/不同主语)=不同口令,
         //  整句相似不得越过(heads pass thru ≠ pass thru)
         if (!sameCommandPrefix(token, sentence)) e = 1.0;
+        //  词数比例防线:核心词数差一倍以上=无关短杂音
+        if (!wordCountsPlausible(token, sentence)) e = 1.0;
         if (e < err) err = e;
       }
       //  全表扫描取全局最小(不早停):噪声记号下误差沿
@@ -1220,6 +1233,8 @@ class CallerTable extends ChangeNotifier {
         var e = e1 < e2 ? e1 : e2;
         //  主语硬界限(同 lookupSequential)
         if (!sameCommandPrefix(token, sentence)) e = 1.0;
+        //  词数比例防线(同 lookupSequential)
+        if (!wordCountsPlausible(token, sentence)) e = 1.0;
         if (e < err) err = e;
       }
       //  平手裁决:记号误差相同时,取标准口令结构与识别句
