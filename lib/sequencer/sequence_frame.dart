@@ -2531,11 +2531,21 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                 ? srcNames.first.split('/').first
                                 : '');
                         var lv = 'ms';
-                        final typeRe = RegExp(
-                            r'^(.*/)?(Prefix|Sufix|ms|plus|a1|a2'
-                            r'|c1|c2|c3a|c3b)$');
-                        String stemOf(String s) =>
-                            s.trim().replaceFirst(typeRe, '');
+                        const typeSet = {
+                          'Prefix', 'Sufix', 'Words', 'ms', 'plus',
+                          'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b',
+                        };
+                        //  词干=去掉末段类型(名字/类型 -> 名字);
+                        //  整串即类型则为空。不吞整个目录前缀
+                        String stemOf(String s) {
+                          s = s.trim();
+                          final i = s.lastIndexOf('/');
+                          final last = i < 0 ? s : s.substring(i + 1);
+                          if (typeSet.contains(last)) {
+                            return i < 0 ? '' : s.substring(0, i);
+                          }
+                          return s;
+                        }
                         final nameCtl = fm.TextEditingController();
                         //  初始表名只有名字本身——不带类型后缀;
                         //  后缀只在下拉选择了类型之后才出现

@@ -514,8 +514,8 @@ class VoiceFlow extends ChangeNotifier {
     //  后缀(_Prefix_Only/_Sufix_Only/级别_Only,打开时自动
     //  种库),裸名且不存在则拒绝——不再凭空建空表
     final seedable = RegExp(
-            r'_(Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
-        .hasMatch(name);
+            r'^(Prefix|Sufix|Words|ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
+        .hasMatch(name.split('/').last);
     //  裸口令员名(无斜杠)→ 自动开其 ms 合并表(若已合并)
     if (!name.contains('/')) {
       if (await CallerTable.exists('$name/ms')) {
@@ -550,11 +550,12 @@ class VoiceFlow extends ChangeNotifier {
     //  前缀库、*_Sufix_Only 插入后缀库、*_Words_Only 插入
     //  关键词库(软件内置公共库,读音校准用),每条拷贝3行
     //  (3归1);级别表(ms等)不再种主语行
-    final libKind = name.endsWith('_Prefix_Only')
+    final tp = name.split('/').last;
+    final libKind = tp == 'Prefix_Only'
         ? 'prefix'
-        : (name.endsWith('_Sufix_Only')
+        : (tp == 'Sufix_Only'
             ? 'suffix'
-            : (name.endsWith('_Words_Only') ? 'words' : ''));
+            : (tp == 'Words_Only' ? 'words' : ''));
     if (libKind.isNotEmpty) {
       final n = await table.seedLibraryRows(libKind: libKind);
       if (n > 0)
@@ -809,9 +810,14 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  当前表是否为关键词训练表(<口令员>/Words_Only)
-  bool get _isWordsTable =>
-      (callerTable?.callerName ?? '').endsWith('_Words_Only');
+  ///  表名最后一段(目录结构的表名部分):
+  ///  XuJianguo2/Words/Words_Only -> Words_Only。
+  ///  后缀判定一律用它,容忍目录层意外叠名
+  String get _tablePart =>
+      (callerTable?.callerName ?? '').split('/').last;
+
+  ///  当前表是否为关键词训练表(.../Words_Only)
+  bool get _isWordsTable => _tablePart == 'Words_Only';
 
   ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
   bool get onlyMode =>
@@ -858,13 +864,13 @@ class VoiceFlow extends ChangeNotifier {
     //  条目时旧读法不丢;级别表与低一级合并表合并
     //  (ms_Only 首次合并无源,可选;重合并以现有 ms 为源,
     //   已录口令不丢)
-    final n = callerTable?.callerName ?? '';
+    final tp = _tablePart;
     final dir = _dirOf;
-    if (n.endsWith('_Prefix_Only')) return '$dir/Prefix';
-    if (n.endsWith('_Sufix_Only')) return '$dir/Sufix';
-    final m = RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
-        .firstMatch(n);
-    if (m == null) return n;
+    if (tp == 'Prefix_Only') return '$dir/Prefix';
+    if (tp == 'Sufix_Only') return '$dir/Sufix';
+    final m = RegExp(r'^(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
+        .firstMatch(tp);
+    if (m == null) return callerTable?.callerName ?? callerName;
     const order = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
     final lv = order.indexOf(m.group(1)!);
     return '$dir/${order[lv <= 0 ? 0 : lv - 1]}';

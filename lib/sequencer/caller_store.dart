@@ -104,6 +104,21 @@ class CallerTable extends ChangeNotifier {
         .where((k) => k.startsWith(_keyPrefix))
         .toList()) {
       final name = key.substring(_keyPrefix.length);
+      //  叠层名压平:X/Words/Words_Only -> X/Words_Only
+      //  (建表对话框曾产生,后缀判定按最后一段也能容忍)
+      final dup = RegExp(
+              r'^(.*/)?(Prefix|Sufix|Words)/(Prefix|Sufix|Words)_Only\$')
+          .firstMatch(name);
+      if (dup != null) {
+        final raw0 = prefs.getString(key);
+        if (raw0 != null) {
+          final flat = '${dup.group(1) ?? ''}${dup.group(3)}_Only';
+          await prefs.setString('$_keyPrefix$flat', raw0);
+          await prefs.remove(key);
+          debugPrint('flattened: $name -> $flat');
+        }
+        continue;
+      }
       if (name.contains('/')) continue;   //  已是目录结构
       final m = re.firstMatch(name);
       if (m == null) continue;            //  非标准命名,保留原样
