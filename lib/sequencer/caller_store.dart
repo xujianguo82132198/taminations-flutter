@@ -90,6 +90,35 @@ class CallerTable extends ChangeNotifier {
     return prefs.containsKey('$_keyPrefix$name');
   }
 
+  ///  旧结构迁移:表名掺口令员名平铺存储(如 XuJianguo2_ms_Only)
+  ///  → 目录结构 <口令员>/<表名>(如 XuJianguo2/ms_Only)。
+  ///  每个口令员一个目录,合并等操作都在目录内进行,
+  ///  从根上杜绝跨口令员误合并。返回迁移数(幂等,可重复调)
+  static Future<int> migrateToDirectories(
+      SharedPreferences prefs) async {
+    const types = 'Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b';
+    final re = RegExp('^(.+)_($types)(_Only)\$');
+    var n = 0;
+    for (final key in prefs
+        .getKeys()
+        .where((k) => k.startsWith(_keyPrefix))
+        .toList()) {
+      final name = key.substring(_keyPrefix.length);
+      if (name.contains('/')) continue;   //  已是目录结构
+      final m = re.firstMatch(name);
+      if (m == null) continue;            //  非标准命名,保留原样
+      final caller = m.group(1)!;
+      final table = '${m.group(2)}${m.group(3)}';
+      final raw = prefs.getString(key);
+      if (raw == null) continue;
+      await prefs.setString('$_keyPrefix$caller/$table', raw);
+      await prefs.remove(key);
+      n++;
+      debugPrint('migrated: $name -> $caller/$table');
+    }
+    return n;
+  }
+
   // ------------------------------------------------ 建表向导
 
   ///  级别核心口令标题:与 Calls 页面同一取法——

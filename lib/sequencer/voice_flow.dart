@@ -503,10 +503,18 @@ class VoiceFlow extends ChangeNotifier {
     final seedable = RegExp(
             r'_(Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
         .hasMatch(name);
+    //  裸口令员名(无斜杠)→ 自动开其 ms 合并表(若已合并)
+    if (!name.contains('/')) {
+      if (await CallerTable.exists('$name/ms')) {
+        return openCallerTable('$name/ms');
+      }
+    }
     if (!seedable && !await CallerTable.exists(name)) {
       throw Exception('表 "$name" 不存在。\n'
-          '新建表请用带后缀的名字:\n'
-          'xxx_Prefix_Only / xxx_Sufix_Only / xxx_ms_Only');
+          '请用口令员目录形式:\n'
+          '口令员名/Prefix_Only · 口令员名/Sufix_Only · '
+          '口令员名/ms_Only\n'
+          '(建表画面输入口令员姓名,选类型即自动生成)');
     }
     final old = callerTable;
     if (old != null)
@@ -655,14 +663,13 @@ class VoiceFlow extends ChangeNotifier {
   CallerTable? _prefixTable;
   CallerTable? _suffixTable;
 
-  ///  口令员名(去掉级别后缀):XuJianguo_ms -> XuJianguo
-  String get _callerStem {
+  ///  目录名(=口令员名):名字 = "口令员/表名",
+  ///  如 XuJianguo2/ms_Only -> XuJianguo2。
+  ///  每个口令员一个目录,合并等操作都在目录内进行
+  String get _dirOf {
     final n = callerTable?.callerName ?? callerName;
-    final m =
-        RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)$').firstMatch(n) ??
-            RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
-                .firstMatch(n);
-    return m == null ? n.replaceAll('_Only', '') : n.substring(0, m.start);
+    final i = n.indexOf('/');
+    return i < 0 ? n : n.substring(0, i);
   }
 
   Future<CallerTable?> _loadAuxTable(String name) async {
@@ -721,7 +728,7 @@ class VoiceFlow extends ChangeNotifier {
           : segs.sublist(1, segs.length - 1).join(' ');
       suffixSeg = segs.last;
     }
-    final stem = _callerStem;
+    final stem = _dirOf;
     //  前缀段 → Prefix 非Only表
     if (prefixSeg != null) {
       _prefixTable ??= await _loadAuxTable('${stem}Prefix');
@@ -825,25 +832,21 @@ class VoiceFlow extends ChangeNotifier {
   ///  源表名 = Only 表名去掉 "_<级别>_Only" 后缀
   ///  (如 "XuJianguo_plus_Only" -> "XuJianguo")
   String get onlySourceName {
-    //  库表(Prefix/Sufix)累积:与已合并的同名表合并——
-    //  补录新库条目时旧读法不丢(源=现有合并表)
-    final libName = callerTable?.callerName ?? '';
-    if (libName.endsWith('_Prefix_Only') ||
-        libName.endsWith('_Sufix_Only')) {
-      return libName.replaceAll('_Only', '');
-    }
-    //  级别累积:plus 的 Only 表与 ms 的合并表合并(生成含
-    //  ms+plus 全部口令的表);a1 与 plus 合并表合并,依此类推;
-    //  ms 级用基础源表
+    //  目录结构下源表都在同一目录内:
+    //  库表(Prefix/Sufix)与已合并同名表合并——补录新库
+    //  条目时旧读法不丢;级别表与低一级合并表合并
+    //  (ms_Only 首次合并无源,可选;重合并以现有 ms 为源,
+    //   已录口令不丢)
     final n = callerTable?.callerName ?? '';
+    final dir = _dirOf;
+    if (n.endsWith('_Prefix_Only')) return '$dir/Prefix';
+    if (n.endsWith('_Sufix_Only')) return '$dir/Sufix';
     final m = RegExp(r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
         .firstMatch(n);
     if (m == null) return n;
-    final base = n.substring(0, m.start);
     const order = ['ms', 'plus', 'a1', 'a2', 'c1', 'c2', 'c3a', 'c3b'];
     final lv = order.indexOf(m.group(1)!);
-    if (lv <= 0) return base;
-    return base + '_' + order[lv - 1];
+    return '$dir/${order[lv <= 0 ? 0 : lv - 1]}';
   }
   ///  目标表名 = Only 表名去 "_Only"
   String get onlyTargetName =>

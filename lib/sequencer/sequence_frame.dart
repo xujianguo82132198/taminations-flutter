@@ -2201,6 +2201,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
   Future<void> _refreshTableNames(
       SharedPreferences prefs, List<String> tableNames) async {
+    //  旧结构迁移(平铺掺名 → 口令员/表名 目录),幂等
+    final migrated =
+        await CallerTable.migrateToDirectories(prefs);
+    if (migrated > 0)
+      debugPrint('migrateToDirectories: $migrated tables');
     //  自动清除空表(0行):登录时误建的裸名空表不再残留
     for (final n in CallerTable.listTableNames(prefs)) {
       final raw = prefs.getString('口令员表 $n');
@@ -2522,10 +2527,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             .where((n) => !n.endsWith('_Only')).toList();
                         var src = nameController.text.trim().isNotBlank
                             ? nameController.text.trim()
-                            : (srcNames.isNotEmpty ? srcNames.first : '');
+                            : (srcNames.isNotEmpty
+                                ? srcNames.first.split('/').first
+                                : '');
                         var lv = 'ms';
                         final typeRe = RegExp(
-                            r'_(Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b)$');
+                            r'^(.*/)?(Prefix|Sufix|ms|plus|a1|a2'
+                            r'|c1|c2|c3a|c3b)$');
                         String stemOf(String s) =>
                             s.trim().replaceFirst(typeRe, '');
                         final nameCtl = fm.TextEditingController();
@@ -2540,7 +2548,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                 lv = t;
                                 final stem = stemOf(nameCtl.text);
                                 if (stem.isEmpty) return;
-                                nameCtl.text = '${stem}_$t';
+                                nameCtl.text = '$stem/$t';
                                 lset(() {});
                               }
                               return fm.AlertDialog(
@@ -2552,7 +2560,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         controller: nameCtl,
                                         style: fm.TextStyle(fontSize: 22),
                                         decoration: fm.InputDecoration(
-                                            labelText: '表名',
+                                            labelText: '口令员姓名(目录)',
                                             labelStyle:
                                                 fm.TextStyle(fontSize: 18))),
                                     fm.DropdownButton<String>(
@@ -2587,7 +2595,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         debugPrint('建表: name=${parts[0]} '
                             'type=${parts[1]}');
                                         final onlyName =
-                                            '${parts[0]}_${parts[1]}_Only';
+                                            '${parts[0]}/${parts[1]}_Only';
                                         final t = await CallerTable
                                             .open(onlyName);
                                         //  按选择引入不同数据:
