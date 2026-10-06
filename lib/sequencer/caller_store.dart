@@ -104,6 +104,24 @@ class CallerTable extends ChangeNotifier {
       //  Left 开头的口令不引入(用户:Left 已入前缀库,
       //  Left 口令 = Left前缀 + 基础口令,由前缀表+流水线处理)
       if (entry.title.toLowerCase().startsWith('left')) continue;
+      //  数量词开头的口令不引入(用户:3/4 等量词已入前缀库,
+      //  如 Three Quarter Tag = 3/4前缀 + Tag,走流水线)
+      final spoken = spokenForm(entry.title);
+      const quantifierSpokens = [
+        'three quarter', 'three quarters',
+        'one half', 'half',
+        'one and a half', 'two and a half', 'three and a half',
+        'one and three', 'two and four',
+        'one and two', 'three and four',
+      ];
+      var isQuantifierCall = false;
+      for (final q in quantifierSpokens) {
+        if (spoken == q || spoken.startsWith('$q ')) {
+          isQuantifierCall = true;
+          break;
+        }
+      }
+      if (isQuantifierCall) continue;
       titles.add(entry.title);
     }
     return titles;
