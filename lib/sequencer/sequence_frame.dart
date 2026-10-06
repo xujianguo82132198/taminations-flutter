@@ -2471,11 +2471,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         String stemOf(String s) =>
                             s.trim().replaceFirst(typeRe, '');
                         final nameCtl = fm.TextEditingController();
-                        //  初始表名 = 名字_默认类型(实时所见即所得)
-                        {
-                          final stem = stemOf(src);
-                          nameCtl.text = stem.isEmpty ? '' : '${stem}_$lv';
-                        }
+                        //  初始表名只有名字本身——不带类型后缀;
+                        //  后缀只在下拉选择了类型之后才出现
+                        nameCtl.text = stemOf(src);
                         final level = await fm.showDialog<String>(
                             context: context,
                             builder: (lctx) =>
