@@ -687,6 +687,14 @@ class VoiceFlow extends ChangeNotifier {
     final seq = s.commandSeq;
     if (seq == _lastCommandSeq) return;
     _lastCommandSeq = seq;
+    //  新口令识别结果取得:先清除显示块与三个结果
+    //  (用户要求),再开始三表检索——标志随进表逐个递加
+    tableFlags = '';
+    prefixResult = '';
+    callResult = '';
+    suffixResult = '';
+    assembledCall = '';
+    _notify();
     unawaited(_processCommand(s.lastCommandSegments));
   }
 
@@ -695,15 +703,9 @@ class VoiceFlow extends ChangeNotifier {
   ///  是口令,另一段按位置定前后缀(在前=前缀,在后=后缀);
   ///  一段=只有口令
   Future<void> _processCommand(List<String> segs) async {
-    tableFlags = '';
-    prefixResult = '';
-    callResult = '';
-    suffixResult = '';
-    assembledCall = '';
-    if (segs.isEmpty) {
-      _notify();
-      return;
-    }
+    //  显示块已在 _onSpeech 清过;这里逐表检索,每进一表
+    //  立即刷新显示(口令员看得见 P→P_C→P_C_S 的递加过程)
+    if (segs.isEmpty) return;
     String callSeg;
     String? prefixSeg;
     String? suffixSeg;
@@ -737,6 +739,7 @@ class VoiceFlow extends ChangeNotifier {
         if (r.hit != null && r.error <= 0.45) {
           prefixResult = r.hit!.standardCall;
           tableFlags = 'P';
+          _notify();
         }
       }
     }
@@ -750,6 +753,7 @@ class VoiceFlow extends ChangeNotifier {
       if (r.hit != null && r.error <= 0.45) {
         callResult = r.hit!.standardCall;
         tableFlags += tableFlags.isEmpty ? 'C' : '_C';
+        _notify();
       }
     }
     //  后缀段 → Sufix 非Only表
