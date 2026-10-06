@@ -2468,21 +2468,40 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                       : (srcNames.isNotEmpty
                                           ? srcNames.first : '');
                                   var lv = 'ms';
+                                  //  表名域实时带类型后缀(所见即所得):
+                                  //  下拉一选,名字立刻变为 名字_类型
+                                  final typeRe = RegExp(
+                                      r'_(Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b)$');
+                                  String stemOf(String s) =>
+                                      s.trim().replaceFirst(typeRe, '');
+                                  final nameCtl =
+                                      fm.TextEditingController()
+                                        ..text = src;
+                                  void applyType(String t) {
+                                    lv = t;
+                                    final stem = stemOf(nameCtl.text);
+                                    if (stem.isEmpty) return;
+                                    nameCtl.text = '${stem}_$t';
+                                    lset(() {});
+                                  }
+                                  //  初始也带上默认类型后缀
+                                  if (nameCtl.text.isNotBlank) {
+                                    final st = stemOf(nameCtl.text);
+                                    nameCtl.text = st.isEmpty
+                                        ? '' : '${st}_$lv';
+                                  }
                                   return fm.AlertDialog(
                                     title: fm.Text('建表(建Only工作表)'),
                                     content: fm.Column(
                                       mainAxisSize: fm.MainAxisSize.min,
                                       children: [
                                         fm.TextField(
-                                            onChanged: (v) =>
-                                                lset(() => src = v),
-                                            controller: fm.TextEditingController()
-                                              ..text = src,
+                                            controller: nameCtl,
+                                            style: fm.TextStyle(fontSize: 22),
                                             decoration: fm.InputDecoration(
-                                                labelText: '表名(前缀)',
+                                                labelText: '表名',
                                                 labelStyle:
-                                                    fm.TextStyle(fontSize: 18)),
-                                            style: fm.TextStyle(fontSize: 22)),
+                                                    fm.TextStyle(fontSize: 18))),
                                         fm.DropdownButton<String>(
                                             value: lv,
                                             isExpanded: true,
@@ -2491,7 +2510,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                               fm.DropdownMenuItem(
                                                   value: l, child: fm.Text(l))],
                                             onChanged: (v) =>
-                                                lset(() => lv = v ?? lv)),
+                                                applyType(v ?? lv)),
                                       ],
                                     ),
                                     actions: [
@@ -2502,7 +2521,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                       fm.TextButton(
                                           onPressed: () =>
                                               fm.Navigator.of(lctx)
-                                                  .pop('$src|$lv'),
+                                                  .pop('${stemOf(nameCtl.text)}|$lv'),
                                           child: fm.Text('创建')),
                                     ],
                                   );
