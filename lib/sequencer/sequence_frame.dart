@@ -2454,78 +2454,76 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         setState(() {});
                       }),
                       _tableMgmtButton(ctx, true, '建表', () async {
-                        //  建 Only 工作表:选源表+级别
+                        //  建 Only 工作表:选源表+类型。
+                        //  状态(表名控制器/类型)必须在 StatefulBuilder
+                        //  外面持有——builder 闭包每次 lset 重建都会
+                        // 重新执行,闭包内变量会重置(曾致选了 Prefix
+                        //  表名仍弹回 _ms)
                         final prefs2 = await SharedPreferences.getInstance();
                         final srcNames = CallerTable.listTableNames(prefs2)
                             .where((n) => !n.endsWith('_Only')).toList();
+                        var src = nameController.text.trim().isNotBlank
+                            ? nameController.text.trim()
+                            : (srcNames.isNotEmpty ? srcNames.first : '');
+                        var lv = 'ms';
+                        final typeRe = RegExp(
+                            r'_(Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b)$');
+                        String stemOf(String s) =>
+                            s.trim().replaceFirst(typeRe, '');
+                        final nameCtl = fm.TextEditingController();
+                        //  初始表名 = 名字_默认类型(实时所见即所得)
+                        {
+                          final stem = stemOf(src);
+                          nameCtl.text = stem.isEmpty ? '' : '${stem}_$lv';
+                        }
                         final level = await fm.showDialog<String>(
                             context: context,
                             builder: (lctx) =>
                                 fm.StatefulBuilder(builder: (lctx, lset) {
-                                  var src = nameController.text
-                                      .trim().isNotBlank
-                                      ? nameController.text.trim()
-                                      : (srcNames.isNotEmpty
-                                          ? srcNames.first : '');
-                                  var lv = 'ms';
-                                  //  表名域实时带类型后缀(所见即所得):
-                                  //  下拉一选,名字立刻变为 名字_类型
-                                  final typeRe = RegExp(
-                                      r'_(Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b)$');
-                                  String stemOf(String s) =>
-                                      s.trim().replaceFirst(typeRe, '');
-                                  final nameCtl =
-                                      fm.TextEditingController()
-                                        ..text = src;
-                                  void applyType(String t) {
-                                    lv = t;
-                                    final stem = stemOf(nameCtl.text);
-                                    if (stem.isEmpty) return;
-                                    nameCtl.text = '${stem}_$t';
-                                    lset(() {});
-                                  }
-                                  //  初始也带上默认类型后缀
-                                  if (nameCtl.text.isNotBlank) {
-                                    final st = stemOf(nameCtl.text);
-                                    nameCtl.text = st.isEmpty
-                                        ? '' : '${st}_$lv';
-                                  }
-                                  return fm.AlertDialog(
-                                    title: fm.Text('建表(建Only工作表)'),
-                                    content: fm.Column(
-                                      mainAxisSize: fm.MainAxisSize.min,
-                                      children: [
-                                        fm.TextField(
-                                            controller: nameCtl,
-                                            style: fm.TextStyle(fontSize: 22),
-                                            decoration: fm.InputDecoration(
-                                                labelText: '表名',
-                                                labelStyle:
-                                                    fm.TextStyle(fontSize: 18))),
-                                        fm.DropdownButton<String>(
-                                            value: lv,
-                                            isExpanded: true,
-                                            items: [for (final l in
-                                              ['Prefix','Sufix','ms','plus','a1','a2','c1','c2','c3a','c3b'])
-                                              fm.DropdownMenuItem(
-                                                  value: l, child: fm.Text(l))],
-                                            onChanged: (v) =>
-                                                applyType(v ?? lv)),
-                                      ],
-                                    ),
-                                    actions: [
-                                      fm.TextButton(
-                                          onPressed: () =>
-                                              fm.Navigator.of(lctx).pop(),
-                                          child: fm.Text('取消')),
-                                      fm.TextButton(
-                                          onPressed: () =>
-                                              fm.Navigator.of(lctx)
-                                                  .pop('${stemOf(nameCtl.text)}|$lv'),
-                                          child: fm.Text('创建')),
-                                    ],
-                                  );
-                                }));
+                              void applyType(String t) {
+                                lv = t;
+                                final stem = stemOf(nameCtl.text);
+                                if (stem.isEmpty) return;
+                                nameCtl.text = '${stem}_$t';
+                                lset(() {});
+                              }
+                              return fm.AlertDialog(
+                                title: fm.Text('建表(建Only工作表)'),
+                                content: fm.Column(
+                                  mainAxisSize: fm.MainAxisSize.min,
+                                  children: [
+                                    fm.TextField(
+                                        controller: nameCtl,
+                                        style: fm.TextStyle(fontSize: 22),
+                                        decoration: fm.InputDecoration(
+                                            labelText: '表名',
+                                            labelStyle:
+                                                fm.TextStyle(fontSize: 18))),
+                                    fm.DropdownButton<String>(
+                                        value: lv,
+                                        isExpanded: true,
+                                        items: [for (final l in
+                                          ['Prefix','Sufix','ms','plus','a1','a2','c1','c2','c3a','c3b'])
+                                          fm.DropdownMenuItem(
+                                              value: l, child: fm.Text(l))],
+                                        onChanged: (v) =>
+                                            applyType(v ?? lv)),
+                                  ],
+                                ),
+                                actions: [
+                                  fm.TextButton(
+                                      onPressed: () =>
+                                          fm.Navigator.of(lctx).pop(),
+                                      child: fm.Text('取消')),
+                                  fm.TextButton(
+                                      onPressed: () =>
+                                          fm.Navigator.of(lctx).pop(
+                                              '${stemOf(nameCtl.text)}|$lv'),
+                                      child: fm.Text('创建')),
+                                ],
+                              );
+                            }));
+                        nameCtl.dispose();
                         if (level == null || !level.contains('|')) {
                           return;
                         }
