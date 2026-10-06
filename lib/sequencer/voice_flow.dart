@@ -912,20 +912,29 @@ class VoiceFlow extends ChangeNotifier {
       final sameCall = r.standardCall.trim().toLowerCase() ==
           row.standardCall.trim().toLowerCase();
       for (final tk in r.recognized.split('|')) {
-        if (tk.trim().isEmpty) continue;
-        if (CallerTable.sentenceError(tk, newToken) < 0.12) {
-          if (sameCall) {
-            debugPrint('identical rows: row ${r.seq} same call+token');
+        final t2 = tk.trim();
+        if (t2.isEmpty) continue;
+        if (sameCall) {
+          //  同口令:仅一字不差才算"两行完全相同"(提示删一行)。
+          //  近似而不同的读法=多归1的正常内容,不拦不删
+          //  (用户:没按"清理"钮不得删记录)
+          if (t2.toLowerCase() == newToken.toLowerCase()) {
+            debugPrint('identical rows: row ${r.seq} exact token');
             identicalRow = r;
             break;
           }
-          debugPrint('token conflict with row ${r.seq}: "$tk"');
+          continue;
+        }
+        //  跨口令记号雷同=真混淆(查表无法区分):警示,
+        //  再点一次黄框=仍要存入(人类决断)
+        if (CallerTable.sentenceError(t2, newToken) < 0.12) {
+          debugPrint('token conflict with row ${r.seq}: "$t2"');
           //  带上撞车行的口令名,让口令员知道是和哪条混了
           conflictPending = true;
           //  错误信息四段:行号|撞车行口令|撞车行记号|操作提示
           lastError =
               'token_conflict:${r.seq}|${r.standardCall}|'
-              '$tk|记号雷同,再点一次黄框=仍要存入';
+              '$t2|记号雷同,再点一次黄框=仍要存入';
           _notify();
           Future.delayed(const Duration(seconds: 5), () {
             if (lastError != null &&
