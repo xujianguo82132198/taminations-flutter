@@ -818,6 +818,8 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  当前表是否为关键词训练表(.../Words_Only)
   bool get _isWordsTable => _tablePart == 'Words_Only';
+  ///  公开:关键词训练表判定(清理按钮传参用)
+  bool get isWordsTable => _isWordsTable;
 
   ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
   bool get onlyMode =>

@@ -873,9 +873,28 @@ class CallerTable extends ChangeNotifier {
   ///  清理全表(采录完成后统一做):
   ///  1) 删除空识别行(未录的拷贝行)
   ///  2) 第2,3列完全相同的行只保留1行
+  ///  3) Words 关键词表:记号≠本行单词的**错位行**清零
+  ///     (隔离语法下有效记号只能是本行单词本身,其余都是
+  ///      旧会话错存,会持续制造冲突)
   ///  返回(删除空行数,去重行数)
-  Future<(int, int)> cleanupTable() async {
+  Future<(int, int)> cleanupTable({bool wordTable = false}) async {
     var empty = 0, dup = 0;
+    if (wordTable) {
+      for (var i = 0; i < rows.length; i++) {
+        final r = rows[i];
+        final w = r.standardCall.trim().toLowerCase();
+        if (r.recognized.trim().isNotEmpty &&
+            w.isNotEmpty &&
+            !w.contains(' ') &&
+            r.recognized.trim().toLowerCase() != w) {
+          rows[i] = CallerRow(
+              seq: r.seq, recognized: '', standardCall: r.standardCall);
+          empty++;
+          debugPrint('Words清理: 第${r.seq}行错位记号'
+              '"${r.recognized}"清零(本行词=$w)');
+        }
+      }
+    }
     final seen = <String>{};
     final keep = <CallerRow>[];
     for (final r in rows) {

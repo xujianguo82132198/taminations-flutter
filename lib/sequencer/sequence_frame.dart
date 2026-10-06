@@ -1447,7 +1447,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               ],
             ));
     if (ok != true || !mounted) return;
-    final (del, dup) = await t.cleanupTable();
+    final (del, dup) =
+        await t.cleanupTable(wordTable: flow.isWordsTable);
     flow.afterTableCleanup();
     if (mounted)
       fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
