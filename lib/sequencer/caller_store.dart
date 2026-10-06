@@ -739,8 +739,11 @@ class CallerTable extends ChangeNotifier {
     'Outside Couples': 'outside couples',
     //  Left 作前缀(用户加入前缀库):Left 口令=Left前缀+基础口令
     'Left': 'left',
-    //  量词前缀(用户加入):分数与对子编号
+    //  量词前缀(用户加入):分数与对子编号。
+    //  分数前缀与核心组合可超出选法库(如 2/3 Linear Cycle
+    //  在 Calls 里找不到,但可执行;1/2 Boys Run 同理)
     '3/4': 'three quarter',
+    '2/3': 'two third',
     '1/2': 'one half',
     '1-1/2': 'one and a half',
     '2-1/2': 'two and a half',
