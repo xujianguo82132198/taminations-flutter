@@ -716,6 +716,16 @@ class CallerTable extends ChangeNotifier {
     'Outside Couples': 'outside couples',
     //  Left 作前缀(用户加入前缀库):Left 口令=Left前缀+基础口令
     'Left': 'left',
+    //  量词前缀(用户加入):分数与对子编号
+    '3/4': 'three quarter',
+    '1/2': 'one half',
+    '1-1/2': 'one and a half',
+    '2-1/2': 'two and a half',
+    '3-1/2': 'three and a half',
+    '1 and 3': 'one and three',
+    '2 and 4': 'two and four',
+    '1 and 2': 'one and two',
+    '3 and 4': 'three and four',
   };
 
 

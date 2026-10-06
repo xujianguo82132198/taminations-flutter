@@ -815,6 +815,13 @@ class VoiceFlow extends ChangeNotifier {
   ///  源表名 = Only 表名去掉 "_<级别>_Only" 后缀
   ///  (如 "XuJianguo_plus_Only" -> "XuJianguo")
   String get onlySourceName {
+    //  库表(Prefix/Sufix)累积:与已合并的同名表合并——
+    //  补录新库条目时旧读法不丢(源=现有合并表)
+    final libName = callerTable?.callerName ?? '';
+    if (libName.endsWith('_Prefix_Only') ||
+        libName.endsWith('_Sufix_Only')) {
+      return libName.replaceAll('_Only', '');
+    }
     //  级别累积:plus 的 Only 表与 ms 的合并表合并(生成含
     //  ms+plus 全部口令的表);a1 与 plus 合并表合并,依此类推;
     //  ms 级用基础源表
