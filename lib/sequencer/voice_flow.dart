@@ -146,22 +146,6 @@ class VoiceFlow extends ChangeNotifier {
     return true;
   }
 
-  ///  读法变体:仅针对模型词典缺失的词(实测被忽略的只有
-  ///  allemande/dosado/flutterwheel/rollaway 四个)。
-  ///  变体词要少而稳——多余的短词(如 nat/sa)会与真口令词
-  ///  (如 left)抢解码,反而把正确听法挤掉
-  static const _wordVariants = <String, List<String>>{
-    'dosado': ['doe', 'dough'],
-    'allemande': ['alley', 'mande', 'mond'],
-    'flutterwheel': ['flutter', 'wheel'],
-    'rollaway': ['roll', 'away'],
-    //  "spl"三连辅音难发:给 s-p 开头的近似词多几条解码路径
-    'split': ['spilt', 'spit', 'splat'],
-    //  词典缺失的法裔/复合词(实测被忽略):拆成近音常见词
-    'acey': ['a see', 'ace', 'a c'],
-    'deucey': ['do see', 'do c', 'deuce'],
-  };
-
   ///  采表语法:当前表全部口令的**单词表**(词循环)。
   ///  只约束词汇范围,不强制组成完整口令——避免解码器
   ///  把短促发音"联想补全"成整条口令(如 step -> Scoot back),
@@ -184,21 +168,6 @@ class VoiceFlow extends ChangeNotifier {
           words.add(w);
         }
       }
-    }
-    //  主语的历史验证近音变体词进语法(解码层,不进表):
-    //  口令员的自然读法(home/ate/sex…)能被解码出来;
-    //  识别列仍留空,由口令员采样填写记号
-    for (final canon in CallerTable.seedSubjectCanons) {
-      for (final t in CallerTable.seedTokensFor(canon)) {
-        for (final w in t.split(' ')) {
-          if (w.isNotEmpty) words.add(w);
-        }
-      }
-    }
-    //  追加读法变体词(拆成单词加入)
-    for (final w in words.toList()) {
-      final vs = _wordVariants[w];
-      if (vs != null) words.addAll(vs);
     }
     if (words.isEmpty) return null;
     return [...words, '[unk]'];

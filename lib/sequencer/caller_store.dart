@@ -694,9 +694,8 @@ class CallerTable extends ChangeNotifier {
 
   ///  前缀主语种子行(用户设计:主语映射归口令员的表管理,
   ///  多归一——同一主语的多种读法各记一笔记号,都指向它)。
-  ///  打开 Only 表时自动补种缺失的主语行;token 由历史验证
-  ///  过的近音等价(_prefixEquivalents 反查)自动展开,此后
-  ///  口令员用采样自行增删,不再依赖程序员
+  ///  采录库表(*_Prefix_Only)空表建库时逐条种入;
+  ///  记号一律由口令员采样,代码不含任何定制映射
   static const _seedSubjects = <String, String>{
     'Heads': 'heads',
     'Sides': 'sides',
@@ -719,9 +718,6 @@ class CallerTable extends ChangeNotifier {
     'Left': 'left',
   };
 
-  ///  主语规范键列表(解码层语法用)
-  static List<String> get seedSubjectCanons =>
-      _seedSubjects.values.toList();
 
   ///  后缀库(软件内置,任何口令员都需要的公共库):
   ///  数字1-6、分数、后缀口令(Sweep/Roll/Spread)
@@ -788,54 +784,6 @@ class CallerTable extends ChangeNotifier {
     return (empty, dup);
   }
 
-  ///  主语的历史验证近音变体(token 清单)——只用于解码层
-  ///  语法词表,不写进表:识别列(第2列)只能放口令员自己
-  ///  采样录的记号(用户原则:不能依赖程序员)
-  static List<String> seedTokensFor(String canon) {
-    final tokens = <String>[canon];
-    _prefixEquivalents.forEach((k, v) {
-      if (v == canon && !tokens.contains(k)) tokens.add(k);
-    });
-    //  Ends 的单词近音归一(an/and/on/around/home/full→ends)
-    if (canon == 'ends')
-      tokens.addAll(['end', 'an', 'and', 'on', 'around', 'home', 'full']);
-    return tokens;
-  }
-
-  ///  补种缺失的前缀主语行,返回新增/修正行数。
-  ///  识别列一律留空——记号只能来自口令员采样;
-  ///  旧版误种进识别列的变体清单自动清空
-  Future<int> seedPrefixRows() async {
-    var changed = 0;
-    final seedTexts = <String, String>{};
-    for (final display in _seedSubjects.keys) {
-      final canon = _seedSubjects[display]!;
-      seedTexts[canon] = seedTokensFor(canon).join('|');
-      final dl = display.toLowerCase();
-      CallerRow? row;
-      for (final r in rows) {
-        final s = r.standardCall.trim().toLowerCase();
-        if (s == canon || s == dl) {
-          row = r;
-          break;
-        }
-      }
-      if (row == null) {
-        //  新种:识别列留空
-        await addRow(recognized: '', standardCall: display);
-        changed++;
-      } else if (row.recognized == seedTexts[canon]) {
-        //  旧版种进了程序员的变体清单:清空识别列
-        await updateRow(row.seq, recognized: '', sort: false);
-        changed++;
-      }
-      //  诊断:主语行识别列现状(排查未清空的行)
-      debugPrint('seedCheck "$display" row${row?.seq} '
-          'recognized="${row?.recognized}"');
-    }
-    return changed;
-  }
-
   ///  分解口令字符串:(前缀, 是否Left, 口令核心, 后缀)。
   ///  前缀输出已归一(home/an/full/end → ends 等),
   ///  供选择与显示统一
@@ -853,106 +801,11 @@ class CallerTable extends ChangeNotifier {
     );
   }
 
-  ///  复数主语的多词近音等价(实测"Ends"被识别成
-  /// "an end and"/"end an" 等碎片,在前缀位置折叠回去)
-  static const _prefixEquivalents = {
-    //  All 4 Couples(全部四对)
-    'all four couples': 'all four couples',
-    'all for couples': 'all four couples',
-    'all four couple': 'all four couples',
-    'all couples': 'all four couples',
-    'four couples': 'all four couples',
-    'all for': 'all four couples',
-    //  Outer 6(外六人)
-    //  Line of 8(八人一线)
-    'line of ate': 'line of eight',
-    'line all four eight': 'line of eight',
-    'line all for eight': 'line of eight',
-    'line of all eight': 'line of eight',
-    'line are four eight': 'line of eight',
-    'line have four eight': 'line of eight',
-    'line for eight': 'line of eight',
-    'line or eight': 'line of eight',
-    //  of eight 连读被听成 off way/all wave/all way 等
-    'line off way': 'line of eight',
-    'line all wave': 'line of eight',
-    'line all way': 'line of eight',
-    'line of way': 'line of eight',
-    'line off wave': 'line of eight',
-    'line are wave': 'line of eight',
-    'line are way': 'line of eight',
-    'line a way': 'line of eight',
-    'line on way': 'line of eight',
-    //  End Ladies("End Ladies Chain…"的主语;
-    //  end 连读被听成 hand/and/an)
-    'end ladies': 'end ladies',
-    'hand ladies': 'end ladies',
-    'and ladies': 'end ladies',
-    'an ladies': 'end ladies',
-    'home ladies': 'end ladies',
-    'end the ladies': 'end ladies',
-    'hand the ladies': 'end ladies',
-    //  Line of 6(六人一线;six 听成 sex/sixth 等)
-    'line of six': 'line of six',
-    'line of sex': 'line of six',
-    'line of sixth': 'line of six',
-    'line all six': 'line of six',
-    'line off six': 'line of six',
-    'line off sex': 'line of six',
-    'line have eight': 'line of eight',
-    'line a eight': 'line of eight',
-    'line eight': 'line of eight',
-    'line of eight the': 'line of eight',
-    //  Outside Couples(外对)
-    'outside couples': 'outside couples',
-    'outside couple': 'outside couples',
-    'outside the couples': 'outside couples',
-    'out side couples': 'outside couples',
-    'outer sex': 'outer six',
-    'order six': 'outer six',
-    'outer sixths': 'outer six',
-    'outer sixx': 'outer six',
-    //  ends(含 home 近音)
-    'an end': 'ends', 'end an': 'ends', 'and end': 'ends',
-    'an ends': 'ends', 'ends an': 'ends', 'end and': 'ends',
-    'home': 'ends', 'an home': 'ends', 'home an': 'ends',
-    'home end': 'ends', 'home full': 'ends', 'on home': 'ends',
-    //  heads
-    'an head': 'heads', 'head an': 'heads', 'and head': 'heads',
-    'a head': 'heads', 'head and': 'heads',
-    //  sides
-    'an side': 'sides', 'side an': 'sides', 'and side': 'sides',
-    'a side': 'sides', 'side and': 'sides',
-    //  boys
-    'a boy': 'boys', 'an boy': 'boys', 'boy an': 'boys',
-    //  girls
-    'a girl': 'girls', 'an girl': 'girls', 'girl an': 'girls',
-    //  centers
-    'an center': 'centers', 'a center': 'centers',
-    'center an': 'centers',
-    //  trailers
-    'an trailer': 'trailers', 'a trailer': 'trailers',
-    'trailer an': 'trailers',
-    //  leaders
-    'an leader': 'leaders', 'a leader': 'leaders',
-    'leader an': 'leaders',
-  };
-
   ///  分解:(前缀词列, 是否Left, 口令核心词列, 后缀词列)
   static (List<String>, bool, List<String>, List<String>)
       _decompose(List<String> w) {
-    //  前置折叠:句首的近音碎片组合还原成主语
-    //  (最多三词窗口,只在前缀位置做,不影响口令核心)
-    for (var k = 3; k >= 2; k--) {
-      if (w.length >= k) {
-        final key = w.sublist(0, k).join(' ');
-        final eq = _prefixEquivalents[key];
-        if (eq != null) {
-          w = [eq, ...w.sublist(k)];
-          break;
-        }
-      }
-    }
+    //  (个人近音折叠已删——主语映射归口令员的表,
+    //  代码不再内置任何为特定口令员定制的多归一)
     //  前缀提取:循环摘词后必须归一命中唯一规范前缀
     //  (主语或分数);匹配不上则全部退回核心——保证流水
     //  下一级(口令核心)总能拿到干净的词列
@@ -1010,12 +863,6 @@ class CallerTable extends ChangeNotifier {
         'man' => 'men',
         'woman' => 'women',
         'couple' => 'couples',
-        'home' => 'ends',
-        'full' => 'ends',
-        'an' => 'ends',
-        'and' => 'ends',
-        'around' => 'ends',
-        'on' => 'ends',
         _ => w,
       };
 
@@ -1104,48 +951,6 @@ class CallerTable extends ChangeNotifier {
 
   ///  结构化误差:先比对前缀/后缀/左右(应精确一致),
   ///  口令核心用编辑距离模糊比对——比整句模糊又快又准
-  ///  声学易混词对(小模型高频误听):比对时对听到侧
-  ///  试替换,取误差更低者——"wheel and deal"常被听成
-  ///  "veer arm veer"(wheel→veer, deal→veer, and→arm)
-  static const _acousticSwaps = {
-    'veer': ['wheel', 'deal'],
-    'arm': ['and'],
-    'fold': ['circle'],
-    'home': ['wheel'],
-    'curl': ['circle'],
-    'pole': ['roll'],
-    'bow': ['roll'],
-    'lead': ['deal'],
-    'field': ['deal'],
-    'feel': ['deal'],
-    'meal': ['deal'],
-    'seal': ['deal'],
-    'did': ['deal'],
-    'here': ['wheel'],
-    'were': ['wheel'],
-  };
-
-  static List<String> _applySwaps(List<String> words) {
-    //  组合替换:多个易混词同时替换("veer and veer" ->
-    //  "wheel and deal" 需两处同时换)。逐词分支,
-    //  词数与候选都少,组合量小
-    var variants = <List<String>>[List.of(words)];
-    for (var i = 0; i < words.length; i++) {
-      final swaps = _acousticSwaps[words[i]];
-      if (swaps == null) continue;
-      final next = <List<String>>[...variants];
-      for (final v in variants) {
-        for (final s in swaps) {
-          final nv = List.of(v);
-          nv[i] = s;
-          next.add(nv);
-        }
-      }
-      variants = next;
-    }
-    return [for (final v in variants) v.join(' ')];
-  }
-
   static double structuredError(String a, String b) {
     var wa = _normalize(a).split(' ')
         .where((s) => s.isNotEmpty).toList();
@@ -1174,11 +979,6 @@ class CallerTable extends ChangeNotifier {
         la = true;
         ca = ca.sublist(1);
       }
-    }
-    //  声学易混词替换试算(听到侧核心),取更低误差
-    for (final v in _applySwaps(ca)) {
-      final e = sentenceError(v, cb.join(' '));
-      if (e < err) err = e;
     }
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) {
