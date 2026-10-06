@@ -2306,7 +2306,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         builder: (ctx) => fm.StatefulBuilder(
           builder: (ctx, setState) {
             final text = nameController.text.trim();
-            final canOpen = selected.isNotBlank || text.isNotBlank;
+            //  打开钮只对已存在的表可用(虚=禁止):
+            //  新表名必须走"建表→创建",不能凭空打开
+            final openName =
+                selected.isNotBlank ? selected : text;
+            final canOpen = openName.isNotBlank &&
+                tableNames.contains(openName);
             //  口令阶段:标题与内容切换为口令输入
             if (passwordMode.isNotBlank) {
               if (!passwordShown) {
