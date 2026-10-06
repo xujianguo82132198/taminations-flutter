@@ -942,8 +942,9 @@ class VoiceFlow extends ChangeNotifier {
           continue;
         }
         //  跨口令记号雷同=真混淆(查表无法区分):警示,
-        //  再点一次黄框=仍要存入(人类决断)
-        if (CallerTable.sentenceError(t2, newToken) < 0.12) {
+        //  再点一次黄框=仍要存入(人类决断,force旁路)
+        if (!force &&
+            CallerTable.sentenceError(t2, newToken) < 0.12) {
           debugPrint('token conflict with row ${r.seq}: "$t2"');
           //  带上撞车行的口令名,让口令员知道是和哪条混了
           conflictPending = true;
