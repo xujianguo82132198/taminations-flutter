@@ -803,6 +803,19 @@ class CallerTable extends ChangeNotifier {
   };
 
 
+  ///  关键词库(系统给出,口令员读音校准用):单音节/短词
+  ///  为主——它们在整句识别中最易被联想吞掉。采录 Words
+  ///  表时,当前行是单词则用**隔离语法**(词表只有该词),
+  ///  解码器无联想可选,单音节结果必然可采集(教口令员
+  ///  念到能被听清为止;[unk]=尚未到位,继续纠正)
+  static const _seedWords = <String>[
+    'turn', 'left', 'right', 'pass', 'thru', 'trade', 'run',
+    'tag', 'box', 'fold', 'swing', 'spin', 'wheel', 'deal',
+    'line', 'bend', 'split', 'cross', 'dive', 'roll',
+    'spread', 'sweep', 'touch', 'walk', 'half', 'quarter',
+    'full', 'back', 'chain', 'star',
+  ];
+
   ///  后缀库(软件内置,任何口令员都需要的公共库):
   ///  数字1-6、分数、后缀口令(Sweep/Roll/Spread)
   static const _seedSuffixes = <String, String>{
@@ -818,13 +831,18 @@ class CallerTable extends ChangeNotifier {
   ///  空表时插入全部库记录,每条拷贝3行(3归1:同一主语/
   ///  后缀可录3种读法;不足的空着,录完清理时删空行;
   ///  需要更多用"增行"按钮扩为4归1)
-  Future<int> seedLibraryRows({required bool suffix}) async {
+  ///  libKind: 'prefix' / 'suffix' / 'words'
+  Future<int> seedLibraryRows({required String libKind}) async {
     //  按条目查缺补漏:库中没有该条目任何行才补3行
-    //  (库后来新增的条目——如 Left——也能补进已建的表;
+    //  (库后来新增的条目也能补进已建的表;
     //   已录/已清理过的条目不受影响,不重复插入)
-    final lib = suffix ? _seedSuffixes : _seedSubjects;
+    final lib = libKind == 'suffix'
+        ? [for (final k in _seedSuffixes.keys) k]
+        : (libKind == 'words'
+            ? _seedWords
+            : [for (final k in _seedSubjects.keys) k]);
     var n = 0;
-    for (final display in lib.keys) {
+    for (final display in lib) {
       final dl = display.toLowerCase();
       final exists = rows.any((r) =>
           r.standardCall.trim().toLowerCase() == dl);

@@ -128,8 +128,21 @@ class VoiceFlow extends ChangeNotifier {
     //  紧接 sample 重置 _sampleSession=true,时序安全
     speech?.cancel();
     //  Only 采表:限定口令词表解码(口音发音吸附到标准口令词汇,
-    //  大幅提高识别准确率);流式喊口令仍为自由识别
-    speech?.setSampleGrammar(_onlyTableWords());
+    //  大幅提高识别准确率);流式喊口令仍为自由识别。
+    //  Words 关键词表:当前行是单词时用**隔离语法**——词表
+    //  只有该词(+unk),解码器无联想可选,单音节结果必然可
+    //  采集([unk]=未念到位,继续纠正;教口令员念到被听清)
+    if (_isWordsTable && currentDictationRow != null) {
+      final w = currentDictationRow!.standardCall.trim().toLowerCase();
+      if (w.isNotEmpty && !w.contains(' ')) {
+        speech?.setSampleGrammar([w, '[unk]']);
+        debugPrint('isolated grammar for word "$w"');
+      } else {
+        speech?.setSampleGrammar(_onlyTableWords());
+      }
+    } else {
+      speech?.setSampleGrammar(_onlyTableWords());
+    }
     dictationPartial = '';
     dictationCandidates = [];
     dictationSegmentText = '';
@@ -534,14 +547,18 @@ class VoiceFlow extends ChangeNotifier {
             '${seededLv ~/ 3} calls x3 = $seededLv rows');
     }
     //  采录库表(用户定义的建表过程):*_Prefix_Only 插入
-    //  前缀库、*_Sufix_Only 插入后缀库(软件内置公共库),
-    //  每条拷贝3行(3归1);级别表(ms等)不再种主语行
-    if (name.endsWith('_Prefix_Only') ||
-        name.endsWith('_Sufix_Only')) {
-      final n = await table.seedLibraryRows(
-          suffix: name.endsWith('_Sufix_Only'));
+    //  前缀库、*_Sufix_Only 插入后缀库、*_Words_Only 插入
+    //  关键词库(软件内置公共库,读音校准用),每条拷贝3行
+    //  (3归1);级别表(ms等)不再种主语行
+    final libKind = name.endsWith('_Prefix_Only')
+        ? 'prefix'
+        : (name.endsWith('_Sufix_Only')
+            ? 'suffix'
+            : (name.endsWith('_Words_Only') ? 'words' : ''));
+    if (libKind.isNotEmpty) {
+      final n = await table.seedLibraryRows(libKind: libKind);
       if (n > 0)
-        debugPrint('seedLibraryRows: $n rows inserted (3归1)');
+        debugPrint('seedLibraryRows($libKind): $n rows (3归1)');
     }
     //  记号碰撞体检(所有表,合并表更关键——喊口令直接查它):
     //  口令不同而记号相同的行,亮出行号提示重新识别
@@ -791,6 +808,10 @@ class VoiceFlow extends ChangeNotifier {
     assembledCall = '';
     _notify();
   }
+
+  ///  当前表是否为关键词训练表(<口令员>/Words_Only)
+  bool get _isWordsTable =>
+      (callerTable?.callerName ?? '').endsWith('_Words_Only');
 
   ///  当前表是否为 Only 工作表(表名以 _Only 结尾)
   bool get onlyMode =>

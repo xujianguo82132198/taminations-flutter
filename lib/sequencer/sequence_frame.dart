@@ -2567,7 +2567,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         value: lv,
                                         isExpanded: true,
                                         items: [for (final l in
-                                          ['Prefix','Sufix','ms','plus','a1','a2','c1','c2','c3a','c3b'])
+                                          ['Prefix','Sufix','Words','ms','plus','a1','a2','c1','c2','c3a','c3b'])
                                           fm.DropdownMenuItem(
                                               value: l, child: fm.Text(l))],
                                         onChanged: (v) =>
@@ -2606,12 +2606,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         final seededN =
                                             parts[1] == 'Prefix'
                                           ? await t.seedLibraryRows(
-                                              suffix: false)
+                                              libKind: 'prefix')
                                           : (parts[1] == 'Sufix'
                                           ? await t.seedLibraryRows(
-                                              suffix: true)
+                                              libKind: 'suffix')
+                                          : (parts[1] == 'Words'
+                                          ? await t.seedLibraryRows(
+                                              libKind: 'words')
                                           : await t.seedLevelRows(
-                                              parts[1]));
+                                              parts[1])));
                                         debugPrint('建表种库: $onlyName '
                                             '$seededN rows');
                                         await _refreshTableNames(
