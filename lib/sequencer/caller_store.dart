@@ -360,8 +360,16 @@ class CallerTable extends ChangeNotifier {
 
   ///  整表按"语音识别结果"字典序(A,B,C...)排序并重排序号
   Future<void> _sortAndRenumber() async {
-    rows.sort((a, b) =>
-        a.recognized.toLowerCase().compareTo(b.recognized.toLowerCase()));
+    //  标准口令为主,识别为辅:同一口令的3行(3归1)永远
+    //  挨着——引入后不用滚动查找,录完一笔也不断散。
+    //  合并表有自己的排序(以第一列为准),不受此影响
+    rows.sort((a, b) {
+      final c = a.standardCall.trim().toLowerCase()
+          .compareTo(b.standardCall.trim().toLowerCase());
+      if (c != 0) return c;
+      return a.recognized.toLowerCase()
+          .compareTo(b.recognized.toLowerCase());
+    });
     for (var i = 0; i < rows.length; i++)
       rows[i].seq = i + 1;
     await save();
