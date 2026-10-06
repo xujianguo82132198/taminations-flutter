@@ -314,6 +314,25 @@ class CallerTable extends ChangeNotifier {
   ///  追加一行,序号自动在上行基础上加 1;
   ///  增加后整表按"语音识别结果"的 A,B,C... 字典序排序,
   ///  序号原地重排(行对象身份不变)
+  ///  在指定行**上方**插入一个全空行(不排序,位置就地在
+  ///  高亮行之上一眼可见),返回新行。增行功能专用
+  Future<CallerRow> insertRowAbove(int seq,
+      {String recognized = '',
+      String standardCall = ''}) async {
+    final index = rows.indexWhere((r) => r.seq == seq);
+    final row = CallerRow(
+        seq: 0, recognized: recognized, standardCall: standardCall);
+    if (index < 0) {
+      rows.add(row);
+    } else {
+      rows.insert(index, row);
+    }
+    for (var i = 0; i < rows.length; i++) rows[i].seq = i + 1;
+    await save();
+    notifyListeners();
+    return row;
+  }
+
   Future<CallerRow> addRow(
       {required String recognized,
        String standardCall = ''}) async {

@@ -604,18 +604,24 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  增加行(采录库表"增行"按钮):当前行口令再添一行
-  ///  空识别行(多归一扩容,4归1…),光标跳到新行
-  Future<void> addReadingRow() async {
+  ///  增加行(用户定义):找到当前高亮行,在其**上方**插入
+  ///  一个全空行(两列皆空,标准口令列留给口令员键入),
+  ///  光标跳到新行——位置就在眼前,不用滚动寻找。
+  ///  无高亮行时插到表首。返回新行(供口令编辑画面)
+  Future<CallerRow?> addReadingRow() async {
     final t = callerTable;
-    final row = currentDictationRow;
-    if (t == null || row == null) return;
-    final nr = await t.addRow(
-        recognized: '', standardCall: row.standardCall);
+    if (t == null || !onlyMode) return null;
+    final cur = currentDictationRow;
+    final nr = cur == null
+        ? (t.rows.isEmpty
+            ? await t.addRow(recognized: '', standardCall: '')
+            : await t.insertRowAbove(t.rows.first.seq))
+        : await t.insertRowAbove(cur.seq);
     dictationSeqOverride = nr.seq;
     dictationText = '';
     dictationRawText = '';
     _notify();
+    return nr;
   }
 
   ///  清理全表后复位采表状态(行号已变)

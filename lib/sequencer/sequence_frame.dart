@@ -1080,7 +1080,14 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                 //  Only表:增行(多归一扩容)与清理全表按钮
                 if (flow.onlyMode) ...[
                   fm.InkWell(
-                    onTap: () => flow.addReadingRow(),
+                    onTap: () async {
+                      //  高亮行上方插入全空行,随即进入口令编辑
+                      //  (键入标准口令;取消则留空行以后再填)
+                      final row = await flow.addReadingRow();
+                      if (row != null && mounted) {
+                        await _editStandardCall(row);
+                      }
+                    },
                     child: fm.Container(
                       margin: fm.EdgeInsets.only(right: 6),
                       padding: fm.EdgeInsets.symmetric(
