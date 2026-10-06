@@ -114,6 +114,10 @@ class CallerTable extends ChangeNotifier {
         }
       }
     }
+    //  Left 开头的口令不引入(用户:Left 已入前缀库,
+    //  Left 口令 = Left前缀 + 基础口令,由前缀表+流水线处理)
+    titles.removeWhere(
+        (t) => t.toLowerCase().startsWith('left'));
     return titles;
   }
 
@@ -715,6 +719,8 @@ class CallerTable extends ChangeNotifier {
     'All Four Couples': 'all four couples',
     'Outer Six': 'outer six',
     'Outside Couples': 'outside couples',
+    //  Left 作前缀(用户加入前缀库):Left 口令=Left前缀+基础口令
+    'Left': 'left',
   };
 
   ///  主语规范键列表(解码层语法用)
