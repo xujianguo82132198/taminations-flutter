@@ -531,12 +531,15 @@ class VoiceFlow extends ChangeNotifier {
     final m = RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
         .firstMatch(name);
     if (m != null) await table.purgeAboveLevel(m.group(1)!);
-    //  前缀主语归表管理(多归一):Only 表缺主语行时自动补种,
-    //  之后口令员用采样增删记号,不依赖程序员
-    if (name.endsWith('_Only')) {
-      final seeded = await table.seedPrefixRows();
-      if (seeded > 0)
-        debugPrint('seedPrefixRows: $seeded subject rows added');
+    //  采录库表(用户定义的建表过程):*_Prefix_Only 插入
+    //  前缀库、*_Sufix_Only 插入后缀库(软件内置公共库),
+    //  每条拷贝3行(3归1);级别表(ms等)不再种主语行
+    if (name.endsWith('_Prefix_Only') ||
+        name.endsWith('_Sufix_Only')) {
+      final n = await table.seedLibraryRows(
+          suffix: name.endsWith('_Sufix_Only'));
+      if (n > 0)
+        debugPrint('seedLibraryRows: $n rows inserted (3归1)');
     }
     //  记号碰撞体检(所有表,合并表更关键——喊口令直接查它):
     //  口令不同而记号相同的行,亮出行号提示重新识别
@@ -602,6 +605,30 @@ class VoiceFlow extends ChangeNotifier {
     //  存原始识别文本(记号=指纹,不改写);显示用规范形
     dictationRawText = text;
     dictationText = canonicalForm(text);
+    dictationCandidates = [];
+    conflictPending = false;
+    _notify();
+  }
+
+  ///  增加行(采录库表"增行"按钮):当前行口令再添一行
+  ///  空识别行(多归一扩容,4归1…),光标跳到新行
+  Future<void> addReadingRow() async {
+    final t = callerTable;
+    final row = currentDictationRow;
+    if (t == null || row == null) return;
+    final nr = await t.addRow(
+        recognized: '', standardCall: row.standardCall);
+    dictationSeqOverride = nr.seq;
+    dictationText = '';
+    dictationRawText = '';
+    _notify();
+  }
+
+  ///  清理全表后复位采表状态(行号已变)
+  void afterTableCleanup() {
+    dictationSeqOverride = null;
+    dictationText = '';
+    dictationRawText = '';
     dictationCandidates = [];
     conflictPending = false;
     _notify();

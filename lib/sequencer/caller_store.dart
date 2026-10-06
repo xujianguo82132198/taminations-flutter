@@ -682,6 +682,65 @@ class CallerTable extends ChangeNotifier {
   static List<String> get seedSubjectCanons =>
       _seedSubjects.values.toList();
 
+  ///  后缀库(软件内置,任何口令员都需要的公共库):
+  ///  数字1-6、分数、后缀口令(Sweep/Roll/Spread)
+  static const _seedSuffixes = <String, String>{
+    '1': 'one', '2': 'two', '3': 'three',
+    '4': 'four', '5': 'five', '6': 'six',
+    '1/4': 'one quarter', '1/2': 'one half',
+    '3/4': 'three quarter', '1-1/2': 'one and a half',
+    'Sweep 1/4': 'sweep a quarter',
+    'Roll': 'roll', 'Spread': 'spread',
+  };
+
+  ///  采录库表(*_Prefix_Only / *_Sufix_Only)建库:
+  ///  空表时插入全部库记录,每条拷贝3行(3归1:同一主语/
+  ///  后缀可录3种读法;不足的空着,录完清理时删空行;
+  ///  需要更多用"增行"按钮扩为4归1)
+  Future<int> seedLibraryRows({required bool suffix}) async {
+    if (rows.isNotEmpty) return 0;
+    final lib = suffix ? _seedSuffixes : _seedSubjects;
+    var n = 0;
+    for (final display in lib.keys) {
+      for (var i = 0; i < 3; i++) {
+        await addRow(recognized: '', standardCall: display);
+        n++;
+      }
+    }
+    return n;
+  }
+
+  ///  清理全表(采录完成后统一做):
+  ///  1) 删除空识别行(未录的拷贝行)
+  ///  2) 第2,3列完全相同的行只保留1行
+  ///  返回(删除空行数,去重行数)
+  Future<(int, int)> cleanupTable() async {
+    var empty = 0, dup = 0;
+    final seen = <String>{};
+    final keep = <CallerRow>[];
+    for (final r in rows) {
+      if (r.recognized.trim().isEmpty) {
+        empty++;
+        continue;
+      }
+      final key = '${r.recognized.trim().toLowerCase()}|'
+          '${r.standardCall.trim().toLowerCase()}';
+      if (seen.contains(key)) {
+        dup++;
+        continue;
+      }
+      seen.add(key);
+      keep.add(r);
+    }
+    rows
+      ..clear()
+      ..addAll(keep);
+    for (var i = 0; i < rows.length; i++) rows[i].seq = i + 1;
+    await save();
+    notifyListeners();
+    return (empty, dup);
+  }
+
   ///  主语的历史验证近音变体(token 清单)——只用于解码层
   ///  语法词表,不写进表:识别列(第2列)只能放口令员自己
   ///  采样录的记号(用户原则:不能依赖程序员)

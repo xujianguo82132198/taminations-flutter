@@ -1074,6 +1074,41 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     ),
                   ),
                 ),
+                //  Only表:增行(多归一扩容)与清理全表按钮
+                if (flow.onlyMode) ...[
+                  fm.InkWell(
+                    onTap: () => flow.addReadingRow(),
+                    child: fm.Container(
+                      margin: fm.EdgeInsets.only(right: 6),
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: fm.BoxDecoration(
+                          border: fm.Border.all(color: Color.BLUE),
+                          borderRadius:
+                              fm.BorderRadius.circular(6)),
+                      child: fm.Text('增行',
+                          style: fm.TextStyle(
+                              fontSize: 14, color: Color.BLUE,
+                              fontWeight: fm.FontWeight.bold)),
+                    ),
+                  ),
+                  fm.InkWell(
+                    onTap: _cleanupTableDialog,
+                    child: fm.Container(
+                      margin: fm.EdgeInsets.only(right: 6),
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: fm.BoxDecoration(
+                          border: fm.Border.all(color: Color.RED),
+                          borderRadius:
+                              fm.BorderRadius.circular(6)),
+                      child: fm.Text('清理',
+                          style: fm.TextStyle(
+                              fontSize: 14, color: Color.RED,
+                              fontWeight: fm.FontWeight.bold)),
+                    ),
+                  ),
+                ],
                 //  表退出:红底白字大按钮
                 //  (Only 模式移到下方圆钮旁,不占面板行)
                 if (!flow.onlyMode)
@@ -1325,6 +1360,47 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
 
   //  长按表名(仅Only表):增加记录——经 CALL 口令选择,
   //  防长口令手工输入出错;选完自动加行,再用圆钮采样
+  //  清理全表(采录完成后统一做):删空识别行、
+  //  第2,3列完全相同的行只保留1行(带确认)
+  Future<void> _cleanupTableDialog() async {
+    final t = flow.callerTable;
+    if (t == null || !flow.onlyMode) return;
+    final empty = t.rows
+        .where((r) => r.recognized.trim().isEmpty)
+        .length;
+    final ok = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+              title: fm.Text('清理全表',
+                  style: fm.TextStyle(fontSize: 22)),
+              content: fm.Text(
+                  '1. 删除空识别行($empty行)\n'
+                  '2. 第2,3列完全相同的行只保留1行\n\n'
+                  '确定清理?',
+                  style: fm.TextStyle(fontSize: 18)),
+              actions: [
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(false),
+                    child: fm.Text('取消',
+                        style: fm.TextStyle(fontSize: 18))),
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(true),
+                    child: fm.Text('确定清理',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.RED))),
+              ],
+            ));
+    if (ok != true || !mounted) return;
+    final (del, dup) = await t.cleanupTable();
+    flow.afterTableCleanup();
+    if (mounted)
+      fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+          backgroundColor: Color.BLUE,
+          content: fm.Text(
+              '已删空行$del行,去重$dup行,剩${t.rows.length}行',
+              style: fm.TextStyle(fontSize: 18))));
+  }
+
   Future<void> _addRecordDialog() async {
     if (!flow.onlyMode) return;
     //  结果类型 Object:按钮返回 true/'type'/'clear' 混合类型,
@@ -1521,7 +1597,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       });
   }
 
-  //  PTT"按下说话,抬起停止"提示浮层(按下显示,抬起消失)
+  //  PTT"按下圆钮,读右侧口令"提示浮层(按下显示,抬起消失)
   fm.OverlayEntry? _pttHint;
 
   void _showPttHint() {
@@ -1534,7 +1610,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               color: Color.BLUE,
               padding: const fm.EdgeInsets.symmetric(
                   vertical: 10, horizontal: 24),
-              child: const fm.Text('按下说话,抬起停止',
+              child: const fm.Text('按下圆钮,读右侧口令',
                   style: fm.TextStyle(fontSize: 24, color: Color.WHITE)),
             ),
           ),
