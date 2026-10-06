@@ -121,6 +121,11 @@ class CallerTable extends ChangeNotifier {
           break;
         }
       }
+      //  专用口令白名单(用户:Half Tag 是专用口令,整个识别,
+      //  前面的 half 保持原样;Half Sashay Family 同理——
+      //  没有裸 "Sashay" 核心可拆)
+      const keepWhole = {'half tag', 'half sashay family'};
+      if (keepWhole.contains(spoken)) isQuantifierCall = false;
       if (isQuantifierCall) continue;
       titles.add(entry.title);
     }
