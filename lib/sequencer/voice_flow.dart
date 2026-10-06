@@ -531,6 +531,17 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   Future<CallerTable> openCallerTable(String name) async {
+    //  防空表(用户要求:不能出现空表):新建表名必须带种库
+    //  后缀(_Prefix_Only/_Sufix_Only/级别_Only,打开时自动
+    //  种库),裸名且不存在则拒绝——不再凭空建空表
+    final seedable = RegExp(
+            r'_(Prefix|Sufix|ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
+        .hasMatch(name);
+    if (!seedable && !await CallerTable.exists(name)) {
+      throw Exception('表 "$name" 不存在。\n'
+          '新建表请用带后缀的名字:\n'
+          'xxx_Prefix_Only / xxx_Sufix_Only / xxx_ms_Only');
+    }
     final old = callerTable;
     if (old != null)
       old.removeListener(_onTableChanged);

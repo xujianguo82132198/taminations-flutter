@@ -20,6 +20,7 @@
 
 
 import 'dart:async';
+import 'dart:convert' show jsonDecode;
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'dart:io' as io;
@@ -2147,6 +2148,23 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
   Future<void> _refreshTableNames(
       SharedPreferences prefs, List<String> tableNames) async {
+    //  自动清除空表(0行):登录时误建的裸名空表不再残留
+    for (final n in CallerTable.listTableNames(prefs)) {
+      final raw = prefs.getString('口令员表 $n');
+      var empty = false;
+      try {
+        final d = jsonDecode(raw ?? '{}');
+        empty = d is! Map ||
+            d['rows'] is! List ||
+            (d['rows'] as List).isEmpty;
+      } catch (_) {
+        empty = true;
+      }
+      if (empty) {
+        await CallerTable.deleteTable(prefs, n);
+        debugPrint('空表已自动清除: $n');
+      }
+    }
     tableNames.clear();
     tableNames.addAll(CallerTable.listTableNames(prefs));
   }
