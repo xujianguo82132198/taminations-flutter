@@ -512,6 +512,15 @@ class VoiceFlow extends ChangeNotifier {
     tokenCollisionRows = [];
     collisionNoticeShown = false;
     dictationSeqOverride = null;
+    //  三表流水线复位
+    tableFlags = '';
+    prefixResult = '';
+    callResult = '';
+    suffixResult = '';
+    assembledCall = '';
+    _lastCommandSeq = 0;
+    _prefixTable = null;
+    _suffixTable = null;
     callerTable?.removeListener(_onTableChanged);
     callerTable = null;
     tableMode = false;
@@ -631,6 +640,149 @@ class VoiceFlow extends ChangeNotifier {
     dictationRawText = '';
     dictationCandidates = [];
     conflictPending = false;
+    _notify();
+  }
+
+  //  ---- 三表流水线(用户定义的喊口令过程) ----
+  //  0.9秒静音=口令边界;0.3秒空隙分段;最长段=口令;
+  //  前缀进Prefix非Only表(P),口令进当前合并表(_C),
+  //  后缀进Sufix非Only表(_S);三结果分别存储防冲掉,
+  //  最后组合送输入行加回车
+  ///  进表标志显示块:P/_C/_S 递加(如"P_C_S")
+  String tableFlags = '';
+  ///  三个映射结果分别存储(防冲掉)
+  String prefixResult = '';
+  String callResult = '';
+  String suffixResult = '';
+  ///  组合完成的整条口令(输入行执行后由 consumeAssembled 清)
+  String assembledCall = '';
+  int _lastCommandSeq = 0;
+  CallerTable? _prefixTable;
+  CallerTable? _suffixTable;
+
+  ///  口令员名(去掉级别后缀):XuJianguo_ms -> XuJianguo
+  String get _callerStem {
+    final n = callerTable?.callerName ?? callerName;
+    final m =
+        RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)$').firstMatch(n) ??
+            RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
+                .firstMatch(n);
+    return m == null ? n.replaceAll('_Only', '') : n.substring(0, m.start);
+  }
+
+  Future<CallerTable?> _loadAuxTable(String name) async {
+    try {
+      if (!await CallerTable.exists(name)) return null;
+      return await CallerTable.open(name);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ///  语音命令完成(0.9秒边界):Only 采表走采样路径,
+  ///  呼叫模式(合并表)走三表流水线
+  void _onSpeech() {
+    final s = speech;
+    if (s == null || onlyMode) return;
+    final seq = s.commandSeq;
+    if (seq == _lastCommandSeq) return;
+    _lastCommandSeq = seq;
+    unawaited(_processCommand(s.lastCommandSegments));
+  }
+
+  ///  命令分段分析+三表检索+组合。
+  ///  分段规则(用户定义):三段=前缀/口令/后缀;两段=最长段
+  ///  是口令,另一段按位置定前后缀(在前=前缀,在后=后缀);
+  ///  一段=只有口令
+  Future<void> _processCommand(List<String> segs) async {
+    tableFlags = '';
+    prefixResult = '';
+    callResult = '';
+    suffixResult = '';
+    assembledCall = '';
+    if (segs.isEmpty) {
+      _notify();
+      return;
+    }
+    String callSeg;
+    String? prefixSeg;
+    String? suffixSeg;
+    if (segs.length == 1) {
+      callSeg = segs[0];
+    } else if (segs.length == 2) {
+      callSeg = segs[0].length >= segs[1].length ? segs[0] : segs[1];
+      final other = callSeg == segs[0] ? segs[1] : segs[0];
+      if (callSeg == segs[0]) {
+        suffixSeg = other;
+      } else {
+        prefixSeg = other;
+      }
+    } else {
+      prefixSeg = segs[0];
+      callSeg = segs.length == 3
+          ? segs[1]
+          : segs.sublist(1, segs.length - 1).join(' ');
+      suffixSeg = segs.last;
+    }
+    final stem = _callerStem;
+    //  前缀段 → Prefix 非Only表
+    if (prefixSeg != null) {
+      _prefixTable ??= await _loadAuxTable('${stem}Prefix');
+      final t = _prefixTable;
+      if (t != null && t.rows.isNotEmpty) {
+        final r = t.lookupSequential(prefixSeg);
+        debugPrint('P-lookup "$prefixSeg" '
+            'err=${r.error.toStringAsFixed(2)} '
+            '-> ${r.hit?.standardCall}');
+        if (r.hit != null && r.error <= 0.45) {
+          prefixResult = r.hit!.standardCall;
+          tableFlags = 'P';
+        }
+      }
+    }
+    //  口令段 → 当前合并表
+    final act = callerTable;
+    if (act != null && callSeg.isNotBlank) {
+      final r = act.lookupSequential(callSeg);
+      debugPrint('C-lookup "$callSeg" '
+          'err=${r.error.toStringAsFixed(2)} '
+          '-> ${r.hit?.standardCall}');
+      if (r.hit != null && r.error <= 0.45) {
+        callResult = r.hit!.standardCall;
+        tableFlags += tableFlags.isEmpty ? 'C' : '_C';
+      }
+    }
+    //  后缀段 → Sufix 非Only表
+    if (suffixSeg != null) {
+      _suffixTable ??= await _loadAuxTable('${stem}Sufix');
+      final t = _suffixTable;
+      if (t != null && t.rows.isNotEmpty) {
+        final r = t.lookupSequential(suffixSeg);
+        debugPrint('S-lookup "$suffixSeg" '
+            'err=${r.error.toStringAsFixed(2)} '
+            '-> ${r.hit?.standardCall}');
+        if (r.hit != null && r.error <= 0.45) {
+          suffixResult = r.hit!.standardCall;
+          tableFlags += tableFlags.isEmpty ? 'S' : '_S';
+        }
+      }
+    }
+    //  组合为整条口令(三个结果分别存储,最后组合)
+    if (callResult.isNotBlank) {
+      assembledCall = [prefixResult, callResult, suffixResult]
+          .where((s) => s.isNotBlank)
+          .join(' ');
+      debugPrint('assembled "$assembledCall" [$tableFlags]');
+    } else {
+      debugPrint('pipeline miss: call lookup failed '
+          'for "$callSeg" [flags=$tableFlags]');
+    }
+    _notify();
+  }
+
+  ///  组合口令已被输入行执行
+  void consumeAssembled() {
+    assembledCall = '';
     _notify();
   }
 
@@ -796,14 +948,9 @@ class VoiceFlow extends ChangeNotifier {
     conflictPending = false;
     dictationText = '';
     dictationRawText = '';
-    //  家族传播(人类学习法):基础口令录好后,同族的变体
-    //  (Left前缀/分数/数字)自动推算记号——变体口令的
-    //  区别词("left"/"one quarter"等)按标准口令的差异
-    //  位置插入到已录记号中,同类发音自动适用
-    final filled =
-        await _propagateToVariants(t, row, newToken);
-    if (filled > 0)
-      debugPrint('family propagation: filled $filled variants');
+    //  家族传播已按用户要求取消:记号只能来自口令员
+    //  自己的采样,变体(Left/分数/数字)也要各自录,
+    //  完全留给口令员自己掌握
     dictationCandidates = [];
     //  确认后:光标移到下一个需要录入的行(第2列为空)。
     //  物理的下一行已录完则继续往下找,直到找到空行为止;
@@ -1016,7 +1163,9 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  输入行创建/重建时调用,注入其语音识别器并取消孤儿回收
   void attach(DualSpeechProvider speechProvider) {
+    speechProvider.removeListener(_onSpeech);
     speech = speechProvider;
+    speechProvider.addListener(_onSpeech);
     _orphanTimer?.cancel();
     _orphanTimer = null;
   }

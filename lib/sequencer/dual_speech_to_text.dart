@@ -61,6 +61,13 @@ class DualSpeechProvider extends ChangeNotifier {
   List<String> get segments =>
       engine == 'vosk' ? vosk.segments : const <String>[];
 
+  ///  命令完成事件(连续模式,静音0.9秒):整条口令的分段
+  ///  快照与完成计数,三表流水线取用
+  int get commandSeq =>
+      engine == 'vosk' ? vosk.commandSeq : 0;
+  List<String> get lastCommandSegments =>
+      engine == 'vosk' ? vosk.lastCommandSegments : const <String>[];
+
   DualSpeechProvider() {
     _loadSetting();
     //  任一引擎通知都向上转发

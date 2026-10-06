@@ -83,6 +83,13 @@ class CallerTable extends ChangeNotifier {
     return names;
   }
 
+  ///  表是否已存在(不创建):流水线加载辅助表(Prefix/Sufix)
+  ///  用,避免凭空落盘空表
+  static Future<bool> exists(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey('$_keyPrefix$name');
+  }
+
   // ------------------------------------------------ 建表向导
 
   ///  建表步骤 A:建立 "<级别>Only" 空表(第3列预写该级别全部口令,
@@ -527,21 +534,15 @@ class CallerTable extends ChangeNotifier {
     }
     for (final r in onlyGrouped.values) {
       final callKey = r.standardCall.trim().toLowerCase();
-      final hasSource = merged.any((m) =>
-          m.standardCall.trim().toLowerCase() == callKey);
       if (r.recognized.isNotBlank) {
         //  用户已录:移除源表同口令行,以新记号覆盖
         merged.removeWhere((m) =>
             m.standardCall.trim().toLowerCase() == callKey);
         merged.add(CallerRow(seq: 0,
             recognized: r.recognized, standardCall: r.standardCall));
-      } else if (!hasSource) {
-        //  未录且源表没有:以口令读法当默认记号补入
-        final token = spokenForm(r.standardCall);
-        if (token.isNotBlank)
-          merged.add(CallerRow(seq: 0,
-              recognized: token, standardCall: r.standardCall));
       }
+      //  未录行不补默认记号(用户原则:记号只能来自口令员
+      //  自己的采样,完全留给口令员掌握;未录=不参与匹配)
     }
     merged.sort((a, b) =>
         a.recognized.toLowerCase().compareTo(b.recognized.toLowerCase()));

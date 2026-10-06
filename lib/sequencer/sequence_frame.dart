@@ -1036,7 +1036,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
             fm.Icon(fm.Icons.unfold_more, size: 20),
             fm.SizedBox(width: 6),
             fm.Text(
-                '${flow.callerName}(${table.rows.length}条) ▸',
+                '${flow.callerName}(${table.rows.length}条)'
+                '${flow.tableFlags.isNotBlank ? ' ${flow.tableFlags}' : ''} ▸',
                 style: fm.TextStyle(
                     fontWeight: fm.FontWeight.bold, fontSize: 16)),
           ]),
@@ -1068,7 +1069,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                         flow.onlyMode ? _addRecordDialog : _panelSearch,
                     child: fm.Center(
                       child: fm.Text(
-                      '${flow.callerName}(${table.rows.length}条)',
+                      '${flow.callerName}(${table.rows.length}条)'
+                          '${flow.tableFlags.isNotBlank ? ' ${flow.tableFlags}' : ''}',
                       style: fm.TextStyle(
                       fontWeight: fm.FontWeight.bold, fontSize: 16)),
                     ),
@@ -1780,84 +1782,22 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
           }
           }
         }
-        //  1) 喊口令流式结果:口令员映射表顺序查找,对每个候选识别句,
-        //     误差最小的候选记录居中突出显示,误差小于阈值
-        //     命中则直接取该记录的第三列(标准口令)输出给系统。
+        //  1) 喊口令(三表流水线,用户定义):静音0.9秒=口令
+        //     边界,VoiceFlow 按分段检索 Prefix(P)/当前合并
+        //     表(_C)/Sufix(_S)三表,结果分别存储防冲掉,最后
+        //     组合为整条口令;这里只负责送输入行+回车执行。
         //     Only 采表模式绝不自动执行口令
         else if (!flow.onlyMode) {
-          //  所有候选逐个查表,取误差最小者;误差过大则忽略不执行
-          //  (识别器常把 "circle left" 首选听成 "circle lead",
-          //   而正确听法就在后面的候选里)
-          CallerRow? bestRow;
-          var bestSentence = '';
-          var bestErr = double.infinity;
-          final table = flow.callerTable;
-          if (table != null && flow.isActive) {
-            for (var i = 0;
-                i < speech.lastResult!.alternates.length;
-                i++) {
-              final sentence = speech.lastResult!.alternates[i]
-                  .recognizedWords.replaceAll('\W'.r, ' ').trim();
-              if (sentence.isBlank) continue;
-              final row = flow.lookupInTable(sentence);
-              if (row != null &&
-                  flow.lastCandidateError < bestErr) {
-                bestErr = flow.lastCandidateError;
-                bestRow = row;
-                bestSentence = sentence;
-              }
-            }
-          }
-          //  误差门槛(用户要求收紧):实测正确命中≤0.38、
-          //  缺音节口令0.45-0.50,杂音垃圾命中也在0.31-0.50;
-          //  取 0.45 分界,配合词数比例防线(核心词数不足记号
-          //  一半=无关联不匹配)拦短杂音;超过视为未查到
-          //  (不执行,防止张冠李戴)
-          if (bestRow != null && bestErr <= 0.45) {
-            //  用最优候选再查一次,刷新界面高亮显示
-            flow.lookupInTable(bestSentence);
-            final hitRow = bestRow!;
-            debugPrint('VoiceFlow table hit: "$bestSentence" '
-                '(err=${bestErr.toStringAsFixed(2)}) '
-                '-> "${hitRow.standardCall}"');
+          if (flow.assembledCall.isNotBlank) {
+            final call = flow.assembledCall;
+            flow.consumeAssembled();
+            debugPrint('pipeline execute: "$call"');
             later(() {
               _isVoiceCall = true;
-              _sendOneLine(model, hitRow.standardCall);
+              _sendOneLine(model, call);
             });
-            //  后缀口令(Sweep 1/4/Roll/Spread):独立口令,
-            //  只作后缀用——主口令执行后再单独执行它
-            //  (等效连发两条命令:主口令+回车、后缀口令+回车)
-            final dec =
-                CallerTable.decomposeCall(bestSentence);
-            final suf = dec.$4;
-            if (suf.contains('sweep') ||
-                suf.contains('roll') ||
-                suf.contains('spread')) {
-              final suffixCall = StringBuffer();
-              for (final w in suf) {
-                if (w == 'sweep') {
-                  suffixCall.write('Sweep 1/4');
-                } else if (w == 'roll' && suffixCall.isEmpty) {
-                  suffixCall.write('Roll');
-                } else if (w == 'spread' &&
-                    suffixCall.isEmpty) {
-                  suffixCall.write('Spread');
-                }
-              }
-              final sc = suffixCall.toString();
-              if (sc.isNotEmpty) {
-                debugPrint('suffix call -> "$sc"');
-                later(() {
-                  _isVoiceCall = true;
-                  _sendOneLine(model, sc);
-                });
-              }
-            }
           } else {
-            //  喊口令时映射表未查到(或误差过大):
-            //  不予理睬(完全忽略,不执行)
-            debugPrint('VoiceFlow table miss '
-                '(bestErr=${bestErr.toStringAsFixed(2)}) -> ignored');
+            debugPrint('pipeline: no assembled call -> ignored');
           }
         }
         //  处理完一条结果后立即清空,防止 build 重复消费同一结果

@@ -103,6 +103,39 @@ class VoskSpeechToText extends ChangeNotifier {
   String _segKnownFinals = '';
   String _segKnownPartial = '';
 
+  ///  命令完成(静音0.9秒判定)事件:连续模式下整条口令的
+  ///  分段快照与完成计数,供三表流水线取用
+  int _commandSeq = 0;
+  int get commandSeq => _commandSeq;
+  List<String> _lastCommandSegments = const [];
+  List<String> get lastCommandSegments =>
+      List.unmodifiable(_lastCommandSegments);
+
+  ///  命令收尾:整条口令的识别结果一次性送出
+  ///  (连续模式;取代旧的1.3秒合并窗——0.9秒静音即口令边界)
+  void _completeCommand() {
+    final text = _segKnownText().trim();
+    if (!_continuous) return;
+    _lastCommandSegments = List.of(_segments);
+    if (text.isNotEmpty) {
+      _commandSeq++;
+      final alts = <SpeechRecognitionAlternative>[
+        SpeechRecognitionAlternative(text, 1.0),
+        if (_lastCommandSegments.length == 1)
+          for (final t in _sessionAlts)
+            if (t != text) SpeechRecognitionAlternative(t, 1.0),
+      ];
+      _lastResult = SpeechRecognitionResult(alts, true);
+      _log('command complete (${_lastCommandSegments.length} seg): '
+          '"$text"');
+    }
+    _sessionText = '';
+    _sessionAlts.clear();
+    _streamSegments = 0;
+    _streamMergeTimer?.cancel();
+    _streamMergeTimer = null;
+  }
+
   void _segReset() {
     _segments.clear();
     _segInSegment = false;
@@ -143,9 +176,10 @@ class VoskSpeechToText extends ChangeNotifier {
         }
       }
     } else if (_segments.isNotEmpty && quietFor >= _segArmSilence) {
-      //  静音满0.9秒:本条口令结束,重新待命
-      //  (上层组合结果已展示,由其自行保留/覆盖)
-      _log('segments re-armed after $quietFor silence');
+      //  静音满0.9秒:本条口令结束——收尾送出后重新待命
+      //  (连续模式=命令完成事件,驱动三表流水线;
+      //   采样模式由上层组合结果自行保留)
+      _completeCommand();
       _segReset();
     }
   }
@@ -423,9 +457,9 @@ class VoskSpeechToText extends ChangeNotifier {
             _segKnownPartial = '';
           }
           if (_continuous) {
-            //  流式喊口令:合并窗口内拼接多段,窗口静默后
-            //  才作为完整口令送出(候选以拼接句为准;
-            //  多段拼接时片段候选不送,防片段误命中)
+            //  连续模式:final只做累计——整条口令由静音0.9秒
+            //  的命令边界收尾送出(_completeCommand),
+            //  不再用1.3秒合并窗
             _sessionText = _sessionText.isEmpty
                 ? texts.first : '$_sessionText ${texts.first}';
             if (_streamSegments == 0) {
@@ -434,53 +468,13 @@ class VoskSpeechToText extends ChangeNotifier {
                 ..addAll(texts);
             }
             _streamSegments++;
-            _streamMergeTimer?.cancel();
-            _streamMergeTimer =
-                Timer(const Duration(milliseconds: 1300), () {
-              _log('stream merged ($_streamSegments seg): '
-                  '"$_sessionText"');
-              final alts = <SpeechRecognitionAlternative>[
-                SpeechRecognitionAlternative(_sessionText, 1.0),
-                //  单段:带上本句候选;多段:只用拼接句
-                if (_streamSegments == 1)
-                  for (final t in _sessionAlts)
-                    if (t != _sessionText)
-                      SpeechRecognitionAlternative(t, 1.0),
-              ];
-              _lastResult =
-                  SpeechRecognitionResult(alts, true);
-              _sessionText = '';
-              _sessionAlts.clear();
-              _streamSegments = 0;
-              _notify();
-            });
           } else {
-            //  采样:同一轮内分段拼接、候选累积。
-            //  停顿产生的前缀段(整段只有主语/分数)按规范
-            //  前缀缓存,后续段拼为 "前缀 口令" 干净形式
+            //  采样:同一轮内分段**原始**拼接、候选累积。
+            //  不再做前缀段的规范形改写(用户原则:记号是
+            //  识别器指纹,录什么存什么,改写交给口令员掌握)
             final seg = texts.first;
-            final d = CallerTable.decomposeCall(seg);
-            if (d.$3.isEmpty &&
-                (d.$1.isNotEmpty || d.$4.isNotEmpty)) {
-              //  纯前缀段:记规范形,不拼入正文
-              final p = d.$1.isNotEmpty
-                  ? d.$1.join(' ') : d.$4.join(' ');
-              if (_segmentPrefix.isEmpty) {
-                _segmentPrefix = p;
-                _log('segment prefix: "$p"');
-              }
-            } else {
-              _sessionText = _sessionText.isEmpty
-                  ? (_segmentPrefix.isEmpty
-                      ? seg : '$_segmentPrefix $seg')
-                  : (_segmentPrefix.isEmpty
-                      ? '$_sessionText $seg'
-                      : '$_sessionText $seg');
-              if (_segmentPrefix.isNotEmpty &&
-                  !_sessionText.startsWith(_segmentPrefix)) {
-                _sessionText = '$_segmentPrefix $_sessionText';
-              }
-            }
+            _sessionText = _sessionText.isEmpty
+                ? seg : '$_sessionText $seg';
             for (final t in texts) {
               if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
             }
@@ -495,8 +489,9 @@ class VoskSpeechToText extends ChangeNotifier {
       case 'speech_amplitude':
         if (event.level != null) {
           _lastLevel = event.level!;
-          //  采样会话:振幅驱动分段(0.3s收段/0.9s重待命)
-          if (_sampleSession && _isListening) {
+          //  振幅驱动分段(0.3s收段/0.9s口令边界):
+          //  采样与连续监听同一套(识别过程必须一致)
+          if (_isListening) {
             _segmentStep(event.level!);
           }
           if (_soundLevel) _notify();
