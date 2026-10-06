@@ -92,32 +92,20 @@ class CallerTable extends ChangeNotifier {
 
   // ------------------------------------------------ 建表向导
 
-  ///  级别核心口令标题(不含子口令):顶层独立口令取本身,
-  ///  家族组取第一个成员作代表(如 Square Thru 家族 →
-  ///  "Square Thru")。用于 *_ms_Only 等采录表建表
+  ///  级别核心口令标题:与 Calls 页面同一取法——
+  ///  callIndex 的 CallEntry 一条一个口令家族(Calls->
+  ///  Mainstream 页面显示的总数即此数,MS 为 82),
+  ///  不含子口令。用于 *_ms_Only 等采录表建表
   static List<String> coreCallTitles(String level) {
     final titles = <String>[];
     for (final entry in callIndex) {
-      if (entry.level != level) continue;
-      for (final item in entry.calls) {
-        switch (item) {
-          case AnimatedCall():
-            if (item.title.isNotBlank) titles.add(item.title);
-          case AnimatedCallGroup g:
-            final flat = flattenAnimatedCallList(g.calls);
-            if (flat.isNotEmpty && flat.first.title.isNotBlank)
-              titles.add(flat.first.title);
-          case AnimatedCallHeader h:
-            final flat = flattenAnimatedCallList(h.calls);
-            if (flat.isNotEmpty && flat.first.title.isNotBlank)
-              titles.add(flat.first.title);
-        }
-      }
+      if (!entry.level.startsWith(level)) continue;
+      if (entry.title.isBlank) continue;
+      //  Left 开头的口令不引入(用户:Left 已入前缀库,
+      //  Left 口令 = Left前缀 + 基础口令,由前缀表+流水线处理)
+      if (entry.title.toLowerCase().startsWith('left')) continue;
+      titles.add(entry.title);
     }
-    //  Left 开头的口令不引入(用户:Left 已入前缀库,
-    //  Left 口令 = Left前缀 + 基础口令,由前缀表+流水线处理)
-    titles.removeWhere(
-        (t) => t.toLowerCase().startsWith('left'));
     return titles;
   }
 
