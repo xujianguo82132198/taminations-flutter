@@ -731,10 +731,16 @@ class CallerTable extends ChangeNotifier {
   ///  后缀可录3种读法;不足的空着,录完清理时删空行;
   ///  需要更多用"增行"按钮扩为4归1)
   Future<int> seedLibraryRows({required bool suffix}) async {
-    if (rows.isNotEmpty) return 0;
+    //  按条目查缺补漏:库中没有该条目任何行才补3行
+    //  (库后来新增的条目——如 Left——也能补进已建的表;
+    //   已录/已清理过的条目不受影响,不重复插入)
     final lib = suffix ? _seedSuffixes : _seedSubjects;
     var n = 0;
     for (final display in lib.keys) {
+      final dl = display.toLowerCase();
+      final exists = rows.any((r) =>
+          r.standardCall.trim().toLowerCase() == dl);
+      if (exists) continue;
       for (var i = 0; i < 3; i++) {
         await addRow(recognized: '', standardCall: display);
         n++;
