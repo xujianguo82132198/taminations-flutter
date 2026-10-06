@@ -340,14 +340,11 @@ class VoiceFlow extends ChangeNotifier {
       });
       return;
     }
-    //  显示用规范形(前缀归一,便于口令员看),但**存库必须
-    //  存原始识别文本**——记号是识别器的指纹,改写它就破坏
-    //  "同一人多次读同一口令,识别结果相近"这一查表前提
-    //  (用户发现:改写过的记号在麦克风识别时全对不上)
+    //  所见即所存(用户原则):黄框显示原始识别文本,
+    //  存库同一份——记号是识别器的指纹,任何改写都会
+    //  破坏查表前提(改写过的记号在麦克风识别时全对不上)
     dictationRawText = text;
-    text = canonicalForm(text);
-    debugPrint('Only result: "$text" (raw="$dictationRawText") '
-        'candidates=$candidates');
+    debugPrint('Only result: "$text" candidates=$candidates');
     //  分解诊断:每个候选的前缀/核心/后缀
     for (final c in candidates.take(3)) {
       final d = CallerTable.decomposeCall(c);
@@ -630,9 +627,9 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  口令员从候选中点选一条作为采表结果
   void chooseDictation(String text) {
-    //  存原始识别文本(记号=指纹,不改写);显示用规范形
+    //  所见即所存:显示与存库都是原始识别文本
     dictationRawText = text;
-    dictationText = canonicalForm(text);
+    dictationText = text;
     dictationCandidates = [];
     conflictPending = false;
     _notify();
