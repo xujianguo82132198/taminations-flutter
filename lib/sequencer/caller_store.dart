@@ -92,6 +92,44 @@ class CallerTable extends ChangeNotifier {
 
   // ------------------------------------------------ 建表向导
 
+  ///  级别核心口令标题(不含子口令):顶层独立口令取本身,
+  ///  家族组取第一个成员作代表(如 Square Thru 家族 →
+  ///  "Square Thru")。用于 *_ms_Only 等采录表建表
+  static List<String> coreCallTitles(String level) {
+    final titles = <String>[];
+    for (final entry in callIndex) {
+      if (entry.level != level) continue;
+      for (final item in entry.calls) {
+        switch (item) {
+          case AnimatedCall():
+            if (item.title.isNotBlank) titles.add(item.title);
+          case AnimatedCallGroup g:
+            final flat = flattenAnimatedCallList(g.calls);
+            if (flat.isNotEmpty && flat.first.title.isNotBlank)
+              titles.add(flat.first.title);
+          case AnimatedCallHeader h:
+            final flat = flattenAnimatedCallList(h.calls);
+            if (flat.isNotEmpty && flat.first.title.isNotBlank)
+              titles.add(flat.first.title);
+        }
+      }
+    }
+    return titles;
+  }
+
+  ///  级别采录表(*_ms_Only 等)建表:空表时插入该级别
+  ///  **核心口令**(不含子口令,MS 约84条)每条3行(3归1)
+  Future<int> seedLevelRows(String level) async {
+    if (rows.isNotEmpty) return 0;
+    final titles = coreCallTitles(level);
+    for (final t in titles) {
+      for (var i = 0; i < 3; i++) {
+        await addRow(recognized: '', standardCall: t);
+      }
+    }
+    return titles.length * 3;
+  }
+
   ///  建表步骤 A:建立 "<级别>Only" 空表(第3列预写该级别全部口令,
   ///  含子口令;第2列留空待逐行朗读识别)。已存在则直接返回(续建)
   static Future<CallerTable> createLevelOnlyTable(

@@ -539,7 +539,15 @@ class VoiceFlow extends ChangeNotifier {
     //  (防止测试时误加的高级口令经合并带到其他级别)
     final m = RegExp(r'_(ms|plus|a1|a2|c1|c2|c3a|c3b)_Only$')
         .firstMatch(name);
-    if (m != null) await table.purgeAboveLevel(m.group(1)!);
+    if (m != null) {
+      await table.purgeAboveLevel(m.group(1)!);
+      //  级别采录表建表:空表时插入该级别核心口令
+      //  (不含子口令,MS 约84条)每条3行(3归1)
+      final seededLv = await table.seedLevelRows(m.group(1)!);
+      if (seededLv > 0)
+        debugPrint('seedLevelRows(${m.group(1)}): '
+            '${seededLv ~/ 3} calls x3 = $seededLv rows');
+    }
     //  采录库表(用户定义的建表过程):*_Prefix_Only 插入
     //  前缀库、*_Sufix_Only 插入后缀库(软件内置公共库),
     //  每条拷贝3行(3归1);级别表(ms等)不再种主语行
