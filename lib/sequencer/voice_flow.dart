@@ -612,11 +612,15 @@ class VoiceFlow extends ChangeNotifier {
     final t = callerTable;
     if (t == null || !onlyMode) return null;
     final cur = currentDictationRow;
-    final nr = cur == null
-        ? (t.rows.isEmpty
-            ? await t.addRow(recognized: '', standardCall: '')
-            : await t.insertRowAbove(t.rows.first.seq))
-        : await t.insertRowAbove(cur.seq);
+    if (cur == null) return null;   //  无高亮行:界面询问位置
+    return addReadingRowAt(cur.seq);
+  }
+
+  ///  在指定行之上插入全空行(增行功能的实际执行)
+  Future<CallerRow?> addReadingRowAt(int aboveSeq) async {
+    final t = callerTable;
+    if (t == null) return null;
+    final nr = await t.insertRowAbove(aboveSeq);
     dictationSeqOverride = nr.seq;
     dictationText = '';
     dictationRawText = '';

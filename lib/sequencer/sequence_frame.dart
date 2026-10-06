@@ -1082,8 +1082,54 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                   fm.InkWell(
                     onTap: () async {
                       //  高亮行上方插入全空行,随即进入口令编辑
-                      //  (键入标准口令;取消则留空行以后再填)
-                      final row = await flow.addReadingRow();
+                      //  (键入标准口令;取消则留空行以后再填)。
+                      //  无高亮行时:询问操作者插入位置(行号)
+                      CallerRow? row;
+                      if (flow.currentDictationRow != null) {
+                        row = await flow.addReadingRow();
+                      } else {
+                        final t = flow.callerTable;
+                        if (t == null || t.rows.isEmpty) return;
+                        //  询问操作者插入位置(行号)
+                        final posCtl = fm.TextEditingController();
+                        final input = await fm.showDialog<String>(
+                            context: context,
+                            builder: (pctx) => fm.AlertDialog(
+                              title: fm.Text('增行位置',
+                                  style: fm.TextStyle(fontSize: 22)),
+                              content: fm.TextField(
+                                  controller: posCtl,
+                                  autofocus: true,
+                                  keyboardType:
+                                      fm.TextInputType.number,
+                                  style: fm.TextStyle(fontSize: 22),
+                                  decoration: fm.InputDecoration(
+                                      hintText:
+                                          '插到第几行之上?(1-${t.rows.length})',
+                                      hintStyle:
+                                          fm.TextStyle(fontSize: 18))),
+                              actions: [
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(pctx).pop(),
+                                    child: fm.Text('取消',
+                                        style: fm.TextStyle(
+                                            fontSize: 18))),
+                                fm.TextButton(
+                                    onPressed: () => fm.Navigator.of(pctx)
+                                        .pop(posCtl.text),
+                                    child: fm.Text('确定',
+                                        style: fm.TextStyle(
+                                            fontSize: 18))),
+                              ],
+                            ));
+                        posCtl.dispose();
+                        final n = int.tryParse((input ?? '').trim());
+                        if (n == null || n < 1 || n > t.rows.length) {
+                          return;
+                        }
+                        row = await flow.addReadingRowAt(n);
+                      }
                       if (row != null && mounted) {
                         await _editStandardCall(row);
                       }
