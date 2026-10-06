@@ -133,6 +133,7 @@ class VoiceFlow extends ChangeNotifier {
     dictationPartial = '';
     dictationCandidates = [];
     dictationSegmentText = '';
+    dictationRawText = '';
     _segProcessedCount = 0;
     _segFirstWasPrefix = false;
     conflictPending = false;
@@ -339,11 +340,14 @@ class VoiceFlow extends ChangeNotifier {
       });
       return;
     }
-    //  显示与存库用规范形:前缀归一(home→ends)、
-    //  Left标记、核心、后缀按分解重排——用户看到
-    //  "ends forward"而非"home to forward"
+    //  显示用规范形(前缀归一,便于口令员看),但**存库必须
+    //  存原始识别文本**——记号是识别器的指纹,改写它就破坏
+    //  "同一人多次读同一口令,识别结果相近"这一查表前提
+    //  (用户发现:改写过的记号在麦克风识别时全对不上)
+    dictationRawText = text;
     text = canonicalForm(text);
-    debugPrint('Only result: "$text" candidates=$candidates');
+    debugPrint('Only result: "$text" (raw="$dictationRawText") '
+        'candidates=$candidates');
     //  分解诊断:每个候选的前缀/核心/后缀
     for (final c in candidates.take(3)) {
       final d = CallerTable.decomposeCall(c);
@@ -502,6 +506,7 @@ class VoiceFlow extends ChangeNotifier {
     dictationPartial = '';
     dictationCandidates = [];
     dictationSegmentText = '';
+    dictationRawText = '';
     _segProcessedCount = 0;
     _segFirstWasPrefix = false;
     tokenCollisionRows = [];
@@ -544,6 +549,14 @@ class VoiceFlow extends ChangeNotifier {
     collisionNoticeShown = false;
     if (tokenCollisionRows.isNotEmpty)
       debugPrint('token collisions: ${tokenCollisionRows.length}');
+    //  诊断:全表转储(排查记号与所闻差异)。
+    //  记号必须是识别器原始输出;此转储用于比对"存的记号"
+    //  与"麦克风实际听到"是否同一形态
+    debugPrint('TABLE DUMP ${table.callerName} '
+        '(${table.rows.length} rows)');
+    for (final r in table.rows) {
+      debugPrint('ROW ${r.seq}|${r.recognized}|${r.standardCall}');
+    }
     callerTable = table;
     table.addListener(_onTableChanged);
     _notify();
@@ -565,7 +578,13 @@ class VoiceFlow extends ChangeNotifier {
   //  ---- Only 表采表模式(建表朗读录入) ----
   ///  Only 采表:待确认的识别文字(识别结果暂存,
   ///  "识别确认"后写入表中)
+  ///  语音识别句(黄框显示,规范形仅供人看)
   String dictationText = '';
+
+  ///  原始识别文本(未改写)——存库用这个:记号是识别器
+  ///  指纹,存改写文本会破坏"同一人多次读同一口令识别
+  /// 结果相近"的查表前提
+  String dictationRawText = '';
 
   ///  采样中的实时中间结果(边念边显示,只作提示)
   String dictationPartial = '';
@@ -580,6 +599,8 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  口令员从候选中点选一条作为采表结果
   void chooseDictation(String text) {
+    //  存原始识别文本(记号=指纹,不改写);显示用规范形
+    dictationRawText = text;
     dictationText = canonicalForm(text);
     dictationCandidates = [];
     conflictPending = false;
@@ -673,6 +694,13 @@ class VoiceFlow extends ChangeNotifier {
     debugPrint('confirmDictation: text="$text" row=${row?.seq} '
         'table=${t?.callerName}');
     if (t == null || row == null || text.isBlank) return false;
+    //  存库用原始识别文本(记号=指纹,不改写);
+    //  显示文本是规范形,只供人看
+    if (dictationRawText.isNotBlank &&
+        canonicalForm(dictationRawText) == text.trim()) {
+      text = dictationRawText;
+      debugPrint('confirmDictation: store raw "$text"');
+    }
     //  记号检查:
     //  1) 同口令的两行记号雷同 = 两行完全相同(多对一重复建行
     //     的自然结果)——不再拦,提示后再点一次黄框即删除旧行
@@ -740,6 +768,7 @@ class VoiceFlow extends ChangeNotifier {
         recognized: newToken, sort: false);
     conflictPending = false;
     dictationText = '';
+    dictationRawText = '';
     //  家族传播(人类学习法):基础口令录好后,同族的变体
     //  (Left前缀/分数/数字)自动推算记号——变体口令的
     //  区别词("left"/"one quarter"等)按标准口令的差异
