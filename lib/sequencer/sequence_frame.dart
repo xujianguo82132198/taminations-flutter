@@ -2487,7 +2487,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                             value: lv,
                                             isExpanded: true,
                                             items: [for (final l in
-                                              ['ms','plus','a1','a2','c1','c2','c3a','c3b'])
+                                              ['Prefix','Sufix','ms','plus','a1','a2','c1','c2','c3a','c3b'])
                                               fm.DropdownMenuItem(
                                                   value: l, child: fm.Text(l))],
                                             onChanged: (v) =>
@@ -2512,12 +2512,27 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         }
                         final parts = level.split('|');
                         debugPrint('建表: name=${parts[0]} '
-                            'level=${parts[1]}');
+                            'type=${parts[1]}');
                                         final onlyName =
                                             '${parts[0]}_${parts[1]}_Only';
                                         final t = await CallerTable
-                                            .createOnlyTable(prefs2,
-                                                onlyName, parts[1]);
+                                            .open(onlyName);
+                                        //  按选择引入不同数据:
+                                        //  Prefix=前缀库18条,Sufix=后缀库
+                                        //  13条,级别=该级别核心口令家族
+                                        //  (与Calls页总数一致,MS=82);
+                                        //  均每条3行(3归1)
+                                        final seededN =
+                                            parts[1] == 'Prefix'
+                                          ? await t.seedLibraryRows(
+                                              suffix: false)
+                                          : (parts[1] == 'Sufix'
+                                          ? await t.seedLibraryRows(
+                                              suffix: true)
+                                          : await t.seedLevelRows(
+                                              parts[1]));
+                                        debugPrint('建表种库: $onlyName '
+                                            '$seededN rows');
                                         await _refreshTableNames(
                                             prefs2, tableNames);
                                         setState(() { selected = onlyName; });
