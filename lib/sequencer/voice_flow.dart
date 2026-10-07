@@ -606,13 +606,15 @@ class VoiceFlow extends ChangeNotifier {
     for (final r in table.rows) {
       debugPrint('ROW ${r.seq}|${r.recognized}|${r.standardCall}');
     }
-    //  目录经验词收集:本目录所有表的记号词+口令读法词
+    //  目录经验词收集:**只取 Words 表**(口令员校准过的
+    //  干净音节/单词库)。其他表的记号(录音时的杂音解码)
+    //  不进——它们会以高频杂词身份抢音节(如 third/top)
     _dirWords = {};
     try {
       final dir = name.split('/').first;
       final prefs = await SharedPreferences.getInstance();
       for (final n in CallerTable.listTableNames(prefs)) {
-        if (!n.startsWith('$dir/')) continue;
+        if (n != '$dir/Words_Only' && n != '$dir/Words') continue;
         final t = n == name ? table : await CallerTable.open(n);
         for (final r in t.rows) {
           for (final w in CallerTable.spokenForm(r.standardCall)
