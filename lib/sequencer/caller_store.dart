@@ -628,45 +628,27 @@ class CallerTable extends ChangeNotifier {
       } on FormatException {}
     }
     //  级别累积合并:源表=下一级合并表(ms源=基础源表)。
-    //  源表行全部保留;Only 表已录记号的行按口令名覆盖
-    //  源表同口令行(用户最新发音优先);Only 表未录行仅在
-    //  源表没有该口令时补入(默认记号=口令读法)。
-    //  多对一:Only 表同口令可有多行(每行一笔语音读法),
-    //  先按口令归组、记号以|连接,保证合并表一行一口令
-    //  且全部读法都在
-    final onlyGrouped = <String, CallerRow>{};
+    //  源表行全部保留;Only 表已录行替换源表同口令行。
+    //  **合成不得修改记录**(用户原则):Only 表同口令的
+    //  多行(多归一,每行一笔读法)原样进入合并表,一行对
+    //  一行,不归并、不改写(曾以|拼接成一行,已废除);
+    //  未录行不补默认记号(记号只能来自口令员采样)
+    final onlyCalls = <String>{};
     for (final r in only.rows) {
       final callKey = r.standardCall.trim().toLowerCase();
       if (callKey.isEmpty || !keepRow(r.standardCall)) continue;
-      final g = onlyGrouped[callKey];
-      if (g == null) {
-        onlyGrouped[callKey] = CallerRow(seq: 0,
-            recognized: r.recognized, standardCall: r.standardCall);
-      } else {
-        final tokens = g.recognized
-            .split('|').map((t) => t.trim())
-            .where((t) => t.isNotEmpty)
-            .toSet();
-        for (final t in r.recognized.split('|')) {
-          final tt = t.trim();
-          if (tt.isNotEmpty) tokens.add(tt);
-        }
-        onlyGrouped[callKey] = CallerRow(seq: 0,
-            recognized: tokens.join('|'),
-            standardCall: g.standardCall);
-      }
+      if (r.recognized.isNotBlank) onlyCalls.add(callKey);
     }
-    for (final r in onlyGrouped.values) {
+    //  源表同口令行整体让位(Only 的最新读法优先)
+    merged.removeWhere((m) =>
+        onlyCalls.contains(m.standardCall.trim().toLowerCase()));
+    for (final r in only.rows) {
       final callKey = r.standardCall.trim().toLowerCase();
+      if (callKey.isEmpty || !keepRow(r.standardCall)) continue;
       if (r.recognized.isNotBlank) {
-        //  用户已录:移除源表同口令行,以新记号覆盖
-        merged.removeWhere((m) =>
-            m.standardCall.trim().toLowerCase() == callKey);
         merged.add(CallerRow(seq: 0,
             recognized: r.recognized, standardCall: r.standardCall));
       }
-      //  未录行不补默认记号(用户原则:记号只能来自口令员
-      //  自己的采样,完全留给口令员掌握;未录=不参与匹配)
     }
     merged.sort((a, b) =>
         a.recognized.toLowerCase().compareTo(b.recognized.toLowerCase()));
