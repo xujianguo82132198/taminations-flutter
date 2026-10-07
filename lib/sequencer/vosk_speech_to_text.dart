@@ -276,6 +276,7 @@ class VoskSpeechToText extends ChangeNotifier {
       return;
     }
     _log('listen: toggle ON (grammar=${_grammarWords?.length ?? 0} phrases)');
+    _segReset();   //  新监听会话:分段状态清零
     _lastResult = null;
     _lastError = null;
     _lastLevel = 0;
@@ -492,12 +493,12 @@ class VoskSpeechToText extends ChangeNotifier {
         final texts = _textsOf(event.text);
         _log('final: $texts');
         if (texts.isNotEmpty) {
-          if (_sampleSession) {
-            //  分段取样:final并入累计,partial重置
-            _segKnownFinals = _segKnownFinals.isEmpty
-                ? texts.first : '$_segKnownFinals ${texts.first}';
-            _segKnownPartial = '';
-          }
+          //  分段已知文本:采样与连续都累积(命令完成事件的
+          //  文本来源——曾只给采样,连续模式命令永远空文本,
+          //  流水线不跑)
+          _segKnownFinals = _segKnownFinals.isEmpty
+              ? texts.first : '$_segKnownFinals ${texts.first}';
+          _segKnownPartial = '';
           if (_continuous) {
             //  连续模式:final只做累计——整条口令由静音0.9秒
             //  的命令边界收尾送出(_completeCommand),

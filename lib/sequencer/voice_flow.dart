@@ -113,6 +113,7 @@ class VoiceFlow extends ChangeNotifier {
   ///  读法词(开表时收集)。采样语法纳入它们——Words 表学
   ///  的音节(do/so/doe)在 MS 表录音时也可解码
   Set<String> _dirWords = {};
+  Set<String> _allDirWords = {};
 
   ///  分段检索门槛(先设0.5)
   static const sampleLookupThreshold = 0.5;
@@ -606,37 +607,41 @@ class VoiceFlow extends ChangeNotifier {
     for (final r in table.rows) {
       debugPrint('ROW ${r.seq}|${r.recognized}|${r.standardCall}');
     }
-    //  目录经验词收集:**只取 Words 表**(口令员校准过的
-    //  干净音节/单词库)。其他表的记号(录音时的杂音解码)
-    //  不进——它们会以高频杂词身份抢音节(如 third/top)
+    //  两套词池:
+    //  _dirWords=Words表(校准音节库,行级录音语法用,池小稳指纹)
+    //  _callWords=全目录所有表的词+记号(喊口令语法用——
+    //   前缀表heads/后缀表数字都要能解码,流水线三表才查得着)
     _dirWords = {};
+    _allDirWords = {};
     try {
       final dir = name.split('/').first;
       final prefs = await SharedPreferences.getInstance();
       for (final n in CallerTable.listTableNames(prefs)) {
-        //  按表名最后一段识别Words表(容忍叠层名)
+        if (!n.startsWith('$dir/')) continue;
         final lastSeg = n.split('/').last;
-        if (!n.startsWith('$dir/') ||
-            (lastSeg != 'Words_Only' && lastSeg != 'Words')) {
-          continue;
-        }
+        final isWordsTable =
+            lastSeg == 'Words_Only' || lastSeg == 'Words';
         final t = n == name ? table : await CallerTable.open(n);
         for (final r in t.rows) {
-          for (final w in CallerTable.spokenForm(r.standardCall)
-              .split(RegExp(r' +'))) {
-            if (w.isNotEmpty) _dirWords.add(w);
-          }
-          for (final token in r.recognized.split('|')) {
-            for (final w in token.toLowerCase()
-                .split(RegExp(r' +'))) {
-              if (w.isNotEmpty && w != 'unk' && w != '[unk]') {
-                _dirWords.add(w);
-              }
-            }
+          final spokenWs = CallerTable.spokenForm(r.standardCall)
+              .split(RegExp(r' +'))
+              .where((w) => w.isNotEmpty);
+          final tokenWs = r.recognized
+              .split('|')
+              .expand((token) => token.toLowerCase()
+                  .split(RegExp(r' +')))
+              .where((w) =>
+                  w.isNotEmpty && w != 'unk' && w != '[unk]');
+          _allDirWords.addAll(spokenWs);
+          _allDirWords.addAll(tokenWs);
+          if (isWordsTable) {
+            _dirWords.addAll(spokenWs);
+            _dirWords.addAll(tokenWs);
           }
         }
       }
-      debugPrint('目录经验词: ${_dirWords.length} 个');
+      debugPrint('词池: 行级=${_dirWords.length} '
+          '喊口令=${_allDirWords.length}');
     } catch (e) {
       debugPrint('目录经验词收集失败: $e');
     }
@@ -1560,9 +1565,13 @@ class VoiceFlow extends ChangeNotifier {
   void startListening() {
     final s = speech;
     if (s == null) return;
-    //  流式喊口令:同样限定口令短语,识别结果即为口令,
-    //  查映射表(Levenshtein)直接命中,口音容错更好
-    s.setSampleGrammar(_onlyTableWords());
+    //  喊口令:语法=当前表+全目录词池(前缀/后缀表的词
+    //  都在场,三表流水线才解码得到)
+    final callG = <String>{
+      ...?_onlyTableWords(),
+      ..._allDirWords,
+    };
+    s.setSampleGrammar([...callG, '[unk]']);
     s.initialize().whenComplete(() {
       if (s.isAvailable) {
         s.listen(localeId: 'en_US');
