@@ -1644,6 +1644,8 @@ class VoiceFlow extends ChangeNotifier {
   ///  仅结束语音识别(表保持打开,麦克风钮再按可重启;
   ///  不清表、不动音乐节拍状态)
   void stopListening() {
+    //  麦克风停止:非Only模式面板回归(表管理可见)
+    if (!onlyMode) setPanelMinimized(false);
     debugPrint('VoiceFlow.stopListening (phase=$phase)');
     speech?.cancel();
     if (phase != 'awaiting' && phase != 'detecting')
@@ -1832,6 +1834,9 @@ class VoiceFlow extends ChangeNotifier {
   void startListening() {
     final s = speech;
     if (s == null) return;
+    //  麦克风识别开始:面板让位——口令列表需要空间
+    //  (用户:识别时不用开着表,别占口令列表的地方)
+    if (!onlyMode) setPanelMinimized(true);
     //  喊口令:语法=当前表+全目录词池(前缀/后缀表的词
     //  都在场,三表流水线才解码得到)
     final callG = <String>{
