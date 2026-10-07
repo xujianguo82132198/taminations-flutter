@@ -1019,9 +1019,14 @@ class VoiceFlow extends ChangeNotifier {
     //  保持_done=true直到新命令首段——曾复位即重置,
     //  命令边界随即二次执行
     _assemblyDone = true;
+    //  三区都过真值滤(✗/…绝不能拼进口令——曾执行"✗ Sweep")
     assembledCall = [prefixResult, callResult, suffixResult]
-        .where((t) => t.isNotBlank)
+        .where(_isRealValue)
         .join(' ');
+    if (assembledCall.isBlank) {
+      _resetAssembly();
+      return;
+    }
     debugPrint('三表组合执行: "$assembledCall"');
     _notify();
     _resetAssembly();

@@ -179,6 +179,7 @@ class VoskSpeechToText extends ChangeNotifier {
       _lastResult = SpeechRecognitionResult(alts, true);
       _log('command complete (${_lastCommandSegments.length} seg): '
           '"$text"');
+      _notify();
     }
     _sessionText = '';
     _sessionAlts.clear();
