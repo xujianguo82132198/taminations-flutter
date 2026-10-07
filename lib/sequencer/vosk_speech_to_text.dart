@@ -94,6 +94,9 @@ class VoskSpeechToText extends ChangeNotifier {
   //  关门=底噪+5dB——环境噪音高低都适用(固定-42曾在
   //  底噪-40的房间里永远关不上段,命令无法完成)
   double _noiseFloorDb = -45.0;
+  ///  看门狗:段开着且db悬在滞回带的累计毫秒——超过1.5秒
+  ///  =底噪估低了(慢速适应逃不出坑),快速上贴当前值
+  int _deadZoneMs = 0;
 
   ///  已收段文本(按收段顺序)。上限10段:口令无时长限制
   ///  (用户:前缀后到后缀之前都是口令,多段拼接),10段
@@ -176,6 +179,21 @@ class VoskSpeechToText extends ChangeNotifier {
       _noiseFloorDb = 0.9 * _noiseFloorDb + 0.1 * db;
       if (_noiseFloorDb < -60) _noiseFloorDb = -60;
       if (_noiseFloorDb > -25) _noiseFloorDb = -25;
+    }
+    //  看门狗:段开着且db悬在滞回带(非语音又不够"静"),
+    //  累计1.5秒=底噪估低导致关门线够不到,快速上贴
+    if (_segInSegment && db >= quietT && db < speechT) {
+      _deadZoneMs += 100;
+      if (_deadZoneMs >= 1500) {
+        _noiseFloorDb = db - 5;
+        if (_noiseFloorDb < -60) _noiseFloorDb = -60;
+        if (_noiseFloorDb > -25) _noiseFloorDb = -25;
+        _deadZoneMs = 0;
+        _log('floor snapped to ${_noiseFloorDb.toStringAsFixed(1)} '
+            '(was stuck)');
+      }
+    } else {
+      _deadZoneMs = 0;
     }
     if (db > speechT) {
       _segLastLoudAt = now;

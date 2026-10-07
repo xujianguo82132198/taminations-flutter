@@ -546,6 +546,21 @@ class MainActivity : FlutterActivity() {
               if (noiseFloorDb < -60.0) noiseFloorDb = -60.0
               if (noiseFloorDb > -25.0) noiseFloorDb = -25.0
             }
+            //  看门狗:闸门开着且db悬在滞回带累计1.5秒=底噪
+            //  估低,快速上贴(与Dart分段机同款)
+            val dzLow = noiseFloorDb + 5.0
+            if (vadOpen && db >= dzLow && db < noiseFloorDb + 12.0) {
+              deadZoneMs += 100
+              if (deadZoneMs >= 1500) {
+                noiseFloorDb = db - 5.0
+                if (noiseFloorDb < -60.0) noiseFloorDb = -60.0
+                if (noiseFloorDb > -25.0) noiseFloorDb = -25.0
+                deadZoneMs = 0
+                Log.i(TAG, "vad floor snapped to $noiseFloorDb")
+              }
+            } else {
+              deadZoneMs = 0
+            }
             val openT = noiseFloorDb + 12.0
             val closeT = noiseFloorDb + 5.0
             if (!vadOpen) {
@@ -654,6 +669,7 @@ class MainActivity : FlutterActivity() {
   @Volatile private var vadLastUtteranceMs = 0L
   //  自适应底噪(dB):静音期慢速跟踪
   @Volatile private var noiseFloorDb = -45.0
+  private var deadZoneMs = 0
 
   //  加载去重:Dart 侧可能有多个提供者实例并发请求初始化
   @Volatile
