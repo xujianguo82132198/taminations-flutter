@@ -805,38 +805,37 @@ class VoiceFlow extends ChangeNotifier {
       _prefixTable ??= await _loadAuxTable('${_dirOf}/Prefix');
       final pt = _prefixTable;
       if (pt != null) {
-        (String, String)? hit;   // (规范前缀, 剩余文本)
-        final tl = text.toLowerCase();
-        for (final r in pt.rows) {
-          final cands = <String>[
-            ...r.recognized.split('|').map((t) => t.trim().toLowerCase()),
-            CallerTable.spokenForm(r.standardCall),
-          ];
-          for (final c in cands) {
-            if (c.isEmpty || c.length < 2) continue;
-            if (tl == c) {
-              if (hit == null || c.length > hit.$2.length) {
-                hit = (r.standardCall, '');
-              }
-            } else if (tl.startsWith('$c ')) {
-              if (hit == null || c.length > hit.$2.length) {
-                hit = (r.standardCall, text.substring(c.length + 1));
-              }
-            }
-          }
-        }
-        if (hit != null) {
+        //  整段模糊查前缀表(记号=指纹,精确比对必失配)
+        var r = pt.lookupSequential(text);
+        if (r.hit != null && r.error <= 0.45) {
           _prefixSeen = true;
-          prefixResult = hit.$1;
+          prefixResult = r.hit!.standardCall;
           tableFlags = 'P';
           _notify();
-          debugPrint('段=前缀: "$text" -> $prefixResult');
-          text = hit.$2.trim();
-          if (text.isEmpty) {
-            //  只有前缀:等口令(长等待——前缀承诺口令将到)
-            _armAssemblyTimer(const Duration(milliseconds: 2500));
-            return;
+          debugPrint('段=前缀: "$text" -> $prefixResult '
+              '(err=${r.error.toStringAsFixed(2)})');
+          _armAssemblyTimer(const Duration(milliseconds: 2500));
+          return;
+        }
+        //  整拍含前缀(如一拍"heads pass ocean"):按词前缀
+        //  逐级试查前缀表,命中即剥离
+        final words = text.split(' ');
+        for (var k = 1; k < words.length; k++) {
+          final head = words.sublist(0, k).join(' ');
+          final rh = pt.lookupSequential(head);
+          if (rh.hit != null && rh.error <= 0.45) {
+            _prefixSeen = true;
+            prefixResult = rh.hit!.standardCall;
+            tableFlags = 'P';
+            _notify();
+            debugPrint('段首前缀剥离: "$head" -> $prefixResult');
+            text = words.sublist(k).join(' ').trim();
+            break;
           }
+        }
+        if (text.isEmpty) {
+          _armAssemblyTimer(const Duration(milliseconds: 2500));
+          return;
         }
       }
     }
@@ -845,22 +844,14 @@ class VoiceFlow extends ChangeNotifier {
       _suffixTable ??= await _loadAuxTable('${_dirOf}/Sufix');
       final st = _suffixTable;
       if (st != null) {
-        final tl = text.toLowerCase();
-        for (final r in st.rows) {
-          final cands = <String>[
-            ...r.recognized.split('|').map((t) => t.trim().toLowerCase()),
-            CallerTable.spokenForm(r.standardCall),
-          ];
-          for (final c in cands) {
-            if (c.isNotEmpty && (tl == c)) {
-              suffixResult = r.standardCall;
-              tableFlags += tableFlags.isEmpty ? 'S' : '_S';
-              _notify();
-              debugPrint('段=后缀: "$text" -> $suffixResult');
-              _finishAssembly();
-              return;
-            }
-          }
+        final rs = st.lookupSequential(text);
+        if (rs.hit != null && rs.error <= 0.45) {
+          suffixResult = rs.hit!.standardCall;
+          tableFlags += tableFlags.isEmpty ? 'S' : '_S';
+          _notify();
+          debugPrint('段=后缀: "$text" -> $suffixResult');
+          _finishAssembly();
+          return;
         }
       }
     }
@@ -945,11 +936,14 @@ class VoiceFlow extends ChangeNotifier {
     }
   }
 
+  bool _assemblyDone = false;
   void _executeAssembled() {
+    if (_assemblyDone) return;   //  去重(定时器与命令边界双触发)
     if (callResult.isBlank) {
       _resetAssembly();
       return;
     }
+    _assemblyDone = true;
     assembledCall = [prefixResult, callResult, suffixResult]
         .where((t) => t.isNotBlank)
         .join(' ');
@@ -962,6 +956,7 @@ class VoiceFlow extends ChangeNotifier {
     _callParts.clear();
     _prefixSeen = false;
     _lastSegLen = 0;
+    _assemblyDone = false;
     Future.microtask(() {
       //  显示保留到下一条口令开始(由新段到达时清)
     });
