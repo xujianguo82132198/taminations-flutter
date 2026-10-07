@@ -2692,9 +2692,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               ],
                             ));
                         if (ok != true) return;
-                        //  打开 Only 表并执行合并
+                        //  只读合并,不打开表(用户:合并后取消
+                        //  不得打开表)——直接读表执行,流程不挂表
                         final onlyTable =
-                            await flow.openCallerTable(selected);
+                            await CallerTable.open(selected);
                         final count = await CallerTable.mergeAndSaveAs(
                             prefs, onlyTable, src, dst,
                             sourceRequired: lvIdx > 0);
