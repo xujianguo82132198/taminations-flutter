@@ -162,12 +162,16 @@ class VoskSpeechToText extends ChangeNotifier {
     try {
       final json = await musicMonitor.voskFlush();
       final texts = _textsOf(json);
-      if (texts.isNotEmpty && texts.first.trim().isNotEmpty) {
+      if (texts.isNotEmpty) {
         final flushed = texts.first.trim();
-        if (_segments.isNotEmpty &&
+        //  冲刷结果须是真词(unk/空不替换),且不短于原末段
+        if (flushed.isNotEmpty &&
+            !flushed.contains('unk') &&
+            _segments.isNotEmpty &&
             flushed != _segments.last &&
             flushed.length >= _segments.last.length) {
-          _log('flush修正末段: "\${_segments.last}" -> "$flushed"');
+          _log('flush修正末段: '
+              '"${_segments.last}" -> "$flushed"');
           _segments[_segments.length - 1] = flushed;
         }
       }

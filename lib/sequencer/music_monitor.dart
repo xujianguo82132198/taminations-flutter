@@ -139,7 +139,7 @@ class MusicMonitor {
     try {
       return await _channel.invokeMethod('voskFlush');
     } on PlatformException catch (e) {
-      debugPrint('MusicMonitor.voskFlush failed: \${e.code} \${e.message}');
+      debugPrint('MusicMonitor.voskFlush failed: ''${e.code} ${e.message}');
       return null;
     }
   }
