@@ -1483,8 +1483,9 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   //  清理全表(采录完成后统一做):删空识别行、
   //  第2,3列完全相同的行只保留1行(带确认)
   Future<void> _cleanupTableDialog() async {
+    //  所有表可用(合并表也有历史重复行要清)
     final t = flow.callerTable;
-    if (t == null || !flow.onlyMode) return;
+    if (t == null) return;
     final empty = t.rows
         .where((r) => r.recognized.trim().isEmpty)
         .length;
