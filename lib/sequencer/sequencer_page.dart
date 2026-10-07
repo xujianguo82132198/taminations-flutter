@@ -141,12 +141,15 @@ class _SequencerPageState extends fm.State<SequencerPage> {
                   );
                 return  fm.Column(
                   children: [
+                    //  压缩跳舞区(用户:富余大,压一压):固定高度
+                    //  ≈右侧8颗钮均匀高度(每颗~44px,与播放钮同高,
+                    //  好看且省地);省出空间给下方——已执行口令
+                    //  列表可见。纯布局变化,不影响口令执行逻辑
+                    fm.SizedBox(
+                        height: 360,
+                        child: PortraitSequencerAnimationFrame()),
                     fm.Expanded(
-                        flex: 3,
-                        child:PortraitSequencerAnimationFrame()
-                    ),
-                    fm.Expanded(
-                        flex: isSmallAndCompact(context) ? 0 : 2,
+                        flex: isSmallAndCompact(context) ? 0 : 1,
                         child: SequenceFrame()
                     )
                   ],
