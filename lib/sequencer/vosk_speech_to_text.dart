@@ -124,7 +124,7 @@ class VoskSpeechToText extends ChangeNotifier {
   ///  各段的n-best候选(与segments同序):首选丢词时
   ///  (如整拍念出,heads被吞,"heads pass ocean"在第9候选),
   ///  从候选里找回前缀
-  List<List<String>> _segmentAlts = const [];
+  List<List<String>> _segmentAlts = [];   //  可变(const空表clear会崩)
   List<List<String>> get segmentAlts =>
       List.unmodifiable(_segmentAlts);
 
@@ -137,7 +137,7 @@ class VoskSpeechToText extends ChangeNotifier {
     final text = _segKnownText().trim();
     if (!_continuous) return;
     _lastCommandSegments = List.of(_segments);
-    _segmentAlts = const [];
+    _segmentAlts.clear();
     //  命令完成即清段(曾跨命令累积:"heads pass ocean heads
     //  pass ocean"越滚越长)
     _segments.clear();
