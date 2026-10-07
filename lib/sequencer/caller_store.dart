@@ -1143,6 +1143,12 @@ class CallerTable extends ChangeNotifier {
     var (pa, la, ca, sa) = _decompose(wa);
     final (pb, lb, cb, sb) = _decompose(wb);
     var err = sentenceError(ca.join(' '), cb.join(' '));
+    //  双空核心(纯前缀/后缀词句):核心比对会白送0误差——
+    //  曾致任意填充碎片"the"以0.10命中纯后缀记号"sweep two"。
+    //  改按全句比对,误差反映真实差异
+    if (ca.isEmpty && cb.isEmpty) {
+      err = sentenceError(wa.join(' '), wb.join(' '));
+    }
     //  lead≈left 加强:听到 lead 开头而比对行不是 Lead 口令
     //  (核心不含 lead)时,再按 left 试算一次取低者
     if (!la && ca.isNotEmpty && ca.first == 'lead' &&
