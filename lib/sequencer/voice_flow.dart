@@ -798,6 +798,17 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  新段:前缀?→亮P等口令;否则累积为口令;口令已定→后缀
   int _segIdx = 0;
+  ///  前缀命中合理性守卫:碎片(<3字符/含unk)与词数相差
+  ///  一倍以上的不认——曾单字母"a"命中"1 and 3"、
+  ///  "[unk]"命中"3 and 4"(量化行的杂记号惹的祸)
+  static bool _plausiblePrefixHit(String heard, String matched) {
+    if (heard.contains('unk')) return false;
+    if (heard.trim().length < 3) return false;
+    final hw = heard.trim().split(' ').length;
+    final mw = matched.trim().split(' ').length;
+    return hw / mw >= 0.5 && mw / hw <= 2.0;
+  }
+
   Future<void> _onNewSegment(String raw,
       List<String> alts) async {
     var text = raw.trim();
@@ -823,7 +834,10 @@ class VoiceFlow extends ChangeNotifier {
         _notify();
         //  整段模糊查前缀表(记号=指纹,精确比对必失配)
         var r = pt.lookupSequential(text);
-        if (r.hit != null && r.error <= 0.45) {
+        if (r.hit != null &&
+            r.error <= 0.45 &&
+            _plausiblePrefixHit(
+                text, CallerTable.spokenForm(r.hit!.standardCall))) {
           _prefixSeen = true;
           prefixResult = r.hit!.standardCall;
           tableFlags = 'P';
@@ -839,7 +853,10 @@ class VoiceFlow extends ChangeNotifier {
         for (var k = 1; k < words.length; k++) {
           final head = words.sublist(0, k).join(' ');
           final rh = pt.lookupSequential(head);
-          if (rh.hit != null && rh.error <= 0.45) {
+          if (rh.hit != null &&
+              rh.error <= 0.45 &&
+              _plausiblePrefixHit(
+                  head, CallerTable.spokenForm(rh.hit!.standardCall))) {
             _prefixSeen = true;
             prefixResult = rh.hit!.standardCall;
             tableFlags = 'P';
@@ -862,7 +879,10 @@ class VoiceFlow extends ChangeNotifier {
           for (var k = 1; k < cw.length; k++) {
             final head = cw.sublist(0, k).join(' ');
             final ra = pt.lookupSequential(head);
-            if (ra.hit != null && ra.error <= 0.45) {
+            if (ra.hit != null &&
+                ra.error <= 0.45 &&
+                _plausiblePrefixHit(
+                    head, CallerTable.spokenForm(ra.hit!.standardCall))) {
               _prefixSeen = true;
               prefixResult = ra.hit!.standardCall;
               tableFlags = 'P';
