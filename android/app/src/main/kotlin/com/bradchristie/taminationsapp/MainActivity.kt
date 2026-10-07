@@ -534,20 +534,27 @@ class MainActivity : FlutterActivity() {
             val d = cl / 32768.0
             sumSq += d * d
           }
-          //  静音门限(滞回):开门后保持喂真实音频直到能量跌落
-          //  超过 VAD_HANG_MS;关门期间喂零音频,让识别器只"听到"
-          //  达到人声能量的段落,噪音再也进不了解码器
+          //  静音门限(自适应底噪):静音期跟踪底噪,开门=底噪
+          //  +12dB,关门=底噪+5dB——固定-42曾在底噪-40的房间
+          //  永远关不上闸门,噪音持续进解码器
           if (gate) {
             val chunkMs = n * 1000L / 16000
             val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
+            if (!vadOpen && db < noiseFloorDb + 8) {
+              noiseFloorDb = 0.9 * noiseFloorDb + 0.1 * db
+              if (noiseFloorDb < -60.0) noiseFloorDb = -60.0
+              if (noiseFloorDb > -25.0) noiseFloorDb = -25.0
+            }
+            val openT = noiseFloorDb + 12.0
+            val closeT = noiseFloorDb + 5.0
             if (!vadOpen) {
-              if (db > VAD_OPEN_DB) {
+              if (db > openT) {
                 vadOpen = true; vadSpeechMs = 0; vadQuietMs = 0
                 Log.i(TAG, "vad: OPEN (db=${"%.1f".format(db)})")
               }
             } else {
               vadSpeechMs += chunkMs
-              if (db < VAD_CLOSE_DB) {
+              if (db < closeT) {
                 vadQuietMs += chunkMs
                 if (vadQuietMs >= VAD_HANG_MS) {
                   vadLastUtteranceMs = vadSpeechMs
@@ -644,6 +651,8 @@ class MainActivity : FlutterActivity() {
   @Volatile private var vadSpeechMs = 0L
   @Volatile private var vadQuietMs = 0L
   @Volatile private var vadLastUtteranceMs = 0L
+  //  自适应底噪(dB):静音期慢速跟踪
+  @Volatile private var noiseFloorDb = -50.0
 
   //  加载去重:Dart 侧可能有多个提供者实例并发请求初始化
   @Volatile

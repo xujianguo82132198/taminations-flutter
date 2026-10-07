@@ -90,9 +90,10 @@ class VoskSpeechToText extends ChangeNotifier {
   //  其余时间不查表
   static const _segCloseSilence = Duration(milliseconds: 300);
   static const _segArmSilence = Duration(milliseconds: 900);
-  //  与原生VAD同一套阈值
-  static const _segSpeechDb = -35.0;
-  static const _segQuietDb = -42.0;
+  //  自适应门限:静音期跟踪底噪(慢速),开门=底噪+12dB,
+  //  关门=底噪+5dB——环境噪音高低都适用(固定-42曾在
+  //  底噪-40的房间里永远关不上段,命令无法完成)
+  double _noiseFloorDb = -50.0;
 
   ///  已收段文本(按收段顺序)。上限10段:口令无时长限制
   ///  (用户:前缀后到后缀之前都是口令,多段拼接),10段
@@ -165,7 +166,15 @@ class VoskSpeechToText extends ChangeNotifier {
           'inSeg=$_segInSegment segs=${_segments.length} '
           'quiet=${lastLoud0 == null ? '?' : now.difference(lastLoud0!).inMilliseconds}ms');
     }
-    if (db > _segSpeechDb) {
+    //  底噪跟踪:非段中且接近当前底噪时慢速适应
+    final speechT = _noiseFloorDb + 12;
+    final quietT = _noiseFloorDb + 5;
+    if (!_segInSegment && db < _noiseFloorDb + 8) {
+      _noiseFloorDb = 0.9 * _noiseFloorDb + 0.1 * db;
+      if (_noiseFloorDb < -60) _noiseFloorDb = -60;
+      if (_noiseFloorDb > -25) _noiseFloorDb = -25;
+    }
+    if (db > speechT) {
       _segLastLoudAt = now;
       if (!_segInSegment && _segments.length < 10) {
         _segInSegment = true;
@@ -173,7 +182,7 @@ class VoskSpeechToText extends ChangeNotifier {
       }
       return;
     }
-    if (db >= _segQuietDb) return;   //  滞回中间带:维持现状
+    if (db >= quietT) return;   //  滞回中间带:维持现状
     final lastLoud = _segLastLoudAt;
     if (lastLoud == null) return;
     final quietFor = now.difference(lastLoud);
