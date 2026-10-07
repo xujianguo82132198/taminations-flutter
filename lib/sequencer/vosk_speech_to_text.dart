@@ -121,6 +121,12 @@ class VoskSpeechToText extends ChangeNotifier {
   List<String> _lastCommandSegments = const [];
   List<String> get lastCommandSegments =>
       List.unmodifiable(_lastCommandSegments);
+  ///  各段的n-best候选(与segments同序):首选丢词时
+  ///  (如整拍念出,heads被吞,"heads pass ocean"在第9候选),
+  ///  从候选里找回前缀
+  List<List<String>> _segmentAlts = const [];
+  List<List<String>> get segmentAlts =>
+      List.unmodifiable(_segmentAlts);
 
   ///  命令收尾:整条口令的识别结果一次性送出
   ///  (连续模式;取代旧的1.3秒合并窗——0.9秒静音即口令边界)
@@ -131,6 +137,7 @@ class VoskSpeechToText extends ChangeNotifier {
     final text = _segKnownText().trim();
     if (!_continuous) return;
     _lastCommandSegments = List.of(_segments);
+    _segmentAlts = const [];
     //  命令完成即清段(曾跨命令累积:"heads pass ocean heads
     //  pass ocean"越滚越长)
     _segments.clear();
@@ -157,6 +164,7 @@ class VoskSpeechToText extends ChangeNotifier {
 
   void _segReset() {
     _segments.clear();
+    _segmentAlts.clear();
     _segInSegment = false;
     _segLastLoudAt = null;
     _segStartKnown = '';
@@ -558,6 +566,7 @@ class VoskSpeechToText extends ChangeNotifier {
             //  按停顿切拍,比振幅门限稳得多);0.9秒无新final
             //  =口令结束,命令完成事件送出
             _segments.add(texts.first);
+            _segmentAlts.add(texts);
             _sessionText = _sessionText.isEmpty
                 ? texts.first : '$_sessionText ${texts.first}';
             if (_streamSegments == 0) {

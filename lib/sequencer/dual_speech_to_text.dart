@@ -67,6 +67,9 @@ class DualSpeechProvider extends ChangeNotifier {
       engine == 'vosk' ? vosk.commandSeq : 0;
   List<String> get lastCommandSegments =>
       engine == 'vosk' ? vosk.lastCommandSegments : const <String>[];
+  ///  各段n-best候选(与segments同序)
+  List<List<String>> get segmentAlts =>
+      engine == 'vosk' ? vosk.segmentAlts : const <List<String>>[];
 
   DualSpeechProvider() {
     _loadSetting();

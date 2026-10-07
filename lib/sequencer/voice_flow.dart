@@ -782,7 +782,10 @@ class VoiceFlow extends ChangeNotifier {
     final segs = s.segments;
     if (segs.length > _lastSegLen) {
       while (_lastSegLen < segs.length) {
-        unawaited(_onNewSegment(segs[_lastSegLen]));
+        final alts = _lastSegLen < s.segmentAlts.length
+            ? s.segmentAlts[_lastSegLen]
+            : const <String>[];
+        unawaited(_onNewSegment(segs[_lastSegLen], alts));
         _lastSegLen++;
       }
       return;   //  段处理自设计时器收尾
@@ -799,7 +802,8 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  新段:前缀?→亮P等口令;否则累积为口令;口令已定→后缀
   int _segIdx = 0;
-  Future<void> _onNewSegment(String raw) async {
+  Future<void> _onNewSegment(String raw,
+      List<String> alts) async {
     var text = raw.trim();
     if (text.isEmpty) return;
     //  新命令第一段:显示区清零(上一条的显示保留到此刻)
@@ -853,7 +857,28 @@ class VoiceFlow extends ChangeNotifier {
           _armAssemblyTimer(const Duration(milliseconds: 2500));
           return;
         }
-        if (prefixResult == '…') prefixResult = '✗';
+        //  候选找前缀:首选吞了前缀词时(如整拍念出,heads
+        //  被吞到第9候选),扫各候选的词前缀,命中即收前缀,
+        //  口令文本保持首选(其口令部分无损)
+        for (final cand in alts) {
+          if (cand == text) continue;
+          final cw = cand.split(' ');
+          for (var k = 1; k < cw.length; k++) {
+            final head = cw.sublist(0, k).join(' ');
+            final ra = pt.lookupSequential(head);
+            if (ra.hit != null && ra.error <= 0.45) {
+              _prefixSeen = true;
+              prefixResult = ra.hit!.standardCall;
+              tableFlags = 'P';
+              _notify();
+              debugPrint('候选前缀: "$head"(候选"$cand") '
+                  '-> $prefixResult');
+              break;
+            }
+          }
+          if (_prefixSeen) break;
+        }
+        if (prefixResult == '…' && !_prefixSeen) prefixResult = '✗';
       }
     }
     //  后缀判定:口令已有→本段试后缀表
