@@ -798,14 +798,28 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  新段:前缀?→亮P等口令;否则累积为口令;口令已定→后缀
+  int _segIdx = 0;
   Future<void> _onNewSegment(String raw) async {
     var text = raw.trim();
     if (text.isEmpty) return;
+    //  新命令第一段:显示区清零(上一条的显示保留到此刻)
+    if (_segIdx == 0) {
+      tableFlags = '';
+      prefixResult = '';
+      callResult = '';
+      suffixResult = '';
+      _notify();
+    }
+    _segIdx++;
     //  未定前缀:整段先试前缀表(含段首剥离)
     if (!_prefixSeen) {
       _prefixTable ??= await _loadAuxTable('${_dirOf}/Prefix');
       final pt = _prefixTable;
-      if (pt != null) {
+      if (pt != null && pt.rows.isNotEmpty) {
+        //  进表先置标志(用户:便于确定故障点):
+        //  …=正在查,值=查中,✗=查过未中
+        prefixResult = '…';
+        _notify();
         //  整段模糊查前缀表(记号=指纹,精确比对必失配)
         var r = pt.lookupSequential(text);
         if (r.hit != null && r.error <= 0.45) {
@@ -838,13 +852,16 @@ class VoiceFlow extends ChangeNotifier {
           _armAssemblyTimer(const Duration(milliseconds: 2500));
           return;
         }
+        if (prefixResult == '…') prefixResult = '✗';
       }
     }
     //  后缀判定:口令已有→本段试后缀表
-    if (callResult.isNotBlank) {
+    if (callResult.isNotBlank && callResult != '…') {
       _suffixTable ??= await _loadAuxTable('${_dirOf}/Sufix');
       final st = _suffixTable;
-      if (st != null) {
+      if (st != null && st.rows.isNotEmpty) {
+        suffixResult = '…';
+        _notify();
         final rs = st.lookupSequential(text);
         if (rs.hit != null && rs.error <= 0.45) {
           suffixResult = rs.hit!.standardCall;
@@ -854,9 +871,16 @@ class VoiceFlow extends ChangeNotifier {
           _finishAssembly();
           return;
         }
+        suffixResult = '✗';
+        _notify();
       }
     }
-    //  累积为口令段
+    //  累积为口令段(进表标志:…=累积中/查表中)
+    if (callResult.isBlank) {
+      callResult = '…';
+      tableFlags += tableFlags.isEmpty ? 'C' : '_C';
+      _notify();
+    }
     _callParts.add(text);
     _assembleTimer?.cancel();
     _assembleTimer = null;
@@ -933,6 +957,8 @@ class VoiceFlow extends ChangeNotifier {
       _executeAssembled();
     } else {
       debugPrint('口令未中,放弃: "$callSeg"');
+      if (callResult == '…') callResult = '✗';
+      _notify();
       _resetAssembly();
     }
   }
@@ -957,6 +983,7 @@ class VoiceFlow extends ChangeNotifier {
     _callParts.clear();
     _prefixSeen = false;
     _lastSegLen = 0;
+    _segIdx = 0;
     _assemblyDone = false;
     Future.microtask(() {
       //  显示保留到下一条口令开始(由新段到达时清)
