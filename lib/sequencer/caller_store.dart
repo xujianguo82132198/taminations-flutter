@@ -601,8 +601,21 @@ class CallerTable extends ChangeNotifier {
   ///  合并另存:本表各行(第2列非空) + 源表全部行,
   ///  按第2列总体排序,存为目标表名
   static Future<int> mergeAndSaveAs(SharedPreferences prefs,
-      CallerTable only, String sourceName, String targetName,
+      CallerTable only, String sourceNameIn, String targetNameIn,
       {bool sourceRequired = true}) async {
+    //  表名规范化(目录结构铁律):平铺名(XuJianguo2_Prefix)
+    //  一律改写为目录名(XuJianguo2/Prefix)——曾从旧平铺
+    //  Only表合并出平铺名合并表,流水线按目录名找不到表
+    String normName(String n) {
+      if (n.contains('/')) return n;
+      final m = RegExp(r'^(.+)_(Prefix|Sufix|Words|ms|plus|a1'
+              r'|a2|c1|c2|c3a|c3b)(_Only)?$')
+          .firstMatch(n);
+      if (m == null) return n;
+      return '${m.group(1)}/${m.group(2)}${m.group(3) ?? ''}';
+    }
+    final sourceName = normName(sourceNameIn);
+    final targetName = normName(targetNameIn);
     //  级别过滤:从目标表名解析级别(ms/plus/a1...),
     //  合并结果只保留该级别及更低级别的口令——高级别口令
     //  (如测试时误加进 MS 表的 Acey Deucey)自动剔除;
