@@ -94,7 +94,9 @@ class VoskSpeechToText extends ChangeNotifier {
   static const _segSpeechDb = -35.0;
   static const _segQuietDb = -42.0;
 
-  ///  已收段文本(最多3段,按收段顺序)
+  ///  已收段文本(按收段顺序)。上限10段:口令无时长限制
+  ///  (用户:前缀后到后缀之前都是口令,多段拼接),10段
+  ///  足够容纳最长的口令结构
   final List<String> _segments = [];
   List<String> get segments => List.unmodifiable(_segments);
   bool _segInSegment = false;
@@ -154,7 +156,7 @@ class VoskSpeechToText extends ChangeNotifier {
     final now = DateTime.now();
     if (db > _segSpeechDb) {
       _segLastLoudAt = now;
-      if (!_segInSegment && _segments.length < 3) {
+      if (!_segInSegment && _segments.length < 10) {
         _segInSegment = true;
         _segStartKnown = _segKnownText();
       }
@@ -173,7 +175,7 @@ class VoskSpeechToText extends ChangeNotifier {
         }
         text = text.trim();
         _segInSegment = false;
-        if (text.isNotEmpty && _segments.length < 3) {
+        if (text.isNotEmpty && _segments.length < 10) {
           _segments.add(text);
           _log('segment ${_segments.length} closed: "$text"');
           _notify();   //  上层(VoiceFlow)收段即查表
