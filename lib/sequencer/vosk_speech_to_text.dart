@@ -119,6 +119,7 @@ class VoskSpeechToText extends ChangeNotifier {
   ///  命令收尾:整条口令的识别结果一次性送出
   ///  (连续模式;取代旧的1.3秒合并窗——0.9秒静音即口令边界)
   void _completeCommand() {
+    _log('completeCommand called, segs=${_segments.length}');
     final text = _segKnownText().trim();
     if (!_continuous) return;
     _lastCommandSegments = List.of(_segments);
@@ -151,9 +152,19 @@ class VoskSpeechToText extends ChangeNotifier {
     _partialSeen.clear();
   }
 
-  ///  振幅事件驱动分段(仅采样会话)
+  ///  振幅事件驱动分段(采样与连续同一套)
+  ///  segDbLog: 每2秒一条状态诊断(db/段数/静音时长)
+  DateTime? _segDbLogAt;
   void _segmentStep(double db) {
     final now = DateTime.now();
+    final lastLoud0 = _segLastLoudAt;
+    if (_segDbLogAt == null ||
+        now.difference(_segDbLogAt!).inMilliseconds > 2000) {
+      _segDbLogAt = now;
+      _log('segdiag db=${db.toStringAsFixed(1)} '
+          'inSeg=$_segInSegment segs=${_segments.length} '
+          'quiet=${lastLoud0 == null ? '?' : now.difference(lastLoud0!).inMilliseconds}ms');
+    }
     if (db > _segSpeechDb) {
       _segLastLoudAt = now;
       if (!_segInSegment && _segments.length < 10) {
