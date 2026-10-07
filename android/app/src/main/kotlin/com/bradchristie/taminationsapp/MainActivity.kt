@@ -664,9 +664,12 @@ class MainActivity : FlutterActivity() {
       true -> thread(name = "vosk-init") {
         try {
           val dir = File(filesDir, "vosk-model-en-us")
-          val marker = File(filesDir, "vosk-model-en-us.ready")
+          //  模型版本标记:换装新模型(0.22-lgraph,204MB)后
+          //  版本号提升,旧缓存自动作废重解
+          val marker = File(filesDir, "vosk-model-en-us.ready2")
           if (!marker.exists()) {
             dir.deleteRecursively()
+            File(filesDir, "vosk-model-en-us.ready").delete()
             copyAssets("vosk-model-en-us", dir)
             marker.createNewFile()
             Log.i(TAG, "vosk: model unpacked to ${dir.absolutePath}")
