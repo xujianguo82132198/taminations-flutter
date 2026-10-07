@@ -90,6 +90,45 @@ class CallerTable extends ChangeNotifier {
     return prefs.containsKey('$_keyPrefix$name');
   }
 
+  ///  历史修复:把含 "|" 的行拆回多行(合成曾把多归一的
+  ///  几行归并成一行,违反"合成不得修改记录"——无损还原:
+  ///  按 | 拆开,一行一笔,原样排列)。幂等
+  static Future<int> splitPipedRows(SharedPreferences prefs) async {
+    var n = 0;
+    for (final name in listTableNames(prefs)) {
+      final t = await open(name);
+      var changed = false;
+      final out = <CallerRow>[];
+      for (final r in t.rows) {
+        if (r.recognized.contains('|')) {
+          final parts = r.recognized.split('|')
+              .map((p) => p.trim())
+              .where((p) => p.isNotEmpty)
+              .toList();
+          for (final p in parts) {
+            out.add(CallerRow(
+                seq: 0, recognized: p, standardCall: r.standardCall));
+          }
+          n += parts.length - 1;
+          changed = true;
+        } else {
+          out.add(r);
+        }
+      }
+      if (changed) {
+        t.rows
+          ..clear()
+          ..addAll(out);
+        for (var i = 0; i < t.rows.length; i++) {
+          t.rows[i].seq = i + 1;
+        }
+        await t.save();
+        debugPrint('splitPiped: $name -> ${t.rows.length} rows');
+      }
+    }
+    return n;
+  }
+
   ///  旧结构迁移:表名掺口令员名平铺存储(如 XuJianguo2_ms_Only)
   ///  → 目录结构 <口令员>/<表名>(如 XuJianguo2/ms_Only)。
   ///  每个口令员一个目录,合并等操作都在目录内进行,

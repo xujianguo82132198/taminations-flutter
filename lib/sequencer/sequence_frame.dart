@@ -2273,6 +2273,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         await CallerTable.migrateToDirectories(prefs);
     if (migrated > 0)
       debugPrint('migrateToDirectories: $migrated tables');
+    //  历史修复:|归并行拆回原样多行(合成不得修改记录)
+    final piped = await CallerTable.splitPipedRows(prefs);
+    if (piped > 0) debugPrint('splitPipedRows: $piped 行拆分');
     //  自动清除空表(0行):登录时误建的裸名空表不再残留
     for (final n in CallerTable.listTableNames(prefs)) {
       final raw = prefs.getString('口令员表 $n');
