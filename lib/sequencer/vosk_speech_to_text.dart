@@ -112,6 +112,8 @@ class VoskSpeechToText extends ChangeNotifier {
   ///  修订掉的文本,如分段"left")——收尾并入候选供点选
   final List<String> _partialSeen = [];
 
+  ///  命令完成判定计时器(连续模式:0.9秒无新final)
+  Timer? _commandTimer;
   ///  命令完成(静音0.9秒判定)事件:连续模式下整条口令的
   ///  分段快照与完成计数,供三表流水线取用
   int _commandSeq = 0;
@@ -123,6 +125,8 @@ class VoskSpeechToText extends ChangeNotifier {
   ///  命令收尾:整条口令的识别结果一次性送出
   ///  (连续模式;取代旧的1.3秒合并窗——0.9秒静音即口令边界)
   void _completeCommand() {
+    _commandTimer?.cancel();
+    _commandTimer = null;
     _log('completeCommand called, segs=${_segments.length}');
     final text = _segKnownText().trim();
     if (!_continuous) return;
@@ -318,6 +322,8 @@ class VoskSpeechToText extends ChangeNotifier {
     }
     _log('listen: toggle ON (grammar=${_grammarWords?.length ?? 0} phrases)');
     _segReset();   //  新监听会话:分段状态清零
+    _commandTimer?.cancel();
+    _commandTimer = null;
     _lastResult = null;
     _lastError = null;
     _lastLevel = 0;
@@ -367,6 +373,8 @@ class VoskSpeechToText extends ChangeNotifier {
     _continuous = false;
     _sampleSession = false;
     _paused = false;
+    _commandTimer?.cancel();
+    _commandTimer = null;
     _segReset();
     _sub?.cancel();
     _sub = null;
@@ -541,9 +549,10 @@ class VoskSpeechToText extends ChangeNotifier {
               ? texts.first : '$_segKnownFinals ${texts.first}';
           _segKnownPartial = '';
           if (_continuous) {
-            //  连续模式:final只做累计——整条口令由静音0.9秒
-            //  的命令边界收尾送出(_completeCommand),
-            //  不再用1.3秒合并窗
+            //  连续模式:**vosk断句即段**(识别器的final天然
+            //  按停顿切拍,比振幅门限稳得多);0.9秒无新final
+            //  =口令结束,命令完成事件送出
+            _segments.add(texts.first);
             _sessionText = _sessionText.isEmpty
                 ? texts.first : '$_sessionText ${texts.first}';
             if (_streamSegments == 0) {
@@ -552,6 +561,8 @@ class VoskSpeechToText extends ChangeNotifier {
                 ..addAll(texts);
             }
             _streamSegments++;
+            _commandTimer?.cancel();
+            _commandTimer = Timer(_segArmSilence, _completeCommand);
           } else {
             //  采样:同一轮内分段**原始**拼接、候选累积。
             //  不再做前缀段的规范形改写(用户原则:记号是
@@ -573,9 +584,10 @@ class VoskSpeechToText extends ChangeNotifier {
       case 'speech_amplitude':
         if (event.level != null) {
           _lastLevel = event.level!;
-          //  振幅驱动分段(0.3s收段/0.9s口令边界):
-          //  采样与连续监听同一套(识别过程必须一致)
-          if (_isListening) {
+          //  振幅驱动分段(0.3s收段):仅采样模式(录音显示);
+          //  连续模式的分段由vosk断句final驱动(振幅门限在
+          //  真实环境噪音下不稳,识别器断句天然按停顿切拍)
+          if (_sampleSession && _isListening) {
             _segmentStep(event.level!);
           }
           if (_soundLevel) _notify();
