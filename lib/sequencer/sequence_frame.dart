@@ -1101,8 +1101,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
             fm.Icon(fm.Icons.unfold_more, size: 20),
             fm.SizedBox(width: 6),
             fm.Text(
-                '${flow.callerName}(${table.rows.length}条)'
-                '${flow.tableFlags.isNotBlank ? ' ${flow.tableFlags}' : ''} ▸',
+                '${flow.callerName}(${table.rows.length}条) ▸',
                 style: fm.TextStyle(
                     fontWeight: fm.FontWeight.bold, fontSize: 16)),
           ]),
@@ -1134,8 +1133,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                         flow.onlyMode ? _addRecordDialog : _panelSearch,
                     child: fm.Center(
                       child: fm.Text(
-                      '${flow.callerName}(${table.rows.length}条)'
-                          '${flow.tableFlags.isNotBlank ? ' ${flow.tableFlags}' : ''}',
+                      '${flow.callerName}(${table.rows.length}条)',
                       style: fm.TextStyle(
                       fontWeight: fm.FontWeight.bold, fontSize: 16)),
                     ),

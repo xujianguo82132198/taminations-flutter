@@ -955,7 +955,9 @@ class VoiceFlow extends ChangeNotifier {
           '-> ${r.hit?.standardCall}');
       if (r.hit != null && r.error <= 0.45) {
         callResult = r.hit!.standardCall;
-        tableFlags += tableFlags.isEmpty ? 'C' : '_C';
+        if (!tableFlags.contains('C')) {
+          tableFlags += tableFlags.isEmpty ? 'C' : '_C';
+        }
         _notify();
         //  等后缀0.9秒,无则执行
         _armAssemblyTimer(const Duration(milliseconds: 900));
