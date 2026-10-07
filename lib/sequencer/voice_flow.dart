@@ -764,23 +764,207 @@ class VoiceFlow extends ChangeNotifier {
     }
   }
 
-  ///  语音命令完成(0.9秒边界):Only 采表走采样路径,
-  ///  呼叫模式(合并表)走三表流水线
+  ///  语音段处理(增量,用户设计:段到即查即显示):
+  ///  Only 采表走采样路径;呼叫模式走三表状态机——
+  ///  前缀段到→立即亮P并等口令(2.5秒);口令段累积拼接;
+  ///  后缀段到齐或超时→组装执行。命令边界(识别器0.9秒
+  ///  无新final)强制收尾
+  Timer? _assembleTimer;
+  int _lastSegLen = 0;
+  final List<String> _callParts = [];
+  bool _prefixSeen = false;
+
   void _onSpeech() {
     final s = speech;
     if (s == null || onlyMode) return;
-    final seq = s.commandSeq;
-    if (seq == _lastCommandSeq) return;
-    _lastCommandSeq = seq;
-    //  新口令识别结果取得:先清除显示块与三个结果
-    //  (用户要求),再开始三表检索——标志随进表逐个递加
-    tableFlags = '';
-    prefixResult = '';
-    callResult = '';
-    suffixResult = '';
-    assembledCall = '';
+    //  命令边界:立即收尾
+    if (s.commandSeq != _lastCommandSeq) {
+      _lastCommandSeq = s.commandSeq;
+      _assembleTimer?.cancel();
+      _assembleTimer = null;
+      _finishAssembly();
+      _lastSegLen = 0;
+      return;
+    }
+    //  新段到达:增量处理
+    final segs = s.segments;
+    if (segs.length > _lastSegLen) {
+      while (_lastSegLen < segs.length) {
+        unawaited(_onNewSegment(segs[_lastSegLen]));
+        _lastSegLen++;
+      }
+    }
+  }
+
+  ///  新段:前缀?→亮P等口令;否则累积为口令;口令已定→后缀
+  Future<void> _onNewSegment(String raw) async {
+    var text = raw.trim();
+    if (text.isEmpty) return;
+    //  未定前缀:整段先试前缀表(含段首剥离)
+    if (!_prefixSeen) {
+      _prefixTable ??= await _loadAuxTable('${_dirOf}/Prefix');
+      final pt = _prefixTable;
+      if (pt != null) {
+        (String, String)? hit;   // (规范前缀, 剩余文本)
+        final tl = text.toLowerCase();
+        for (final r in pt.rows) {
+          final cands = <String>[
+            ...r.recognized.split('|').map((t) => t.trim().toLowerCase()),
+            CallerTable.spokenForm(r.standardCall),
+          ];
+          for (final c in cands) {
+            if (c.isEmpty || c.length < 2) continue;
+            if (tl == c) {
+              if (hit == null || c.length > hit.$2.length) {
+                hit = (r.standardCall, '');
+              }
+            } else if (tl.startsWith('$c ')) {
+              if (hit == null || c.length > hit.$2.length) {
+                hit = (r.standardCall, text.substring(c.length + 1));
+              }
+            }
+          }
+        }
+        if (hit != null) {
+          _prefixSeen = true;
+          prefixResult = hit.$1;
+          tableFlags = 'P';
+          _notify();
+          debugPrint('段=前缀: "$text" -> $prefixResult');
+          text = hit.$2.trim();
+          if (text.isEmpty) {
+            //  只有前缀:等口令(长等待——前缀承诺口令将到)
+            _armAssemblyTimer(const Duration(milliseconds: 2500));
+            return;
+          }
+        }
+      }
+    }
+    //  后缀判定:口令已有→本段试后缀表
+    if (callResult.isNotBlank) {
+      _suffixTable ??= await _loadAuxTable('${_dirOf}/Sufix');
+      final st = _suffixTable;
+      if (st != null) {
+        final tl = text.toLowerCase();
+        for (final r in st.rows) {
+          final cands = <String>[
+            ...r.recognized.split('|').map((t) => t.trim().toLowerCase()),
+            CallerTable.spokenForm(r.standardCall),
+          ];
+          for (final c in cands) {
+            if (c.isNotEmpty && (tl == c)) {
+              suffixResult = r.standardCall;
+              tableFlags += tableFlags.isEmpty ? 'S' : '_S';
+              _notify();
+              debugPrint('段=后缀: "$text" -> $suffixResult');
+              _finishAssembly();
+              return;
+            }
+          }
+        }
+      }
+    }
+    //  累积为口令段
+    _callParts.add(text);
+    _assembleTimer?.cancel();
+    _assembleTimer = null;
+    _armAssemblyTimer(const Duration(milliseconds: 900));
+  }
+
+  void _armAssemblyTimer(Duration d) {
+    _assembleTimer?.cancel();
+    _assembleTimer = Timer(d, _finishAssembly);
+  }
+
+  ///  收尾:口令段拼接查表,组装执行,状态复位
+  Future<void> _finishAssembly() async {
+    _assembleTimer?.cancel();
+    _assembleTimer = null;
+    if (callResult.isNotBlank && _callParts.isEmpty) {
+      //  口令已定且无新段:直接执行
+      _executeAssembled();
+      return;
+    }
+    if (_callParts.isEmpty) {
+      _resetAssembly();
+      return;
+    }
+    final callSeg = _callParts.join(' ');
+    final act = callerTable;
+    if (act != null) {
+      final r = act.lookupSequential(callSeg);
+      debugPrint('口令查表: "$callSeg" err=${r.error.toStringAsFixed(2)} '
+          '-> ${r.hit?.standardCall}');
+      if (r.hit != null && r.error <= 0.45) {
+        callResult = r.hit!.standardCall;
+        tableFlags += tableFlags.isEmpty ? 'C' : '_C';
+        _notify();
+        //  等后缀0.9秒,无则执行
+        _armAssemblyTimer(const Duration(milliseconds: 900));
+        _callParts.clear();
+        return;
+      }
+      //  拼接未中:最后一段试后缀,其余再查口令
+      if (_callParts.length >= 2) {
+        final lastSeg = _callParts.removeLast();
+        final callSeg2 = _callParts.join(' ');
+        final r2 = act.lookupSequential(callSeg2);
+        _suffixTable ??= await _loadAuxTable('${_dirOf}/Sufix');
+        final st = _suffixTable;
+        String? sufHit;
+        if (st != null) {
+          for (final r3 in st.rows) {
+            final cands = <String>[
+              ...r3.recognized.split('|').map((t) => t.trim().toLowerCase()),
+              CallerTable.spokenForm(r3.standardCall),
+            ];
+            if (cands.contains(lastSeg.toLowerCase())) {
+              sufHit = r3.standardCall;
+              break;
+            }
+          }
+        }
+        if (r2.hit != null && r2.error <= 0.45 && sufHit != null) {
+          callResult = r2.hit!.standardCall;
+          suffixResult = sufHit;
+          tableFlags += '_C_S';
+          _notify();
+          _callParts.clear();
+          _executeAssembled();
+          return;
+        }
+        _callParts.add(lastSeg);
+      }
+    }
+    _callParts.clear();
+    if (callResult.isNotBlank) {
+      _executeAssembled();
+    } else {
+      debugPrint('口令未中,放弃: "$callSeg"');
+      _resetAssembly();
+    }
+  }
+
+  void _executeAssembled() {
+    if (callResult.isBlank) {
+      _resetAssembly();
+      return;
+    }
+    assembledCall = [prefixResult, callResult, suffixResult]
+        .where((t) => t.isNotBlank)
+        .join(' ');
+    debugPrint('三表组合执行: "$assembledCall"');
     _notify();
-    unawaited(_processCommand(s.lastCommandSegments));
+    _resetAssembly();
+  }
+
+  void _resetAssembly() {
+    _callParts.clear();
+    _prefixSeen = false;
+    _lastSegLen = 0;
+    Future.microtask(() {
+      //  显示保留到下一条口令开始(由新段到达时清)
+    });
   }
 
   ///  命令分段分析+三表检索+组合。
