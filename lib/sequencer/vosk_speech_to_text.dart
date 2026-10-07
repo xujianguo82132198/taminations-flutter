@@ -468,10 +468,21 @@ class VoskSpeechToText extends ChangeNotifier {
                   _partialSeen.length < 12) {
                 _partialSeen.add(text);
               }
+              //  采样显示用**全程累计文本**(finals+当前partial):
+              //  中途停顿后vosk的partial会从零重起,只显示新半句
+              //  像是"中断"——累计显示消除这个错觉
+              final known = _segKnownText();
+              if (known.trim().isNotEmpty) {
+                _lastResult = SpeechRecognitionResult(
+                    [SpeechRecognitionAlternative(known, 0.0)],
+                    false);
+                _notify();
+              }
+            } else {
+              _lastResult = SpeechRecognitionResult(
+                  [SpeechRecognitionAlternative(text, 0.0)], false);
+              _notify();
             }
-            _lastResult = SpeechRecognitionResult(
-                [SpeechRecognitionAlternative(text, 0.0)], false);
-            _notify();
           }
         }
         break;
