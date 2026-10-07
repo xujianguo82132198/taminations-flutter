@@ -420,6 +420,17 @@ class VoskSpeechToText extends ChangeNotifier {
         if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
       }
     }
+    //  分拍录音(用户发现:首拍出词后拍丢失):最终结果以
+    //  分段机的**全程已知文本**为准——整个按住期间finals+
+    //  partial的完整流水,不依赖vosk自己的零碎断句
+    if (_sampleSession) {
+      final known = _segKnownText().trim();
+      if (known.length > _sessionText.trim().length) {
+        debugPrint('finish: 分段全程文本更全,采用 "$known" '
+            '(原 "$_sessionText")');
+        _sessionText = known;
+      }
+    }
     //  闪现过的中间结果并入候选(曾显示又被修订的文本
     //  也保留——所见可存,不冲掉)
     for (final p in _partialSeen) {
