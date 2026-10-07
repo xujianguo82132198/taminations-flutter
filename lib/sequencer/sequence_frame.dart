@@ -781,8 +781,8 @@ class _OnlyTableToolbarState extends fm.State<OnlyTableToolbar> {
 ///  当前口令员映射表面板:流程期间全程显示表内全部记录,
 ///  四列依次为 序号 / 语音识别结果 / 标准口令 / 口令所属级别,
 ///  记录增删时实时刷新(经 VoiceFlow 转发 CallerTable 的变更通知)
-///  三表流水线结果条:喊口令时,Prefix(P)/当前表(_C)/
-///  Sufix(_S) 三表后台查询,各表的映射结果在这里实时显示
+///  三表显示条:前缀/口令/后缀三个显示区。哪张表查到了
+///  就显示得到的值;空=没有进入;口令执行完成后三区清零
 class PipelineResultStrip extends fm.StatefulWidget {
   @override
   _PipelineResultStripState createState() => _PipelineResultStripState();
@@ -807,11 +807,9 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
 
   @override
   fm.Widget build(fm.BuildContext context) {
-    if (flow.onlyMode ||
-        (flow.tableFlags.isBlank &&
-            flow.prefixResult.isBlank &&
-            flow.callResult.isBlank &&
-            flow.suffixResult.isBlank)) {
+    //  喊口令模式常显三个空区(空=未进入该表),查到显值,
+    //  口令执行完成后清零(consumeAssembled)
+    if (flow.onlyMode || !flow.isActive) {
       return fm.SizedBox.shrink();
     }
     fm.Widget part(String tag, String text, fm.Color c) =>
@@ -821,7 +819,7 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
                 border: fm.Border.all(color: c, width: 1.5),
                 borderRadius: fm.BorderRadius.circular(6)),
             child: fm.Text(
-                text.isBlank ? '$tag:—' : '$tag:$text',
+                text.isBlank ? '$tag:' : '$tag:$text',
                 style: fm.TextStyle(
                     fontSize: 16, color: c,
                     fontWeight: fm.FontWeight.bold)));
@@ -830,17 +828,11 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
         color: const fm.Color(0xffeef4ff),
         padding: fm.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         child: fm.Row(children: [
-          part('P', flow.prefixResult, Color.BLUE),
+          part('前缀', flow.prefixResult, Color.BLUE),
           fm.SizedBox(width: 6),
-          part('C', flow.callResult, fm.Colors.green.shade800),
+          part('口令', flow.callResult, fm.Colors.green.shade800),
           fm.SizedBox(width: 6),
-          part('S', flow.suffixResult, fm.Colors.orange.shade800),
-          fm.Spacer(),
-          fm.Text(flow.tableFlags,
-              style: fm.TextStyle(
-                  fontSize: 16,
-                  fontWeight: fm.FontWeight.bold,
-                  color: Color.BLUE)),
+          part('后缀', flow.suffixResult, fm.Colors.orange.shade800),
         ]));
   }
 }

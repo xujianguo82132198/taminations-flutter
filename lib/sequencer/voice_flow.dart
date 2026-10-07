@@ -886,9 +886,13 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  组合口令已被输入行执行
+  ///  口令已执行:三个显示区清零(用户规则:口令完成后清零)
   void consumeAssembled() {
     assembledCall = '';
+    tableFlags = '';
+    prefixResult = '';
+    callResult = '';
+    suffixResult = '';
     _notify();
   }
 
