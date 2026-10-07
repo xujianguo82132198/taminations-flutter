@@ -1011,7 +1011,9 @@ class VoiceFlow extends ChangeNotifier {
   static bool _isRealValue(String s) =>
       s.isNotBlank && s != '…' && s != '✗';
   void _executeAssembled() {
-    if (_assemblyDone) return;   //  去重(定时器与命令边界双触发)
+    //  双锁:执行标志 + 组合口令本身(界面消费前不重入——
+    //  定时器/命令边界/新段三路竞争曾致双执行)
+    if (_assemblyDone || assembledCall.isNotBlank) return;
     if (!_isRealValue(callResult)) {
       _resetAssembly();
       return;

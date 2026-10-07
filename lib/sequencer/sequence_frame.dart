@@ -1860,7 +1860,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       if (!flow.onlyMode && flow.assembledCall.isNotBlank) {
         final call = flow.assembledCall;
         flow.consumeAssembled();
-        debugPrint('三表组合执行: "$call"');
+        debugPrint('送输入框+回车: "$call"');
         later(() {
           _isVoiceCall = true;
           _sendOneLine(model, call);
