@@ -102,6 +102,9 @@ class VoskSpeechToText extends ChangeNotifier {
   String _segStartKnown = '';
   String _segKnownFinals = '';
   String _segKnownPartial = '';
+  ///  采样期间闪现过的中间结果(去重,曾显示但可能被
+  ///  修订掉的文本,如分段"left")——收尾并入候选供点选
+  final List<String> _partialSeen = [];
 
   ///  命令完成(静音0.9秒判定)事件:连续模式下整条口令的
   ///  分段快照与完成计数,供三表流水线取用
@@ -143,6 +146,7 @@ class VoskSpeechToText extends ChangeNotifier {
     _segStartKnown = '';
     _segKnownFinals = '';
     _segKnownPartial = '';
+    _partialSeen.clear();
   }
 
   ///  振幅事件驱动分段(仅采样会话)
@@ -175,10 +179,13 @@ class VoskSpeechToText extends ChangeNotifier {
           _notify();   //  上层(VoiceFlow)收段即查表
         }
       }
-    } else if (_segments.isNotEmpty && quietFor >= _segArmSilence) {
-      //  静音满0.9秒:本条口令结束——收尾送出后重新待命
-      //  (连续模式=命令完成事件,驱动三表流水线;
-      //   采样模式由上层组合结果自行保留)
+    } else if (!_sampleSession &&
+        _segments.isNotEmpty &&
+        quietFor >= _segArmSilence) {
+      //  静音满0.9秒:本条口令结束——收尾送出后重新待命。
+      //  仅连续模式(命令边界);**采样会话不做**——按钮按住
+      //  即会话,慢分拍录音(do 停 so 停 do)中途不被冲掉
+      //  (用户:已出现的分段结果经常被冲掉)
       _completeCommand();
       _segReset();
     }
@@ -413,6 +420,11 @@ class VoskSpeechToText extends ChangeNotifier {
         if (!_sessionAlts.contains(t)) _sessionAlts.add(t);
       }
     }
+    //  闪现过的中间结果并入候选(曾显示又被修订的文本
+    //  也保留——所见可存,不冲掉)
+    for (final p in _partialSeen) {
+      if (!_sessionAlts.contains(p)) _sessionAlts.add(p);
+    }
     if (_sessionAlts.isNotEmpty) {
       //  默认值=累计拼接句;其余候选按见到的顺序跟上
       _log('finish: "$_sessionText" alts=$_sessionAlts');
@@ -437,7 +449,13 @@ class VoskSpeechToText extends ChangeNotifier {
         if (_partialResults) {
           final text = _textField(event.text, 'partial');
           if (text != null && text.isNotEmpty) {
-            if (_sampleSession) _segKnownPartial = text;
+            if (_sampleSession) {
+              _segKnownPartial = text;
+              if (!_partialSeen.contains(text) &&
+                  _partialSeen.length < 12) {
+                _partialSeen.add(text);
+              }
+            }
             _lastResult = SpeechRecognitionResult(
                 [SpeechRecognitionAlternative(text, 0.0)], false);
             _notify();

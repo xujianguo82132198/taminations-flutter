@@ -472,7 +472,9 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                   //  候选条:点一下即选为采表结果。
                   //  条目多时自动滚动(可上下滑动观察),
                   //  不挤压显示框也不溢出屏幕
-                  fm.SingleChildScrollView(
+                  fm.ConstrainedBox(
+                    constraints: fm.BoxConstraints(maxHeight: 108),
+                    child: fm.SingleChildScrollView(
                     physics: fm.AlwaysScrollableScrollPhysics(),
                     child: fm.Wrap(
                         spacing: 6,
@@ -500,6 +502,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                                 ),
                           )
                       ]),
+                    ),
                   ),
                 ]),
       ),
