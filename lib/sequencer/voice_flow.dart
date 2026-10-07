@@ -137,13 +137,26 @@ class VoiceFlow extends ChangeNotifier {
     //  Words 关键词表:当前行是单词时用**隔离语法**——词表
     //  只有该词(+unk),解码器无联想可选,单音节结果必然可
     //  采集([unk]=未念到位,继续纠正;教口令员念到被听清)
-    if (_isWordsTable && currentDictationRow != null) {
-      final w = currentDictationRow!.standardCall.trim().toLowerCase();
+    //  行级语法:录哪行,词表=该行口令的词+目录经验词。
+    //  Words表单词行=严格隔离(词+unk);其他表=行词+经验词
+    //  +unk——大词表联想被排除(单音节不再被"the"类高频词
+    //  抢走),录音与喊口令仍同表同源
+    final row0 = currentDictationRow;
+    if (row0 != null) {
+      final w = row0.standardCall.trim().toLowerCase();
       if (w.isNotEmpty && !w.contains(' ')) {
         speech?.setSampleGrammar([w, '[unk]']);
         debugPrint('isolated grammar for word "$w"');
       } else {
-        speech?.setSampleGrammar(_onlyTableWords());
+        final rowWords = <String>{
+          for (final t in CallerTable.spokenForm(row0.standardCall)
+              .split(RegExp(r' +')))
+            if (t.isNotEmpty) t,
+          ..._dirWords,
+        };
+        speech?.setSampleGrammar([...rowWords, '[unk]']);
+        debugPrint('row grammar for "${row0.standardCall}" '
+            '(${rowWords.length} words)');
       }
     } else {
       speech?.setSampleGrammar(_onlyTableWords());
