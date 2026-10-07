@@ -808,6 +808,7 @@ class VoiceFlow extends ChangeNotifier {
       prefixResult = '';
       callResult = '';
       suffixResult = '';
+      _assemblyDone = false;
       _notify();
     }
     _segIdx++;
@@ -896,7 +897,7 @@ class VoiceFlow extends ChangeNotifier {
   Future<void> _finishAssembly() async {
     _assembleTimer?.cancel();
     _assembleTimer = null;
-    if (callResult.isNotBlank && _callParts.isEmpty) {
+    if (_isRealValue(callResult) && _callParts.isEmpty) {
       //  口令已定且无新段:直接执行
       _executeAssembled();
       return;
@@ -953,23 +954,29 @@ class VoiceFlow extends ChangeNotifier {
       }
     }
     _callParts.clear();
-    if (callResult.isNotBlank) {
+    if (_isRealValue(callResult)) {
       _executeAssembled();
     } else {
       debugPrint('口令未中,放弃: "$callSeg"');
-      if (callResult == '…') callResult = '✗';
+      if (callResult != '✗') callResult = '✗';
       _notify();
       _resetAssembly();
     }
   }
 
   bool _assemblyDone = false;
+  ///  真值=非空且非显示标记(…=查表中,✗=未中)——
+  ///  标记绝不能被执行(曾把"…"当口令发出)
+  static bool _isRealValue(String s) =>
+      s.isNotBlank && s != '…' && s != '✗';
   void _executeAssembled() {
     if (_assemblyDone) return;   //  去重(定时器与命令边界双触发)
-    if (callResult.isBlank) {
+    if (!_isRealValue(callResult)) {
       _resetAssembly();
       return;
     }
+    //  保持_done=true直到新命令首段——曾复位即重置,
+    //  命令边界随即二次执行
     _assemblyDone = true;
     assembledCall = [prefixResult, callResult, suffixResult]
         .where((t) => t.isNotBlank)
@@ -984,7 +991,6 @@ class VoiceFlow extends ChangeNotifier {
     _prefixSeen = false;
     _lastSegLen = 0;
     _segIdx = 0;
-    _assemblyDone = false;
     Future.microtask(() {
       //  显示保留到下一条口令开始(由新段到达时清)
     });
