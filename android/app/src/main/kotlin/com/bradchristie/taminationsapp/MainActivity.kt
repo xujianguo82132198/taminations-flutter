@@ -540,7 +540,8 @@ class MainActivity : FlutterActivity() {
           if (gate) {
             val chunkMs = n * 1000L / 16000
             val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
-            if (!vadOpen && db < noiseFloorDb + 8) {
+            val openT0 = noiseFloorDb + 12.0
+            if (db < openT0 - 2.0) {
               noiseFloorDb = 0.9 * noiseFloorDb + 0.1 * db
               if (noiseFloorDb < -60.0) noiseFloorDb = -60.0
               if (noiseFloorDb > -25.0) noiseFloorDb = -25.0
@@ -652,7 +653,7 @@ class MainActivity : FlutterActivity() {
   @Volatile private var vadQuietMs = 0L
   @Volatile private var vadLastUtteranceMs = 0L
   //  自适应底噪(dB):静音期慢速跟踪
-  @Volatile private var noiseFloorDb = -50.0
+  @Volatile private var noiseFloorDb = -45.0
 
   //  加载去重:Dart 侧可能有多个提供者实例并发请求初始化
   @Volatile

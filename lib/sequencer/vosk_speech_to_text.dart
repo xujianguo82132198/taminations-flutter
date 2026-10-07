@@ -93,7 +93,7 @@ class VoskSpeechToText extends ChangeNotifier {
   //  自适应门限:静音期跟踪底噪(慢速),开门=底噪+12dB,
   //  关门=底噪+5dB——环境噪音高低都适用(固定-42曾在
   //  底噪-40的房间里永远关不上段,命令无法完成)
-  double _noiseFloorDb = -50.0;
+  double _noiseFloorDb = -45.0;
 
   ///  已收段文本(按收段顺序)。上限10段:口令无时长限制
   ///  (用户:前缀后到后缀之前都是口令,多段拼接),10段
@@ -163,13 +163,16 @@ class VoskSpeechToText extends ChangeNotifier {
         now.difference(_segDbLogAt!).inMilliseconds > 2000) {
       _segDbLogAt = now;
       _log('segdiag db=${db.toStringAsFixed(1)} '
+          'floor=${_noiseFloorDb.toStringAsFixed(1)} '
           'inSeg=$_segInSegment segs=${_segments.length} '
           'quiet=${lastLoud0 == null ? '?' : now.difference(lastLoud0!).inMilliseconds}ms');
     }
-    //  底噪跟踪:非段中且接近当前底噪时慢速适应
+    //  底噪跟踪:**所有非语音帧**(明显低于开门线)都参与
+    //  收敛,可上可下——初始估计偏差也不会死锁(曾:初始-50
+    //  在底噪-40的房间永不向上收敛,开门线过低,段卡死)
     final speechT = _noiseFloorDb + 12;
     final quietT = _noiseFloorDb + 5;
-    if (!_segInSegment && db < _noiseFloorDb + 8) {
+    if (db < speechT - 2) {
       _noiseFloorDb = 0.9 * _noiseFloorDb + 0.1 * db;
       if (_noiseFloorDb < -60) _noiseFloorDb = -60;
       if (_noiseFloorDb > -25) _noiseFloorDb = -25;
