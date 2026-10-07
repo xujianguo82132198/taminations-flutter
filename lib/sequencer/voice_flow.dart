@@ -142,22 +142,28 @@ class VoiceFlow extends ChangeNotifier {
     //  +unk——大词表联想被排除(单音节不再被"the"类高频词
     //  抢走),录音与喊口令仍同表同源
     final row0 = currentDictationRow;
-    if (row0 != null) {
+    if (row0 != null && _isWordsTable) {
+      //  Words表:单词行严格隔离(词表=该词+unk)
       final w = row0.standardCall.trim().toLowerCase();
       if (w.isNotEmpty && !w.contains(' ')) {
         speech?.setSampleGrammar([w, '[unk]']);
         debugPrint('isolated grammar for word "$w"');
       } else {
-        final rowWords = <String>{
-          for (final t in CallerTable.spokenForm(row0.standardCall)
-              .split(RegExp(r' +')))
-            if (t.isNotEmpty) t,
-          ..._dirWords,
-        };
-        speech?.setSampleGrammar([...rowWords, '[unk]']);
-        debugPrint('row grammar for "${row0.standardCall}" '
-            '(${rowWords.length} words)');
+        speech?.setSampleGrammar(_onlyTableWords());
       }
+    } else if (row0 != null) {
+      //  其他表:行级语法(该行口令词+目录经验词)。
+      //  单词行也走这里——dosado类词典缺词的口令,靠
+      //  Words表学的音节(do/so)兜底解码
+      final rowWords = <String>{
+        for (final t in CallerTable.spokenForm(row0.standardCall)
+            .split(RegExp(r' +')))
+          if (t.isNotEmpty) t,
+        ..._dirWords,
+      };
+      speech?.setSampleGrammar([...rowWords, '[unk]']);
+      debugPrint('row grammar for "${row0.standardCall}" '
+          '(${rowWords.length} words)');
     } else {
       speech?.setSampleGrammar(_onlyTableWords());
     }
