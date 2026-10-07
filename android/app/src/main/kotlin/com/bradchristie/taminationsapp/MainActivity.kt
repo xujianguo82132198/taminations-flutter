@@ -123,6 +123,7 @@ class MainActivity : FlutterActivity() {
             "voskStart" -> voskStart(call, result)
             "voskStop" -> { voskStop(); result.success(null) }
             "voskFinal" -> voskFinal(result)
+            "voskFlush" -> voskFlush(result)
             else -> result.notImplemented()
           }
         }
@@ -801,6 +802,26 @@ class MainActivity : FlutterActivity() {
       voskFeed = false
     }
     stopSpeechCapture()
+    result.success(json)
+  }
+
+  //  冲刷:喂静音取finalResult但**不停会话**(麦克风命令
+  //  完成时用——与圆钮松手冲刷同工,流式final与冲刷结果
+  //  可能不同:extend流式"the",冲刷后"extend")
+  private fun voskFlush(result: MethodChannel.Result) {
+    var json: String? = null
+    synchronized(voskLock) {
+      val rec = voskRecognizer
+      if (rec != null) {
+        try {
+          val silence = ByteArray(16000 * 6 / 10)   //  0.6s @16kHz
+          rec.acceptWaveForm(silence, silence.size)
+          json = rec.finalResult
+        } catch (e: Exception) {
+          Log.e(TAG, "vosk: flush failed", e)
+        }
+      }
+    }
     result.success(json)
   }
 

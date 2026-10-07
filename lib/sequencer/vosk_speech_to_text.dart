@@ -151,9 +151,30 @@ class VoskSpeechToText extends ChangeNotifier {
   void _completeCommand() {
     _commandTimer?.cancel();
     _commandTimer = null;
+    unawaited(_completeCommandAsync());
+  }
+
+  ///  命令收尾(异步):先冲刷(与圆钮松手同工)——流式final
+  ///  与冲刷结果可能不同,末段以冲刷结果为准
+  Future<void> _completeCommandAsync() async {
     _log('completeCommand called, segs=${_segments.length}');
-    final text = _segKnownText().trim();
     if (!_continuous) return;
+    try {
+      final json = await musicMonitor.voskFlush();
+      final texts = _textsOf(json);
+      if (texts.isNotEmpty && texts.first.trim().isNotEmpty) {
+        final flushed = texts.first.trim();
+        if (_segments.isNotEmpty &&
+            flushed != _segments.last &&
+            flushed.length >= _segments.last.length) {
+          _log('flush修正末段: "\${_segments.last}" -> "$flushed"');
+          _segments[_segments.length - 1] = flushed;
+        }
+      }
+    } catch (e) {
+      _log('flush failed: $e');
+    }
+    final text = _segKnownText().trim();
     _lastCommandSegments = List.of(_segments);
     _segmentAlts.clear();
     //  命令完成即清段(曾跨命令累积:"heads pass ocean heads

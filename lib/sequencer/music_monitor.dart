@@ -133,6 +133,17 @@ class MusicMonitor {
   ///  停止识别并丢弃剩余内容
   Future<void> voskStop() async => await _invoke('voskStop');
 
+  ///  冲刷:喂静音取finalResult但不停止会话(麦克风命令
+  ///  完成时与圆钮松手同工)
+  Future<String?> voskFlush() async {
+    try {
+      return await _channel.invokeMethod('voskFlush');
+    } on PlatformException catch (e) {
+      debugPrint('MusicMonitor.voskFlush failed: \${e.code} \${e.message}');
+      return null;
+    }
+  }
+
   ///  停止识别并把剩余语音收尾成最终结果(JSON 字符串)返回
   Future<String?> voskFinal() async {
     try {
