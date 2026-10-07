@@ -130,6 +130,24 @@ class VoskSpeechToText extends ChangeNotifier {
 
   ///  命令收尾:整条口令的识别结果一次性送出
   ///  (连续模式;取代旧的1.3秒合并窗——0.9秒静音即口令边界)
+  ///  会话回收:重建识别器(同语法同闸门),保持监听状态
+  Future<void> _recycleSession() async {
+    if (!_continuous || _disposed) return;
+    try {
+      _log('recycle: fresh recognizer for next command');
+      _sub?.cancel();
+      _sub = null;
+      await musicMonitor.voskStop();
+      await musicMonitor.voskStart(
+          grammar: _grammarWords == null || _grammarWords!.isEmpty
+              ? null : jsonEncode(_grammarWords),
+          gate: Settings.silenceGate);
+      _sub = musicMonitor.events.listen(_onEvent);
+    } catch (e) {
+      _log('recycle FAILED: $e');
+    }
+  }
+
   void _completeCommand() {
     _commandTimer?.cancel();
     _commandTimer = null;
@@ -143,6 +161,13 @@ class VoskSpeechToText extends ChangeNotifier {
     _segments.clear();
     _segKnownFinals = '';
     _segKnownPartial = '';
+    //  命令间重启识别器(用户:麦克风识别方法应与圆钮相同)——
+    //  0.9秒静音既是本条口令的尾,也是下一条的"按下":
+    //  每条口令一个全新识别器,连续流的解码器状态污染与
+    //  断句漂移归零,单词不再被斩碎(extend曾碎成"a courtesy")
+    if (text.isNotEmpty) {
+      Future.microtask(_recycleSession);
+    }
     if (text.isNotEmpty) {
       _commandSeq++;
       final alts = <SpeechRecognitionAlternative>[
