@@ -787,10 +787,38 @@ class VoiceFlow extends ChangeNotifier {
   ///  分段规则(用户定义):三段=前缀/口令/后缀;两段=最长段
   ///  是口令,另一段按位置定前后缀(在前=前缀,在后=后缀);
   ///  一段=只有口令
-  Future<void> _processCommand(List<String> segs) async {
+  Future<void> _processCommand(List<String> segsIn) async {
+    var segs = segsIn;
     //  显示块已在 _onSpeech 清过;这里逐表检索,每进一表
     //  立即刷新显示(口令员看得见 P→P_C→P_C_S 的递加过程)
     if (segs.isEmpty) return;
+    //  段首前缀剥离:整拍念出的口令(停顿短于识别器断句,
+    //  如一拍"heads pass ocean")首段带着前缀词——从Prefix
+    //  表的记号/读法里找最长的开头匹配,拆成前缀段+口令段
+    {
+      _prefixTable ??= await _loadAuxTable('${_dirOf}/Prefix');
+      final table = _prefixTable;
+      if (table != null && segs.isNotEmpty && segs[0].isNotEmpty) {
+        final t0 = segs[0].toLowerCase();
+        String? best;
+        for (final r in table.rows) {
+          final cands = <String>[
+            ...r.recognized.split('|').map((t) => t.trim().toLowerCase()),
+            CallerTable.spokenForm(r.standardCall),
+          ];
+          for (final c in cands) {
+            if (c.isNotEmpty && t0.startsWith('$c ') && c.length > 1) {
+              if (best == null || c.length > best.length) best = c;
+            }
+          }
+        }
+        if (best != null) {
+          final rest = segs[0].substring(best.length + 1);
+          segs = [rest, ...segs.sublist(1)];
+          debugPrint('段首前缀剥离: "$best" + "$rest"');
+        }
+      }
+    }
     //  整句优先:整条口令文本先直接查一次表——多拍记号
     //  (如 dosado 的 "do so do"分三拍念出)整条命中即单一
     //  口令,不再拆前缀/口令/后缀(录音怎么存,喊就怎么中)

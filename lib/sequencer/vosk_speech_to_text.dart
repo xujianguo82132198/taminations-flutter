@@ -131,6 +131,11 @@ class VoskSpeechToText extends ChangeNotifier {
     final text = _segKnownText().trim();
     if (!_continuous) return;
     _lastCommandSegments = List.of(_segments);
+    //  命令完成即清段(曾跨命令累积:"heads pass ocean heads
+    //  pass ocean"越滚越长)
+    _segments.clear();
+    _segKnownFinals = '';
+    _segKnownPartial = '';
     if (text.isNotEmpty) {
       _commandSeq++;
       final alts = <SpeechRecognitionAlternative>[
