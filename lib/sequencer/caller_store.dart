@@ -165,6 +165,12 @@ class CallerTable extends ChangeNotifier {
       final table = '${m.group(2)}${m.group(3)}';
       final raw = prefs.getString(key);
       if (raw == null) continue;
+      //  目标已存在则**不覆盖**(同名平铺/目录两表并存时,
+      //  保住现表数据,平铺名保留待人工清理)
+      if (prefs.containsKey('$_keyPrefix$caller/$table')) {
+        debugPrint('migrate skip(目标已存在): $name');
+        continue;
+      }
       await prefs.setString('$_keyPrefix$caller/$table', raw);
       await prefs.remove(key);
       n++;
