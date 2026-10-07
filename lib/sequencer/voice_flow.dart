@@ -777,22 +777,23 @@ class VoiceFlow extends ChangeNotifier {
   void _onSpeech() {
     final s = speech;
     if (s == null || onlyMode) return;
-    //  命令边界:立即收尾
-    if (s.commandSeq != _lastCommandSeq) {
-      _lastCommandSeq = s.commandSeq;
-      _assembleTimer?.cancel();
-      _assembleTimer = null;
-      _finishAssembly();
-      _lastSegLen = 0;
-      return;
-    }
-    //  新段到达:增量处理
+    //  新段先处理(增量:段到即查即显示)——命令边界分支
+    //  曾抢先return,段从未被处理(前缀一直不亮的原因)
     final segs = s.segments;
     if (segs.length > _lastSegLen) {
       while (_lastSegLen < segs.length) {
         unawaited(_onNewSegment(segs[_lastSegLen]));
         _lastSegLen++;
       }
+      return;   //  段处理自设计时器收尾
+    }
+    //  命令边界(识别器0.9秒无新final):强制收尾
+    if (s.commandSeq != _lastCommandSeq) {
+      _lastCommandSeq = s.commandSeq;
+      _assembleTimer?.cancel();
+      _assembleTimer = null;
+      _finishAssembly();
+      _lastSegLen = 0;
     }
   }
 

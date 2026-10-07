@@ -568,6 +568,7 @@ class VoskSpeechToText extends ChangeNotifier {
             _streamSegments++;
             _commandTimer?.cancel();
             _commandTimer = Timer(_segArmSilence, _completeCommand);
+            _notify();   //  段到达即通知(增量三表组装依赖此通知)
           } else {
             //  采样:同一轮内分段**原始**拼接、候选累积。
             //  不再做前缀段的规范形改写(用户原则:记号是
