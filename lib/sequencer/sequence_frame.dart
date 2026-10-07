@@ -78,6 +78,11 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
            return fm.LayoutBuilder(
              builder: (context,constraints) => fm.Column(
                children: [
+                 //  三表流水线结果条(喊口令模式):前缀/口令/后缀
+                 //  表后台查询的结果实时亮出——P_/C_/S_ 各自的
+                 //  映射输出 + 进表标志(用户要求:后台运行,
+                 //  结果要显示)
+                 PipelineResultStrip(),
                  //  口令输入行(原来的位置:紧跟动画区,始终显示)
                  SequencerEditLine(),
                  //  Only 采表:识别结果大字显示(显示框+圆钮+表退出)
@@ -776,6 +781,70 @@ class _OnlyTableToolbarState extends fm.State<OnlyTableToolbar> {
 ///  当前口令员映射表面板:流程期间全程显示表内全部记录,
 ///  四列依次为 序号 / 语音识别结果 / 标准口令 / 口令所属级别,
 ///  记录增删时实时刷新(经 VoiceFlow 转发 CallerTable 的变更通知)
+///  三表流水线结果条:喊口令时,Prefix(P)/当前表(_C)/
+///  Sufix(_S) 三表后台查询,各表的映射结果在这里实时显示
+class PipelineResultStrip extends fm.StatefulWidget {
+  @override
+  _PipelineResultStripState createState() => _PipelineResultStripState();
+}
+
+class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_on);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_on);
+    super.dispose();
+  }
+  void _on() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (flow.onlyMode ||
+        (flow.tableFlags.isBlank &&
+            flow.prefixResult.isBlank &&
+            flow.callResult.isBlank &&
+            flow.suffixResult.isBlank)) {
+      return fm.SizedBox.shrink();
+    }
+    fm.Widget part(String tag, String text, fm.Color c) =>
+        fm.Container(
+            padding: fm.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: fm.BoxDecoration(
+                border: fm.Border.all(color: c, width: 1.5),
+                borderRadius: fm.BorderRadius.circular(6)),
+            child: fm.Text(
+                text.isBlank ? '$tag:—' : '$tag:$text',
+                style: fm.TextStyle(
+                    fontSize: 16, color: c,
+                    fontWeight: fm.FontWeight.bold)));
+    return fm.Container(
+        width: double.infinity,
+        color: const fm.Color(0xffeef4ff),
+        padding: fm.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: fm.Row(children: [
+          part('P', flow.prefixResult, Color.BLUE),
+          fm.SizedBox(width: 6),
+          part('C', flow.callResult, fm.Colors.green.shade800),
+          fm.SizedBox(width: 6),
+          part('S', flow.suffixResult, fm.Colors.orange.shade800),
+          fm.Spacer(),
+          fm.Text(flow.tableFlags,
+              style: fm.TextStyle(
+                  fontSize: 16,
+                  fontWeight: fm.FontWeight.bold,
+                  color: Color.BLUE)),
+        ]));
+  }
+}
+
 class CallerTablePanel extends fm.StatefulWidget {
   @override
   _CallerTablePanelState createState() => _CallerTablePanelState();
