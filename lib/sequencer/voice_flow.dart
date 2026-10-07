@@ -886,13 +886,10 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  口令已执行:三个显示区清零(用户规则:口令完成后清零)
+  ///  口令已被输入行执行。三个显示区**保留**到下一条口令
+  /// 开始时清零(用户:显示不能一闪而过,要看得见)
   void consumeAssembled() {
     assembledCall = '';
-    tableFlags = '';
-    prefixResult = '';
-    callResult = '';
-    suffixResult = '';
     _notify();
   }
 

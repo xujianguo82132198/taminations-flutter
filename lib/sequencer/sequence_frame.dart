@@ -1854,6 +1854,17 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         //  so the user will see another messoage on repeating the same error
         afterDelay(() { _lastError = ''; },Duration(seconds:5));
       }
+      //  三表组合口令执行(独立于识别结果状态——流程监听
+      //  与界面重建的顺序有竞争,曾致组合口令被丢,不进输入框)
+      if (!flow.onlyMode && flow.assembledCall.isNotBlank) {
+        final call = flow.assembledCall;
+        flow.consumeAssembled();
+        debugPrint('三表组合执行: "$call"');
+        later(() {
+          _isVoiceCall = true;
+          _sendOneLine(model, call);
+        });
+      }
       //  Process any results from the speech recognizer
       //  只处理最终结果:中间结果仅供黄框实时显示,
       //  不得流入输入框、不得触发表内自动执行
@@ -1907,17 +1918,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         //     组合为整条口令;这里只负责送输入行+回车执行。
         //     Only 采表模式绝不自动执行口令
         else if (!flow.onlyMode) {
-          if (flow.assembledCall.isNotBlank) {
-            final call = flow.assembledCall;
-            flow.consumeAssembled();
-            debugPrint('pipeline execute: "$call"');
-            later(() {
-              _isVoiceCall = true;
-              _sendOneLine(model, call);
-            });
-          } else {
-            debugPrint('pipeline: no assembled call -> ignored');
-          }
+          //  组合口令的执行已移至上方独立块(竞争修复);
+          //  此处仅清结果防止重复消费
         }
         //  处理完一条结果后立即清空,防止 build 重复消费同一结果
         speech.clearResults();
