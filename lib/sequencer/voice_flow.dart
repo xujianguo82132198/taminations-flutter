@@ -109,6 +109,11 @@ class VoiceFlow extends ChangeNotifier {
   //  ---- 分段取样(用户定义的口令结构) ----
   //  按下待命→声音起段→静音0.3秒收段;每段关闭查一次表
   //  (全程最多3次:前缀→口令→后缀),组合不冲掉,逐段显示
+  ///  目录经验词:本口令员目录内**所有表**的记号词+口令
+  ///  读法词(开表时收集)。采样语法纳入它们——Words 表学
+  ///  的音节(do/so/doe)在 MS 表录音时也可解码
+  Set<String> _dirWords = {};
+
   ///  分段检索门槛(先设0.5)
   static const sampleLookupThreshold = 0.5;
   ///  累计组合显示(合格结果累加,不冲掉)
@@ -182,6 +187,8 @@ class VoiceFlow extends ChangeNotifier {
         }
       }
     }
+    //  目录经验词并入(Words表音节等跨表可解码)
+    words.addAll(_dirWords);
     if (words.isEmpty) return null;
     return [...words, '[unk]'];
   }
@@ -580,6 +587,33 @@ class VoiceFlow extends ChangeNotifier {
     for (final r in table.rows) {
       debugPrint('ROW ${r.seq}|${r.recognized}|${r.standardCall}');
     }
+    //  目录经验词收集:本目录所有表的记号词+口令读法词
+    _dirWords = {};
+    try {
+      final dir = name.split('/').first;
+      final prefs = await SharedPreferences.getInstance();
+      for (final n in CallerTable.listTableNames(prefs)) {
+        if (!n.startsWith('$dir/')) continue;
+        final t = n == name ? table : await CallerTable.open(n);
+        for (final r in t.rows) {
+          for (final w in CallerTable.spokenForm(r.standardCall)
+              .split(RegExp(r' +'))) {
+            if (w.isNotEmpty) _dirWords.add(w);
+          }
+          for (final token in r.recognized.split('|')) {
+            for (final w in token.toLowerCase()
+                .split(RegExp(r' +'))) {
+              if (w.isNotEmpty && w != 'unk' && w != '[unk]') {
+                _dirWords.add(w);
+              }
+            }
+          }
+        }
+      }
+      debugPrint('目录经验词: ${_dirWords.length} 个');
+    } catch (e) {
+      debugPrint('目录经验词收集失败: $e');
+    }
     callerTable = table;
     table.addListener(_onTableChanged);
     _notify();
@@ -726,6 +760,23 @@ class VoiceFlow extends ChangeNotifier {
     //  显示块已在 _onSpeech 清过;这里逐表检索,每进一表
     //  立即刷新显示(口令员看得见 P→P_C→P_C_S 的递加过程)
     if (segs.isEmpty) return;
+    //  整句优先:整条口令文本先直接查一次表——多拍记号
+    //  (如 dosado 的 "do so do"分三拍念出)整条命中即单一
+    //  口令,不再拆前缀/口令/后缀(录音怎么存,喊就怎么中)
+    final act0 = callerTable;
+    if (act0 != null) {
+      final whole = segs.join(' ').trim();
+      final rw = act0.lookupSequential(whole);
+      if (rw.hit != null && rw.error <= 0.45) {
+        callResult = rw.hit!.standardCall;
+        tableFlags = 'C';
+        assembledCall = callResult;
+        debugPrint('whole-command hit: "$whole" -> "$callResult" '
+            '(err=${rw.error.toStringAsFixed(2)})');
+        _notify();
+        return;
+      }
+    }
     String callSeg;
     String? prefixSeg;
     String? suffixSeg;
