@@ -614,7 +614,12 @@ class VoiceFlow extends ChangeNotifier {
       final dir = name.split('/').first;
       final prefs = await SharedPreferences.getInstance();
       for (final n in CallerTable.listTableNames(prefs)) {
-        if (n != '$dir/Words_Only' && n != '$dir/Words') continue;
+        //  按表名最后一段识别Words表(容忍叠层名)
+        final lastSeg = n.split('/').last;
+        if (!n.startsWith('$dir/') ||
+            (lastSeg != 'Words_Only' && lastSeg != 'Words')) {
+          continue;
+        }
         final t = n == name ? table : await CallerTable.open(n);
         for (final r in t.rows) {
           for (final w in CallerTable.spokenForm(r.standardCall)
