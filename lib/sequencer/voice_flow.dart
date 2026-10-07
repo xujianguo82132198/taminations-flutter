@@ -1644,8 +1644,6 @@ class VoiceFlow extends ChangeNotifier {
   ///  仅结束语音识别(表保持打开,麦克风钮再按可重启;
   ///  不清表、不动音乐节拍状态)
   void stopListening() {
-    //  麦克风停止:非Only模式面板回归(表管理可见)
-    if (!onlyMode) setPanelMinimized(false);
     debugPrint('VoiceFlow.stopListening (phase=$phase)');
     speech?.cancel();
     if (phase != 'awaiting' && phase != 'detecting')
