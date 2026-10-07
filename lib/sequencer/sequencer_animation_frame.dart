@@ -144,7 +144,7 @@ class _SequencerHelpButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final appState = pp.Provider.of<TamState>(context,listen: false);
     return fm.Expanded(
-        child: Button('Help',onPressed: () {
+        child: Button('Help', child: fm.Text('Help', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           appState.change(detailPage:DetailPage.HELP,helplink: 'info/sequencer');
         },)
     );
@@ -156,7 +156,7 @@ class _SequencerSettingsButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final appState = pp.Provider.of<TamState>(context,listen: false);
     return fm.Expanded(
-        child: Button('Settings',onPressed: () {
+        child: Button('Settings', child: fm.Text('Settings', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           appState.change(detailPage:DetailPage.SETTINGS);
         },)
     );
@@ -168,7 +168,7 @@ class _SequencerAbbrevButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final appState = pp.Provider.of<TamState>(context,listen: false);
     return fm.Expanded(
-        child: Button('Abbrev',onPressed: () {
+        child: Button('Abbrev', child: fm.Text('Abbrev', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           appState.change(detailPage:DetailPage.ABBREVIATIONS);
         },)
     );
@@ -180,7 +180,7 @@ class _SequencerCallsButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final appState = pp.Provider.of<TamState>(context,listen: false);
     return fm.Expanded(
-        child: Button('Calls',onPressed: () {
+        child: Button('Calls', child: fm.Text('Calls', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           appState.change(detailPage:DetailPage.CALLS);
         },)
     );
