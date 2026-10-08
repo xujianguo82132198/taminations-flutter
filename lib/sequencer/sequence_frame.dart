@@ -2316,6 +2316,34 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     return (value == null || value.isBlank) ? null : value;
   }
 
+  ///  目录层条目:📁口令员目录(去重)+无目录的平铺表
+  static List<String> _dirEntries(List<String> names) {
+    final dirs = <String>[];
+    final roots = <String>[];
+    for (final n in names) {
+      final i = n.indexOf('/');
+      if (i < 0) {
+        roots.add(n);
+      } else {
+        final d = '📁 ${n.substring(0, i)}';
+        if (!dirs.contains(d)) dirs.add(d);
+      }
+    }
+    return [...dirs, ...roots];
+  }
+
+  ///  目录内条目:该目录的全部表(全名,首行留给"返回"由
+  ///  itemBuilder处理,此处含全部,调用方index+0为返回行时
+  ///  需要offset——实现为直接返回表列表,itemBuilder跳过0)
+  static List<String> _dirTableEntries(
+      List<String> names, String dir) {
+    //  注意:itemBuilder的index==0是返回行,表条目从1起——
+    //  这里返回的列表在itemBuilder里按[index]取,index>=1
+    //  对应entries[index-1];上面part1里直接entries[index],
+    //  所以首元素放占位,表从第2个起
+    return ['', ...names.where((n) => n.startsWith('$dir/'))];
+  }
+
   Future<void> _refreshTableNames(
       SharedPreferences prefs, List<String> tableNames) async {
     //  旧结构迁移(平铺掺名 → 口令员/表名 目录),幂等
@@ -2472,6 +2500,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     final passwordController = fm.TextEditingController();
     final passwordFocus = fm.FocusNode();
     var selected = '';   //  选中的表名(空表示未选)
+    var currentDir = '';   //  目录层导航:''=口令员目录层,否则该目录内
     var opened = false;
     //  口令阶段:点"打开"或"删除"后,在同一个对话框内切换到
     //  口令输入(不弹新对话框——部分系统不允许新对话框自动弹键盘),
@@ -2577,11 +2606,80 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         : fm.ListView.builder(
                             shrinkWrap: true,
                             padding: fm.EdgeInsets.zero,
-                            itemCount: tableNames.length,
+                            //  两级导航(用户需求:口令员要能看到并
+                            //  选择目录——每个人的表都在自己目录内):
+                            //  目录层=📁口令员列表,进入=该目录的表
+                            itemCount: currentDir.isBlank
+                                ? _dirEntries(tableNames).length
+                                : _dirTableEntries(
+                                        tableNames, currentDir)
+                                    .length,
                             itemBuilder: (lctx, index) {
-                              final name = tableNames[index];
+                              final String name;
+                              final String display;
+                              if (currentDir.isBlank) {
+                                final e =
+                                    _dirEntries(tableNames)[index];
+                                if (e.startsWith('📁 ')) {
+                                  //  点目录=进入,不选中
+                                  return fm.InkWell(
+                                    onTap: () => setState(() {
+                                      currentDir =
+                                          e.substring(2).trim();
+                                      selected = '';
+                                    }),
+                                    child: fm.Container(
+                                      padding: fm.EdgeInsets.only(
+                                          left: 12, top: 6, bottom: 6),
+                                      child: fm.Row(children: [
+                                        fm.Text('📁',
+                                            style: fm.TextStyle(
+                                                fontSize: 20)),
+                                        fm.SizedBox(width: 8),
+                                        fm.Text(e.substring(2).trim(),
+                                            style: fm.TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: fm.FontWeight
+                                                    .bold)),
+                                        fm.Spacer(),
+                                        fm.Text(
+                                            '${_dirEntries(tableNames).where((x) => x != e && x.startsWith('📁 ${e.substring(2).trim()}/') || x == e).length}表',
+                                            style: fm.TextStyle(
+                                                fontSize: 14,
+                                                color: Color.GRAY)),
+                                      ]),
+                                    ),
+                                  );
+                                }
+                                name = e;
+                                display = e;
+                              } else {
+                                final entries = _dirTableEntries(
+                                    tableNames, currentDir);
+                                if (index == 0) {
+                                  //  返回目录层
+                                  return fm.InkWell(
+                                    onTap: () => setState(() {
+                                      currentDir = '';
+                                      selected = '';
+                                    }),
+                                    child: fm.Container(
+                                      color: Color(0xfff0f0f0),
+                                      padding: fm.EdgeInsets.only(
+                                          left: 12, top: 6, bottom: 6),
+                                      child: fm.Text('← 返回目录列表',
+                                          style: fm.TextStyle(
+                                              fontSize: 18,
+                                              color: Color.GRAY)),
+                                    ),
+                                  );
+                                }
+                                final fullName = entries[index];
+                                name = fullName;
+                                display = fullName
+                                    .substring(currentDir.length + 1);
+                              }
                               final isSelected = name == selected;
-                              //  未选时初始光标指向第一个
                               final isFocusedFirst =
                                   selected.isBlank && index == 0;
                               return fm.InkWell(
@@ -2598,7 +2696,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                           : null),
                                   padding: fm.EdgeInsets.only(
                                       left: 12, top: 4, bottom: 4),
-                                  child: fm.Text(name,
+                                  child: fm.Text(display,
                                       style: fm.TextStyle(
                                           fontSize: 22,
                                           color: isSelected
