@@ -1195,6 +1195,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                 if (flow.onlyMode) ...[
                   fm.InkWell(
                     onTap: () async {
+                      if (flow.speech?.isListening ?? false) {
+                        _mgmtSnackBar('识别中,禁止编辑');
+                        return;
+                      }
                       //  高亮行上方插入全空行,随即进入口令编辑
                       //  (键入标准口令;取消则留空行以后再填)。
                       //  无高亮行时:询问操作者插入位置(行号)
@@ -1354,7 +1358,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                               ? flow.selectDictationRow(row.seq)
                               : null,
                           onLongPress:
-                              flow.callerTable != null
+                              (flow.callerTable != null &&
+                                  !(flow.speech?.isListening ?? false))
                               ? () => _rowActionMenu(row)
                               : null,
                           child: fm.Container(
@@ -1533,9 +1538,14 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   //  清理全表(采录完成后统一做):删空识别行、
   //  第2,3列完全相同的行只保留1行(带确认)
   Future<void> _cleanupTableDialog() async {
-    //  所有表可用(合并表也有历史重复行要清)
+    //  所有表可用(合并表也有历史重复行要清);
+    //  麦克风识别中禁止(用户规则)
     final t = flow.callerTable;
     if (t == null) return;
+    if (flow.speech?.isListening ?? false) {
+      _mgmtSnackBar('识别中,禁止编辑');
+      return;
+    }
     final empty = t.rows
         .where((r) => r.recognized.trim().isEmpty)
         .length;
