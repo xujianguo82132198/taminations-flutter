@@ -2366,7 +2366,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       } catch (_) {
         empty = true;
       }
-      if (empty) {
+      //  Only 表绝不自动删除(用户规则:合并后保留Only,
+      //  低级表改动后可用Only表再合并——增量的工作副本)
+      if (empty && !n.split('/').last.endsWith('_Only')) {
         await CallerTable.deleteTable(prefs, n);
         debugPrint('空表已自动清除: $n');
       }
