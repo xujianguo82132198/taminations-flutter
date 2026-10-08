@@ -394,6 +394,46 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
 
   @override
   fm.Widget build(fm.BuildContext context) {
+    //  记号接龙钮(用户方案:先识别"wheel",光标移到最前,
+    //  再读"flutter"构成整个记号):该行已有记号+新识别
+    //  待确认时,在黄框下方出现 ←前接 / 后接→
+    fm.Widget? mergeChips;
+    {
+      final row = flow.currentDictationRow;
+      if (flow.dictationText.isNotBlank &&
+          row != null &&
+          row.recognized.isNotBlank &&
+          !flow.pttActive) {
+        mergeChips = fm.Row(mainAxisSize: fm.MainAxisSize.min,
+            children: [
+              fm.InkWell(
+                  onTap: () => flow.mergeDictation(front: true),
+                  child: fm.Container(
+                      margin: fm.EdgeInsets.only(right: 6),
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: fm.BoxDecoration(
+                          border: fm.Border.all(color: Color.BLUE),
+                          borderRadius: fm.BorderRadius.circular(6)),
+                      child: fm.Text('←前接',
+                          style: fm.TextStyle(
+                              fontSize: 16, color: Color.BLUE,
+                              fontWeight: fm.FontWeight.bold)))),
+              fm.InkWell(
+                  onTap: () => flow.mergeDictation(front: false),
+                  child: fm.Container(
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: fm.BoxDecoration(
+                          border: fm.Border.all(color: Color.BLUE),
+                          borderRadius: fm.BorderRadius.circular(6)),
+                      child: fm.Text('后接→',
+                          style: fm.TextStyle(
+                              fontSize: 16, color: Color.BLUE,
+                              fontWeight: fm.FontWeight.bold)))),
+            ]);
+      }
+    }
     return fm.GestureDetector(
       onTap: () {
         if (flow.pttActive) return;
@@ -432,7 +472,11 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       '已另存 ${flow.onlyTargetName}(共$n条)',
                       style: fm.TextStyle(fontSize: 18))));
       },
-      child: fm.AnimatedContainer(
+      child: fm.Column(
+        mainAxisSize: fm.MainAxisSize.min,
+        crossAxisAlignment: fm.CrossAxisAlignment.start,
+        children: [
+      fm.AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         padding: fm.EdgeInsets.all(4),
         //  采样中浅蓝底"正在聆听",有结果黄底,平时白底
@@ -509,7 +553,15 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       ]),
                     ),
                   ),
-                ]),
+                ],
+              ),
+      ),
+      //  记号接龙钮(该行已有记号+新识别待确认):黄框下方,
+      //  ←前接=新文本拼到已有记号前,后接→=拼到后面
+      if (mergeChips != null)
+        fm.Padding(
+            padding: fm.EdgeInsets.only(top: 2), child: mergeChips),
+      ],
       ),
     );
   }

@@ -371,6 +371,29 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
+  ///  记号接龙(用户方案:先识别"wheel",光标移到最前,
+  ///  再读"flutter"构成整个记号):新识别的文本拼到该行
+  ///  已有记号的前面或后面,一次一笔,最后整词验证
+  Future<void> mergeDictation({required bool front}) async {
+    final t = callerTable;
+    final row = currentDictationRow;
+    if (t == null || row == null) return;
+    final part = dictationRawText.isNotBlank
+        ? dictationRawText : dictationText;
+    if (part.isBlank || row.recognized.isBlank) return;
+    final merged = front
+        ? '$part ${row.recognized}'
+        : '${row.recognized} $part';
+    await t.updateRow(row.seq, recognized: merged, sort: false);
+    debugPrint('记号接龙: ${row.recognized} + $part '
+        '${front ? "(前接)" : "(后接)"} -> "$merged"');
+    dictationText = '';
+    dictationRawText = '';
+    dictationCandidates = [];
+    conflictPending = false;
+    _notify();
+  }
+
   ///  采样结果已消费
   void consumeSample() {
     pttActive = false;
