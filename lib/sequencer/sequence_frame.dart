@@ -1196,7 +1196,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                   fm.InkWell(
                     onTap: () async {
                       if (flow.speech?.isListening ?? false) {
-                        _mgmtSnackBar('识别中,禁止编辑');
+                        fm.ScaffoldMessenger.of(context).showSnackBar(
+                            fm.SnackBar(
+                                backgroundColor: Color.RED,
+                                content: fm.Text('识别中,禁止编辑',
+                                    style: fm.TextStyle(fontSize: 18))));
                         return;
                       }
                       //  高亮行上方插入全空行,随即进入口令编辑
@@ -1543,7 +1547,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     final t = flow.callerTable;
     if (t == null) return;
     if (flow.speech?.isListening ?? false) {
-      _mgmtSnackBar('识别中,禁止编辑');
+      fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+          backgroundColor: Color.RED,
+          content: fm.Text('识别中,禁止编辑',
+              style: fm.TextStyle(fontSize: 18))));
       return;
     }
     final empty = t.rows
