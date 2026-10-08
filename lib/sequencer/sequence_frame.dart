@@ -1363,17 +1363,19 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                           //  Only 模式:点行=选定为采表目标;
                           //   长按=编辑第3列/删除
                           //  非Only表:点行=选中高亮(浏览,不动数据)
-                          onTap: () => flow.onlyMode
-                              ? ((flow.speech?.isListening ?? false) ||
-                                      flow.pttActive
-                                  ? null
-                                  : () => flow.selectDictationRow(row.seq))
-                              : ((flow.speech?.isListening ?? false) ||
-                                      flow.pttActive
-                                  ? null
-                                  : () => setState(() {
-                                        _viewSeq = row.seq;
-                                      })),
+                          onTap: () {
+                            if ((flow.speech?.isListening ?? false) ||
+                                flow.pttActive) {
+                              return;
+                            }
+                            if (flow.onlyMode) {
+                              flow.selectDictationRow(row.seq);
+                            } else {
+                              setState(() {
+                                _viewSeq = row.seq;
+                              });
+                            }
+                          },
                           onLongPress:
                               (flow.callerTable != null &&
                                   !(flow.speech?.isListening ?? false) &&
