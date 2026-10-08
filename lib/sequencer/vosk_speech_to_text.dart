@@ -141,7 +141,8 @@ class VoskSpeechToText extends ChangeNotifier {
       await musicMonitor.voskStart(
           grammar: _grammarWords == null || _grammarWords!.isEmpty
               ? null : jsonEncode(_grammarWords),
-          gate: Settings.silenceGate);
+          gate: Settings.silenceGate,
+          consonant: Settings.consonantBoost);
       _sub = musicMonitor.events.listen(_onEvent);
     } catch (e) {
       _log('recycle FAILED: $e');
@@ -507,7 +508,8 @@ class VoskSpeechToText extends ChangeNotifier {
       await musicMonitor.voskStart(
           grammar: _grammarWords == null || _grammarWords!.isEmpty
               ? null : jsonEncode(_grammarWords),
-          gate: Settings.silenceGate);
+          gate: Settings.silenceGate,
+          consonant: Settings.consonantBoost);
       _isListening = true;
       _log('session: listening');
     } catch (e) {

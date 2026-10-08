@@ -169,6 +169,16 @@ class Settings extends fm.ChangeNotifier {
     _instance.notifyListeners();
   }
 
+  ///  辅音助听器(默认开,用户设想):开头辅音赋予更高决策权,
+  ///  减少元音确定权——两分频,高频段(辅音)提升约9dB,
+  ///  低频段(元音+冰箱嗡嗡)压3dB
+  static bool get consonantBoost =>
+      _instance.proxy.getBool('Consonant Boost') ?? true;
+  static set consonantBoost(bool value) {
+    _instance.proxy.setBool('Consonant Boost', value);
+    _instance.notifyListeners();
+  }
+
   static String get geometry =>
       _instance.proxy.getString('Special Geometry') ?? 'None';
   static set geometry(String value) {

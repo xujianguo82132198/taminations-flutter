@@ -529,7 +529,14 @@ class MainActivity : FlutterActivity() {
             } else {
               (chunk[i] * gain).toInt()
             }
-            val cl = if (v > 32767) 32767 else if (v < -32768) -32768 else v
+            var vo = v
+            if (consonantBoost) {
+              //  两分频:低频x0.7 + 高频x2.8(相对+12dB)
+              val x = vo.toDouble()
+              consLp += 0.445 * (x - consLp)
+              vo = (0.7 * consLp + 2.8 * (x - consLp)).roundToInt()
+            }
+            val cl = if (vo > 32767) 32767 else if (vo < -32768) -32768 else vo
             bytes[i * 2] = (cl and 0xff).toByte()
             bytes[i * 2 + 1] = ((cl shr 8) and 0xff).toByte()
             val d = cl / 32768.0
@@ -670,6 +677,9 @@ class MainActivity : FlutterActivity() {
   @Volatile private var vadLastUtteranceMs = 0L
   //  自适应底噪(dB):静音期慢速跟踪
   @Volatile private var noiseFloorDb = -45.0
+  //  辅音助听器开关+分频器状态(一阶低通1500Hz@16k)
+  @Volatile private var consonantBoost = false
+  private var consLp = 0.0
   private var deadZoneMs = 0
 
   //  加载去重:Dart 侧可能有多个提供者实例并发请求初始化
@@ -752,6 +762,10 @@ class MainActivity : FlutterActivity() {
     val grammar = call.argument<String>("grammar")
     //  静音门限开关(持续监听传 true,PTT 采样传 false)
     val gate = call.argument<Boolean>("gate") ?: false
+    //  辅音助听器(用户设想:开头辅音赋予更高决策权,减少
+    //  元音确定权):两分频,高频段(辅音)提升,低频段(元音+
+    //  冰箱嗡嗡)略压——喂识别器之前生效,录音喊令同条件
+    val consonant = call.argument<Boolean>("consonant") ?: false
     synchronized(voskLock) {
       try {
         val rec = if (grammar != null && grammar.length > 2)
@@ -763,6 +777,7 @@ class MainActivity : FlutterActivity() {
         voskRecognizer = rec
         voskFeed = true
         voskGate = gate
+        consonantBoost = consonant
         vadOpen = false; vadSpeechMs = 0; vadQuietMs = 0; vadLastUtteranceMs = 0
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
         Log.i(TAG, "vosk: gate=${if (gate) "on" else "off"}")

@@ -92,7 +92,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 GeometrySettingWidget(),
                 JoinCallsWithWidget(),
                 SpeechEngineWidget(),
-                SilenceGateWidget()
+                SilenceGateWidget(),
+                ConsonantBoostWidget()
               ]));
         });
   }
@@ -191,6 +192,24 @@ class SilenceGateWidget extends fm.StatelessWidget {
         value: Settings.silenceGate,
         onChanged: (value) {
           Settings.silenceGate = value;
+        },
+      ),
+    );
+  }
+}
+
+///  辅音助听器(用户设想:开头辅音赋予更高决策权):
+///  两分频高频提升——S丛词(spin/split/step)的辅音瞬间
+///  不再被元音和冰箱嗡嗡淹没。A/B对比可开关
+class ConsonantBoostWidget extends fm.StatelessWidget {
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    return pp.Consumer<Settings>(
+      builder: (context,settings,child) => _SettingCheckbox(
+        name:'辅音增强(识别)',
+        value: Settings.consonantBoost,
+        onChanged: (value) {
+          Settings.consonantBoost = value;
         },
       ),
     );
