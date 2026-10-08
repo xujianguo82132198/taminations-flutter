@@ -2753,6 +2753,74 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         _mgmtSnackBar('已创建 $onlyName '
                                             '${t.rows.length}条,请点打开');
                                       }),
+                      _tableMgmtButton(ctx, true, '引入', () async {
+                        //  目录间引入(用户需求):从其他口令员目录
+                        //  复制表到当前口令员目录(如 XuJianguo2/
+                        //  Prefix -> XuJianguo2_2/Prefix),原表不动
+                        final target =
+                            nameController.text.trim();
+                        if (target.isBlank || target.contains('/')) {
+                          _mgmtSnackBar('请先在名字栏输入目标口令员名');
+                          return;
+                        }
+                        final prefs3 =
+                            await SharedPreferences.getInstance();
+                        final others = CallerTable.listTableNames(
+                                prefs3)
+                            .where((n) =>
+                                n.contains('/') &&
+                                !n.startsWith('$target/') &&
+                                !n.endsWith('_Only'))
+                            .toList();
+                        if (others.isEmpty) {
+                          _mgmtSnackBar('没有可引入的表(其他目录的合并表)');
+                          return;
+                        }
+                        final picked = await fm.showDialog<String>(
+                            context: context,
+                            builder: (ictx) => fm.AlertDialog(
+                              title: fm.Text(
+                                  '引入到 $target(点选一张表)',
+                                  style: fm.TextStyle(fontSize: 20)),
+                              content: fm.SizedBox(
+                                  width: double.maxFinite,
+                                  height: 420,
+                                  child: fm.ListView(
+                                      children: [
+                                        for (final o in others)
+                                          fm.ListTile(
+                                            dense: true,
+                                            title: fm.Text(o,
+                                                style: fm.TextStyle(
+                                                    fontSize: 18)),
+                                            subtitle: fm.Text(
+                                                '→ $target/${o.split('/').last}',
+                                                style: fm.TextStyle(
+                                                    fontSize: 14,
+                                                    color: Color.GRAY)),
+                                            onTap: () =>
+                                                fm.Navigator.of(ictx)
+                                                    .pop(o),
+                                          ),
+                                      ])),
+                              actions: [
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(ictx).pop(),
+                                    child: fm.Text('取消',
+                                        style: fm.TextStyle(
+                                            fontSize: 18))),
+                              ],
+                            ));
+                        if (picked == null || !mounted) return;
+                        final dst = '$target/${picked.split('/').last}';
+                        final raw =
+                            prefs3.getString('口令员表 $picked');
+                        if (raw == null) return;
+                        await prefs3.setString('口令员表 $dst', raw);
+                        await _refreshTableNames(prefs3, tableNames);
+                        _mgmtSnackBar('已引入 $picked -> $dst');
+                      }),
                       _tableMgmtButton(ctx, selected.isBlank, '导入',
                           () async {
                         final imported = await _manageImportYsb(
