@@ -922,7 +922,9 @@ class CallerTable extends ChangeNotifier {
     if (wordTable) {
       for (var i = 0; i < rows.length; i++) {
         final r = rows[i];
-        final w = r.standardCall.trim().toLowerCase();
+        //  与**读法形式**比(曾与原文比:"1"行记号"one"被误判
+        //  错位清零,用户加的数字行全被清理删除)
+        final w = spokenForm(r.standardCall);
         if (r.recognized.trim().isNotEmpty &&
             w.isNotEmpty &&
             !w.contains(' ') &&
