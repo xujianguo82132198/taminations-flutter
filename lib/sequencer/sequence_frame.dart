@@ -2852,11 +2852,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                             '${t.rows.length}条,请点打开');
                                       }),
                       _tableMgmtButton(ctx, true, '引入', () async {
-                        //  目录间引入(用户定义的零输入流程):
-                        //  目标=本地目录(自动记下——当前导航目录
-                        //  或已打开表所在目录,不输入名字防拷错
-                        //  地方);画面回顶目录,由口令员点选其他
-                        //  目录的表,复制到本地目录,原表不动
+                        //  目录间引入(用户定义:零输入+组选):
+                        //  目标=本地目录自动记住;源目录两级导航;
+                        //  表按全名大字显示(Only/非Only一目了然);
+                        //  点Prefix连带Prefix_Only全选;另有全选钮;
+                        //  画面紧凑(节约高度)
                         var target = currentDir;
                         if (target.isBlank) {
                           final open =
@@ -2872,8 +2872,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         }
                         final prefs3 =
                             await SharedPreferences.getInstance();
-                        //  引入画面自己的导航目录(从顶目录起)
                         var srcDir = '';
+                        final picked = <String>{};
                         var imported = 0;
                         await fm.showDialog<void>(
                             context: context,
@@ -2895,113 +2895,283 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               final tables = srcDir.isBlank
                                   ? const <String>[]
                                   : all
-                                      .where((n) =>
-                                          n.startsWith('$srcDir/') &&
-                                          !n.endsWith('_Only'))
+                                      .where((n) => n
+                                          .startsWith('$srcDir/'))
                                       .toList();
+                              //  组选:点非Only表连带其Only版
+                              void toggle(String t) {
+                                final stem = t.endsWith('_Only')
+                                    ? t.substring(0, t.length - 5)
+                                    : t;
+                                final group = tables
+                                    .where((x) =>
+                                        x == stem ||
+                                        x == '${stem}_Only')
+                                    .toList();
+                                final allOn = group.isNotEmpty &&
+                                    group.every(picked.contains);
+                                if (allOn) {
+                                  picked.removeAll(group);
+                                } else {
+                                  picked.addAll(group);
+                                }
+                              }
                               return fm.AlertDialog(
                                 title: fm.Text(
                                     srcDir.isBlank
                                         ? '引入到「$target」:选源目录'
-                                        : '引入到「$target」← $srcDir:'
-                                            ' 点选要复制的表',
+                                        : '引入到「$target」← $srcDir',
                                     style:
                                         fm.TextStyle(fontSize: 19)),
                                 content: fm.SizedBox(
                                     width: double.maxFinite,
-                                    height: 420,
+                                    height: 360,
                                     child: srcDir.isBlank
                                         ? (dirs.isEmpty
-                                            ? fm.Text(
-                                                '没有其他目录可引入',
+                                            ? fm.Text('没有其他目录可引入',
                                                 style: fm.TextStyle(
                                                     fontSize: 18))
                                             : fm.ListView(
+                                                padding: fm
+                                                    .EdgeInsets.zero,
                                                 children: [
                                                   for (final d in dirs)
-                                                    fm.ListTile(
-                                                      leading: fm.Text(
-                                                          '📁',
-                                                          style: fm
-                                                              .TextStyle(
-                                                                  fontSize:
-                                                                      22)),
-                                                      title: fm.Text(
-                                                          d,
-                                                          style: fm
-                                                              .TextStyle(
-                                                                  fontSize:
-                                                                      20,
-                                                                  fontWeight:
-                                                                      fm.FontWeight.bold)),
+                                                    fm.InkWell(
                                                       onTap: () =>
                                                           iset(() =>
                                                               srcDir =
                                                                   d),
+                                                      child: fm
+                                                          .Padding(
+                                                        padding: fm
+                                                            .EdgeInsets
+                                                            .symmetric(
+                                                                vertical:
+                                                                    5,
+                                                                horizontal:
+                                                                    8),
+                                                        child: fm.Row(
+                                                            children: [
+                                                              fm.Text(
+                                                                  '📁',
+                                                                  style: fm.TextStyle(
+                                                                      fontSize:
+                                                                          22)),
+                                                              fm.SizedBox(
+                                                                  width:
+                                                                      8),
+                                                              fm.Text(
+                                                                  d,
+                                                                  style: fm.TextStyle(
+                                                                      fontSize:
+                                                                          21,
+                                                                      fontWeight:
+                                                                          fm.FontWeight.bold)),
+                                                            ]),
+                                                      ),
                                                     ),
                                                 ],
                                               ))
-                                        : fm.ListView(
+                                        : fm.Column(
+                                            mainAxisSize: fm
+                                                .MainAxisSize.min,
                                             children: [
-                                              fm.ListTile(
-                                                title: fm.Text(
-                                                    '← 返回目录列表',
-                                                    style: fm
-                                                        .TextStyle(
+                                              //  全选行(紧凑)
+                                              fm.InkWell(
+                                                onTap: () => iset(() {
+                                                  if (picked.length ==
+                                                      tables.length) {
+                                                    picked.clear();
+                                                  } else {
+                                                    picked
+                                                      ..clear()
+                                                      ..addAll(tables);
+                                                  }
+                                                }),
+                                                child: fm.Padding(
+                                                  padding: fm
+                                                      .EdgeInsets
+                                                      .symmetric(
+                                                          vertical: 3,
+                                                          horizontal:
+                                                              8),
+                                                  child: fm.Row(
+                                                    children: [
+                                                      fm.Icon(
+                                                        picked.length ==
+                                                                tables
+                                                                    .length
+                                                            ? fm.Icons
+                                                                .check_box
+                                                            : fm.Icons
+                                                                .check_box_outline_blank,
+                                                        size: 22,
+                                                        color: Color
+                                                            .BLUE,
+                                                      ),
+                                                      fm.SizedBox(
+                                                          width: 6),
+                                                      fm.Text(
+                                                          '全选(${tables.length}表)',
+                                                          style: fm
+                                                              .TextStyle(
                                                             fontSize:
-                                                                18,
+                                                                19,
                                                             color: Color
-                                                                .GRAY)),
-                                                onTap: () => iset(
-                                                    () =>
-                                                        srcDir = ''),
+                                                                .BLUE,
+                                                            fontWeight:
+                                                                fm.FontWeight
+                                                                    .bold,
+                                                          )),
+                                                      fm.Spacer(),
+                                                      fm.Text(
+                                                          '已选${picked.length}',
+                                                          style: fm
+                                                              .TextStyle(
+                                                            fontSize:
+                                                                16,
+                                                            color: Color
+                                                                .GRAY,
+                                                          )),
+                                                    ],
+                                                  ),
+                                                ),
                                               ),
-                                              for (final t in tables)
-                                                fm.ListTile(
-                                                  dense: true,
-                                                  title: fm.Text(t
-                                                      .substring(srcDir
-                                                              .length +
-                                                          1)),
-                                                  subtitle: fm.Text(
-                                                      '$t → $target/${t.split('/').last}',
-                                                      style: fm
-                                                          .TextStyle(
-                                                              fontSize:
-                                                                  14,
-                                                              color:
-                                                                  Color.GRAY)),
-                                                  onTap: () async {
-                                                    final dst =
-                                                        '$target/${t.split('/').last}';
-                                                    final raw = prefs3
-                                                        .getString(
-                                                            '口令员表 $t');
-                                                    if (raw != null) {
-                                                      await prefs3
-                                                          .setString(
-                                                              '口令员表 $dst',
-                                                              raw);
-                                                      imported++;
-                                                    }
-                                                    iset(() =>
-                                                        srcDir = '');
-                                                    fm.ScaffoldMessenger.of(
-                                                            context)
-                                                        .showSnackBar(fm.SnackBar(
-                                                            backgroundColor:
-                                                                Color.BLUE,
-                                                            content: fm.Text(
-                                                                '已引入 $dst',
+                                              fm.Divider(
+                                                  height: 1,
+                                                  color:
+                                                      Color.LIGHTGREY),
+                                              fm.Expanded(
+                                                child: fm.ListView
+                                                    .builder(
+                                                  padding: fm
+                                                      .EdgeInsets
+                                                      .zero,
+                                                  itemCount: tables
+                                                      .length,
+                                                  itemBuilder: (bctx,
+                                                      bi) {
+                                                    final t =
+                                                        tables[bi];
+                                                    final on = picked
+                                                        .contains(t);
+                                                    final stem = t
+                                                            .endsWith(
+                                                                '_Only')
+                                                        ? t.substring(
+                                                            0,
+                                                            t.length -
+                                                                5)
+                                                        : t;
+                                                    final hasGroup = tables
+                                                        .any((x) =>
+                                                            x ==
+                                                                stem ||
+                                                            x ==
+                                                                '${stem}_Only');
+                                                    return fm.InkWell(
+                                                      onTap: () =>
+                                                          iset(() =>
+                                                              toggle(
+                                                                  t)),
+                                                      child: fm.Padding(
+                                                        padding: fm
+                                                            .EdgeInsets
+                                                            .symmetric(
+                                                          vertical: 3,
+                                                          horizontal:
+                                                              8,
+                                                        ),
+                                                        child: fm.Row(
+                                                          children: [
+                                                            fm.Icon(
+                                                              on
+                                                                  ? fm.Icons
+                                                                      .check_box
+                                                                  : fm.Icons
+                                                                      .check_box_outline_blank,
+                                                              size:
+                                                                  22,
+                                                              color: Color
+                                                                  .BLUE,
+                                                            ),
+                                                            fm.SizedBox(
+                                                                width:
+                                                                    6),
+                                                            fm.Expanded(
+                                                              child: fm
+                                                                  .Text(
+                                                                //  全名显示(Only/非Only一目了然)
+                                                                t,
                                                                 style: fm
                                                                     .TextStyle(
-                                                                        fontSize:
-                                                                            18))));
+                                                                  fontSize:
+                                                                      20,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            if (hasGroup)
+                                                              fm.Text(
+                                                                '组',
+                                                                style: fm
+                                                                    .TextStyle(
+                                                                  fontSize:
+                                                                      14,
+                                                                  color: Color
+                                                                      .GRAY,
+                                                                ),
+                                                              ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    );
                                                   },
                                                 ),
+                                              ),
                                             ],
                                           )),
                                 actions: [
+                                  if (srcDir.isNotBlank)
+                                    fm.TextButton(
+                                      onPressed: picked.isEmpty
+                                          ? null
+                                          : () async {
+                                              for (final t
+                                                  in picked.toList()) {
+                                                final dst =
+                                                    '$target/${t.split('/').last}';
+                                                final raw = prefs3
+                                                    .getString(
+                                                        '口令员表 $t');
+                                                if (raw != null) {
+                                                  await prefs3
+                                                      .setString(
+                                                          '口令员表 $dst',
+                                                          raw);
+                                                  imported++;
+                                                }
+                                              }
+                                              iset(() {
+                                                picked.clear();
+                                                srcDir = '';
+                                              });
+                                              fm.ScaffoldMessenger.of(
+                                                      context)
+                                                  .showSnackBar(fm.SnackBar(
+                                                      backgroundColor:
+                                                          Color.BLUE,
+                                                      content: fm.Text(
+                                                          '已引入 $imported 张到 $target',
+                                                          style: fm
+                                                              .TextStyle(
+                                                                  fontSize:
+                                                                      18))));
+                                            },
+                                      child: fm.Text(
+                                          '引入所选(${picked.length})',
+                                          style: fm.TextStyle(
+                                              fontSize: 18,
+                                              color: Color.BLUE))),
                                   fm.TextButton(
                                       onPressed: () =>
                                           fm.Navigator.of(ictx).pop(),
