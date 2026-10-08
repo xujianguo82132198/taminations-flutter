@@ -1035,6 +1035,14 @@ class CallerTable extends ChangeNotifier {
   static bool sameCommandPrefix(String a, String b) =>
       samePrefix(decomposeCall(a).$1, decomposeCall(b).$1);
 
+  ///  辅音骨架(用户算法:辅音承载词的身份,元音承载声音
+  ///  ——"我们的声音来自于元音"。听到的词先按辅音链对位,
+  ///  s家族→剥s→p家族→剥p→…→元音收底:slide的骨架
+  ///  s-l-d 与 split 的 s-p-l-t 近亲,整体词对不上的
+  ///  辅音丛词由此救援)
+  static String _skeleton(String s) =>
+      s.toLowerCase().replaceAll(RegExp(r'[aeiou ]'), '');
+
   ///  词数比例防线:识别句核心词数不足记号核心的一半
   ///  (或反之) = 没有关联的短杂音(如 "dough"↔"touch a half",
   ///  "it"↔"promenade home"),不匹配
@@ -1144,6 +1152,10 @@ class CallerTable extends ChangeNotifier {
         ca = ca.sublist(1);
       }
     }
+    //  骨架救援(用户算法):辅音链对位误差更低时采用
+    //  (+0.15底盘,防s族最小对误吸——sit与step骨架同为st)
+    final sk = sentenceError(_skeleton(a), _skeleton(b));
+    if (sk + 0.15 < err) err = sk + 0.15;
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) {
       err += 0.10;   //  后缀不一致
