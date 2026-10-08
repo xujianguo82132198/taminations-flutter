@@ -2577,7 +2577,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               );
             }
             return fm.AlertDialog(
-              title: fm.Text('映射表选择'),
+              title: fm.Text(currentDir.isBlank
+                  ? '映射表选择'
+                  : '📂 $currentDir'),
               content: fm.Column(
                 mainAxisSize: fm.MainAxisSize.min,
                 children: [
@@ -2881,13 +2883,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                 builder: (ictx, iset) {
                               final all = CallerTable.listTableNames(
                                   prefs3);
+                              //  全部目录都列出(含自己的=诚信);
+                              //  自己的虚显不可选(防自拷)
                               final dirs = <String>[];
                               for (final n in all) {
                                 final i = n.indexOf('/');
                                 if (i > 0) {
                                   final d = n.substring(0, i);
-                                  if (d != target &&
-                                      !dirs.contains(d)) {
+                                  if (!dirs.contains(d)) {
                                     dirs.add(d);
                                   }
                                 }
@@ -2936,40 +2939,74 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                     .EdgeInsets.zero,
                                                 children: [
                                                   for (final d in dirs)
-                                                    fm.InkWell(
-                                                      onTap: () =>
-                                                          iset(() =>
-                                                              srcDir =
-                                                                  d),
-                                                      child: fm
-                                                          .Padding(
-                                                        padding: fm
-                                                            .EdgeInsets
-                                                            .symmetric(
-                                                                vertical:
-                                                                    5,
-                                                                horizontal:
-                                                                    8),
-                                                        child: fm.Row(
-                                                            children: [
-                                                              fm.Text(
-                                                                  '📁',
-                                                                  style: fm.TextStyle(
-                                                                      fontSize:
-                                                                          22)),
-                                                              fm.SizedBox(
-                                                                  width:
-                                                                      8),
-                                                              fm.Text(
-                                                                  d,
-                                                                  style: fm.TextStyle(
-                                                                      fontSize:
-                                                                          21,
-                                                                      fontWeight:
-                                                                          fm.FontWeight.bold)),
-                                                            ]),
-                                                      ),
-                                                    ),
+                                                    d == target
+                                                        ? fm.Opacity(
+                                                            opacity: 0.4,
+                                                            child: fm
+                                                                .Padding(
+                                                              padding: fm.EdgeInsets
+                                                                  .symmetric(
+                                                                      vertical:
+                                                                          2,
+                                                                      horizontal:
+                                                                          8),
+                                                              child: fm
+                                                                  .Row(
+                                                                children: [
+                                                                  fm.Text(
+                                                                      '📁',
+                                                                      style: fm.TextStyle(
+                                                                          fontSize:
+                                                                              21)),
+                                                                  fm.SizedBox(
+                                                                      width:
+                                                                          8),
+                                                                  fm.Text(
+                                                                      '$d (本地,不可选)',
+                                                                      style: fm.TextStyle(
+                                                                          fontSize:
+                                                                              20,
+                                                                          fontWeight: fm.FontWeight
+                                                                              .bold)),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          )
+                                                        : fm.InkWell(
+                                                            onTap: () =>
+                                                                iset(() =>
+                                                                    srcDir =
+                                                                        d),
+                                                            child: fm
+                                                                .Padding(
+                                                              padding: fm.EdgeInsets
+                                                                  .symmetric(
+                                                                      vertical:
+                                                                          2,
+                                                                      horizontal:
+                                                                          8),
+                                                              child: fm
+                                                                  .Row(
+                                                                children: [
+                                                                  fm.Text(
+                                                                      '📁',
+                                                                      style: fm.TextStyle(
+                                                                          fontSize:
+                                                                              21)),
+                                                                  fm.SizedBox(
+                                                                      width:
+                                                                          8),
+                                                                  fm.Text(
+                                                                      d,
+                                                                      style: fm.TextStyle(
+                                                                          fontSize:
+                                                                              21,
+                                                                          fontWeight: fm.FontWeight
+                                                                              .bold)),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
                                                 ],
                                               ))
                                         : fm.Column(
@@ -2979,13 +3016,27 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                               //  全选行(紧凑)
                                               fm.InkWell(
                                                 onTap: () => iset(() {
-                                                  if (picked.length ==
-                                                      tables.length) {
+                                                  //  全选=除ms系外全选
+                                                  //  (ms是本地成果,
+                                                  //  引入会覆盖重录)
+                                                  final wanted =
+                                                      tables.where((t) {
+                                                    final last = t
+                                                        .split('/')
+                                                        .last;
+                                                    return last !=
+                                                            'ms' &&
+                                                        last !=
+                                                            'ms_Only';
+                                                  }).toSet();
+                                                  if (picked
+                                                      .containsAll(
+                                                          wanted)) {
                                                     picked.clear();
                                                   } else {
                                                     picked
                                                       ..clear()
-                                                      ..addAll(tables);
+                                                      ..addAll(wanted);
                                                   }
                                                 }),
                                                 child: fm.Padding(
@@ -3012,7 +3063,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                       fm.SizedBox(
                                                           width: 6),
                                                       fm.Text(
-                                                          '全选(${tables.length}表)',
+                                                          '${tables.length}表全选',
                                                           style: fm
                                                               .TextStyle(
                                                             fontSize:
@@ -3173,6 +3224,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                               fontSize: 18,
                                               color: Color.BLUE))),
                                   fm.TextButton(
+                                      style: (picked.isNotEmpty ||
+                                              imported > 0)
+                                          ? fm.TextButton.styleFrom(
+                                              backgroundColor:
+                                                  Color.BLUE,
+                                              foregroundColor:
+                                                  Color.WHITE)
+                                          : null,
                                       onPressed: () =>
                                           fm.Navigator.of(ictx).pop(),
                                       child: fm.Text('完成',
