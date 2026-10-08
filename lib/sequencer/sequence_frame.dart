@@ -1197,7 +1197,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                 if (flow.onlyMode) ...[
                   fm.InkWell(
                     onTap: () async {
-                      if (flow.speech?.isListening ?? false) {
+                      if ((flow.speech?.isListening ?? false) ||
+                          flow.pttActive) {
                         fm.ScaffoldMessenger.of(context).showSnackBar(
                             fm.SnackBar(
                                 backgroundColor: Color.RED,
@@ -1363,15 +1364,20 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                           //   长按=编辑第3列/删除
                           //  非Only表:点行=选中高亮(浏览,不动数据)
                           onTap: () => flow.onlyMode
-                              ? flow.selectDictationRow(row.seq)
-                              : (flow.speech?.isListening ?? false)
+                              ? ((flow.speech?.isListening ?? false) ||
+                                      flow.pttActive
+                                  ? null
+                                  : () => flow.selectDictationRow(row.seq))
+                              : ((flow.speech?.isListening ?? false) ||
+                                      flow.pttActive
                                   ? null
                                   : () => setState(() {
                                         _viewSeq = row.seq;
-                                      }),
+                                      })),
                           onLongPress:
                               (flow.callerTable != null &&
-                                  !(flow.speech?.isListening ?? false))
+                                  !(flow.speech?.isListening ?? false) &&
+                                  !flow.pttActive)
                               ? () => _rowActionMenu(row)
                               : null,
                           child: fm.Container(
@@ -1558,7 +1564,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     //  麦克风识别中禁止(用户规则)
     final t = flow.callerTable;
     if (t == null) return;
-    if (flow.speech?.isListening ?? false) {
+    if ((flow.speech?.isListening ?? false) || flow.pttActive) {
       fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
           backgroundColor: Color.RED,
           content: fm.Text('识别中,禁止编辑',
