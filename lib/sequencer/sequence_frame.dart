@@ -902,6 +902,8 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   CallerRow? _lastScrolledCandidate;
   CallerRow? _lastScrolledPending;
   CallerRow? _lastScrolledCursor;
+  //  非Only表的点击选中(纯浏览高亮,不动数据)
+  int? _viewSeq;
 
   //  显隐状态由 VoiceFlow 持有(检索模式自动收起,表管理模式展开,
   //  手动切换随时可用,输入行重建不丢)
@@ -1354,13 +1356,19 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                         //  表对象重建后会失配,导致只居中不高亮)
                         final isCandidate = flow.lastCandidate != null &&
                             flow.lastCandidate!.seq == row.seq;
+                        final isViewSel =
+                            !flow.onlyMode && row.seq == _viewSeq;
                         return fm.InkWell(
                           //  Only 模式:点行=选定为采表目标;
                           //   长按=编辑第3列/删除
-                          //  非Only表只读(增删只在Only表做)
+                          //  非Only表:点行=选中高亮(浏览,不动数据)
                           onTap: () => flow.onlyMode
                               ? flow.selectDictationRow(row.seq)
-                              : null,
+                              : (flow.speech?.isListening ?? false)
+                                  ? null
+                                  : () => setState(() {
+                                        _viewSeq = row.seq;
+                                      }),
                           onLongPress:
                               (flow.callerTable != null &&
                                   !(flow.speech?.isListening ?? false))
@@ -1371,7 +1379,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                 ? Color(0xff87CEEB)
                                 : (pending
                                     ? Color.YELLOW
-                                    : (isCandidate ? Color(0xffe0f0ff) : null)),
+                                    : (isCandidate
+                                        ? Color(0xffe0f0ff)
+                                        : (isViewSel
+                                            ? Color(0xffe0e0ff)
+                                            : null))),
                             decoration: pending || isCandidate
                                 ? null
                                 : fm.BoxDecoration(
