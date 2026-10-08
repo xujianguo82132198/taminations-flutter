@@ -531,10 +531,11 @@ class MainActivity : FlutterActivity() {
             }
             var vo = v
             if (consonantBoost) {
-              //  两分频:低频x0.7 + 高频x2.8(相对+12dB)
+              //  两分频:低频x1.0(不压——短促元音躯干曾更瘦,
+              //  tep取样难) + 高频x2.8(s已听得见,全靠它)
               val x = vo.toDouble()
               consLp += 0.445 * (x - consLp)
-              vo = (0.7 * consLp + 2.8 * (x - consLp)).roundToInt()
+              vo = (consLp + 2.8 * (x - consLp)).roundToInt()
             }
             val cl = if (vo > 32767) 32767 else if (vo < -32768) -32768 else vo
             bytes[i * 2] = (cl and 0xff).toByte()
