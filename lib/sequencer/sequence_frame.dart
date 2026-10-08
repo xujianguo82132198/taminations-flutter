@@ -2852,72 +2852,169 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                             '${t.rows.length}条,请点打开');
                                       }),
                       _tableMgmtButton(ctx, true, '引入', () async {
-                        //  目录间引入(用户需求):从其他口令员目录
-                        //  复制表到当前口令员目录(如 XuJianguo2/
-                        //  Prefix -> XuJianguo2_2/Prefix),原表不动
-                        final target =
-                            nameController.text.trim();
-                        if (target.isBlank || target.contains('/')) {
-                          _mgmtSnackBar('请先在名字栏输入目标口令员名');
+                        //  目录间引入(用户定义的零输入流程):
+                        //  目标=本地目录(自动记下——当前导航目录
+                        //  或已打开表所在目录,不输入名字防拷错
+                        //  地方);画面回顶目录,由口令员点选其他
+                        //  目录的表,复制到本地目录,原表不动
+                        var target = currentDir;
+                        if (target.isBlank) {
+                          final open =
+                              flow.callerTable?.callerName ?? '';
+                          if (open.contains('/')) {
+                            target = open.split('/').first;
+                          }
+                        }
+                        if (target.isBlank) {
+                          _mgmtSnackBar('请先进入(或打开)本地目录,'
+                              '引入的目标就是它');
                           return;
                         }
                         final prefs3 =
                             await SharedPreferences.getInstance();
-                        final others = CallerTable.listTableNames(
-                                prefs3)
-                            .where((n) =>
-                                n.contains('/') &&
-                                !n.startsWith('$target/') &&
-                                !n.endsWith('_Only'))
-                            .toList();
-                        if (others.isEmpty) {
-                          _mgmtSnackBar('没有可引入的表(其他目录的合并表)');
-                          return;
-                        }
-                        final picked = await fm.showDialog<String>(
+                        //  引入画面自己的导航目录(从顶目录起)
+                        var srcDir = '';
+                        var imported = 0;
+                        await fm.showDialog<void>(
                             context: context,
-                            builder: (ictx) => fm.AlertDialog(
-                              title: fm.Text(
-                                  '引入到 $target(点选一张表)',
-                                  style: fm.TextStyle(fontSize: 20)),
-                              content: fm.SizedBox(
-                                  width: double.maxFinite,
-                                  height: 420,
-                                  child: fm.ListView(
-                                      children: [
-                                        for (final o in others)
-                                          fm.ListTile(
-                                            dense: true,
-                                            title: fm.Text(o,
+                            builder: (ictx) => fm.StatefulBuilder(
+                                builder: (ictx, iset) {
+                              final all = CallerTable.listTableNames(
+                                  prefs3);
+                              final dirs = <String>[];
+                              for (final n in all) {
+                                final i = n.indexOf('/');
+                                if (i > 0) {
+                                  final d = n.substring(0, i);
+                                  if (d != target &&
+                                      !dirs.contains(d)) {
+                                    dirs.add(d);
+                                  }
+                                }
+                              }
+                              final tables = srcDir.isBlank
+                                  ? const <String>[]
+                                  : all
+                                      .where((n) =>
+                                          n.startsWith('$srcDir/') &&
+                                          !n.endsWith('_Only'))
+                                      .toList();
+                              return fm.AlertDialog(
+                                title: fm.Text(
+                                    srcDir.isBlank
+                                        ? '引入到「$target」:选源目录'
+                                        : '引入到「$target」← $srcDir:'
+                                            ' 点选要复制的表',
+                                    style:
+                                        fm.TextStyle(fontSize: 19)),
+                                content: fm.SizedBox(
+                                    width: double.maxFinite,
+                                    height: 420,
+                                    child: srcDir.isBlank
+                                        ? (dirs.isEmpty
+                                            ? fm.Text(
+                                                '没有其他目录可引入',
                                                 style: fm.TextStyle(
-                                                    fontSize: 18)),
-                                            subtitle: fm.Text(
-                                                '→ $target/${o.split('/').last}',
-                                                style: fm.TextStyle(
-                                                    fontSize: 14,
-                                                    color: Color.GRAY)),
-                                            onTap: () =>
-                                                fm.Navigator.of(ictx)
-                                                    .pop(o),
-                                          ),
-                                      ])),
-                              actions: [
-                                fm.TextButton(
-                                    onPressed: () =>
-                                        fm.Navigator.of(ictx).pop(),
-                                    child: fm.Text('取消',
-                                        style: fm.TextStyle(
-                                            fontSize: 18))),
-                              ],
-                            ));
-                        if (picked == null || !mounted) return;
-                        final dst = '$target/${picked.split('/').last}';
-                        final raw =
-                            prefs3.getString('口令员表 $picked');
-                        if (raw == null) return;
-                        await prefs3.setString('口令员表 $dst', raw);
-                        await _refreshTableNames(prefs3, tableNames);
-                        _mgmtSnackBar('已引入 $picked -> $dst');
+                                                    fontSize: 18))
+                                            : fm.ListView(
+                                                children: [
+                                                  for (final d in dirs)
+                                                    fm.ListTile(
+                                                      leading: fm.Text(
+                                                          '📁',
+                                                          style: fm
+                                                              .TextStyle(
+                                                                  fontSize:
+                                                                      22)),
+                                                      title: fm.Text(
+                                                          d,
+                                                          style: fm
+                                                              .TextStyle(
+                                                                  fontSize:
+                                                                      20,
+                                                                  fontWeight:
+                                                                      fm.FontWeight.bold)),
+                                                      onTap: () =>
+                                                          iset(() =>
+                                                              srcDir =
+                                                                  d),
+                                                    ),
+                                                ],
+                                              ))
+                                        : fm.ListView(
+                                            children: [
+                                              fm.ListTile(
+                                                title: fm.Text(
+                                                    '← 返回目录列表',
+                                                    style: fm
+                                                        .TextStyle(
+                                                            fontSize:
+                                                                18,
+                                                            color: Color
+                                                                .GRAY)),
+                                                onTap: () => iset(
+                                                    () =>
+                                                        srcDir = ''),
+                                              ),
+                                              for (final t in tables)
+                                                fm.ListTile(
+                                                  dense: true,
+                                                  title: fm.Text(t
+                                                      .substring(srcDir
+                                                              .length +
+                                                          1)),
+                                                  subtitle: fm.Text(
+                                                      '$t → $target/${t.split('/').last}',
+                                                      style: fm
+                                                          .TextStyle(
+                                                              fontSize:
+                                                                  14,
+                                                              color:
+                                                                  Color.GRAY)),
+                                                  onTap: () async {
+                                                    final dst =
+                                                        '$target/${t.split('/').last}';
+                                                    final raw = prefs3
+                                                        .getString(
+                                                            '口令员表 $t');
+                                                    if (raw != null) {
+                                                      await prefs3
+                                                          .setString(
+                                                              '口令员表 $dst',
+                                                              raw);
+                                                      imported++;
+                                                    }
+                                                    iset(() =>
+                                                        srcDir = '');
+                                                    fm.ScaffoldMessenger.of(
+                                                            context)
+                                                        .showSnackBar(fm.SnackBar(
+                                                            backgroundColor:
+                                                                Color.BLUE,
+                                                            content: fm.Text(
+                                                                '已引入 $dst',
+                                                                style: fm
+                                                                    .TextStyle(
+                                                                        fontSize:
+                                                                            18))));
+                                                  },
+                                                ),
+                                            ],
+                                          )),
+                                actions: [
+                                  fm.TextButton(
+                                      onPressed: () =>
+                                          fm.Navigator.of(ictx).pop(),
+                                      child: fm.Text('完成',
+                                          style: fm.TextStyle(
+                                              fontSize: 18))),
+                                ],
+                              );
+                            }));
+                        if (imported > 0) {
+                          await _refreshTableNames(prefs3, tableNames);
+                          _mgmtSnackBar('共引入 $imported 张表到 $target');
+                        }
                       }),
                       _tableMgmtButton(ctx, selected.isBlank, '导入',
                           () async {
