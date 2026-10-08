@@ -977,6 +977,20 @@ class VoiceFlow extends ChangeNotifier {
       return;
     }
     final callSeg = _callParts.join(' ');
+    //  纯填充词命令(碎片风暴曾"the the"命中Flutterwheel):
+    //  全部词都是填充词=噪声,绝不执行
+    const fillers = {'the', 'a', 'an', 'and', 'of', 'to', 'in',
+      'on', 'unk', '[unk]'};
+    final allFiller = callSeg.trim().toLowerCase()
+        .split(RegExp(r' +'))
+        .every(fillers.contains);
+    if (allFiller) {
+      debugPrint('纯填充词命令,放弃: "$callSeg"');
+      if (callResult != '✗') callResult = '✗';
+      _notify();
+      _resetAssembly();
+      return;
+    }
     final act = callerTable;
     if (act != null) {
       final r = act.lookupSequential(callSeg);
