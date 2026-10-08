@@ -910,33 +910,13 @@ class CallerTable extends ChangeNotifier {
     return n;
   }
 
-  ///  清理全表(采录完成后统一做):
+  ///  清理全表(采录完成后统一做,用户约定的两条,仅此两条):
   ///  1) 删除空识别行(未录的拷贝行)
-  ///  2) 第2,3列完全相同的行只保留1行
-  ///  3) Words 关键词表:记号≠本行单词的**错位行**清零
-  ///     (隔离语法下有效记号只能是本行单词本身,其余都是
-  ///      旧会话错存,会持续制造冲突)
-  ///  返回(删除空行数,去重行数)
+  ///  2) 识别结果相同的行只保留1行
+  ///  (列与列比较的"错位清零"曾致数字行误删,已废除——
+  ///   记号与口令本来就不必相同,记号是声音指纹)
   Future<(int, int)> cleanupTable({bool wordTable = false}) async {
     var empty = 0, dup = 0;
-    if (wordTable) {
-      for (var i = 0; i < rows.length; i++) {
-        final r = rows[i];
-        //  与**读法形式**比(曾与原文比:"1"行记号"one"被误判
-        //  错位清零,用户加的数字行全被清理删除)
-        final w = spokenForm(r.standardCall);
-        if (r.recognized.trim().isNotEmpty &&
-            w.isNotEmpty &&
-            !w.contains(' ') &&
-            r.recognized.trim().toLowerCase() != w) {
-          rows[i] = CallerRow(
-              seq: r.seq, recognized: '', standardCall: r.standardCall);
-          empty++;
-          debugPrint('Words清理: 第${r.seq}行错位记号'
-              '"${r.recognized}"清零(本行词=$w)');
-        }
-      }
-    }
     final seen = <String>{};
     final keep = <CallerRow>[];
     for (final r in rows) {
