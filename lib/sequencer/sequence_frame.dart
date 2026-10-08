@@ -2373,6 +2373,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     }
     tableNames.clear();
     tableNames.addAll(CallerTable.listTableNames(prefs));
+    //  诊断:存储区完整表清单(所见即所得的核账)
+    debugPrint('ALL TABLES (${tableNames.length}):');
+    for (final n in tableNames) {
+      debugPrint('  TABLE $n');
+    }
   }
 
   //  删除映射表
@@ -2697,10 +2702,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                           ? Color(0xffe0e0ff)
                                           : null),
                                   padding: fm.EdgeInsets.only(
-                                      left: 12, top: 4, bottom: 4),
+                                      left: 10, top: 1, bottom: 1),
                                   child: fm.Text(display,
                                       style: fm.TextStyle(
-                                          fontSize: 22,
+                                          fontSize: 24,
                                           color: isSelected
                                               ? Color.WHITE
                                               : Color.BLACK,
