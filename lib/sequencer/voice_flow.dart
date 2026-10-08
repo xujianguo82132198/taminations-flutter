@@ -977,26 +977,29 @@ class VoiceFlow extends ChangeNotifier {
       return;
     }
     final callSeg = _callParts.join(' ');
-    //  纯填充词命令(碎片风暴曾"the the"命中Flutterwheel):
-    //  全部词都是填充词=噪声,绝不执行
+    //  纯填充词判定(碎片曾"the the"命中Flutterwheel):
+    //  闸门装在查表**之后**——先扫描(进表标志…),命中若为
+    //  纯填充词再拒(用户:即使扫不到也要进表,过程要诚实)
     const fillers = {'the', 'a', 'an', 'and', 'of', 'to', 'in',
       'on', 'unk', '[unk]'};
     final allFiller = callSeg.trim().toLowerCase()
         .split(RegExp(r' +'))
         .every(fillers.contains);
-    if (allFiller) {
-      debugPrint('纯填充词命令,放弃: "$callSeg"');
-      if (callResult != '✗') callResult = '✗';
-      _notify();
-      _resetAssembly();
-      return;
-    }
     final act = callerTable;
     if (act != null) {
       final r = act.lookupSequential(callSeg);
       debugPrint('口令查表: "$callSeg" err=${r.error.toStringAsFixed(2)} '
           '-> ${r.hit?.standardCall}');
       if (r.hit != null && r.error <= 0.45) {
+        if (allFiller) {
+          debugPrint('命中但纯填充词,拒绝: "$callSeg" -> '
+              '${r.hit!.standardCall}');
+          _callParts.clear();
+          if (callResult != '✗') callResult = '✗';
+          _notify();
+          _resetAssembly();
+          return;
+        }
         callResult = r.hit!.standardCall;
         if (!tableFlags.contains('C')) {
           tableFlags += tableFlags.isEmpty ? 'C' : '_C';
