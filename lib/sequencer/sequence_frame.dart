@@ -3194,8 +3194,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                           : () async {
                                               for (final t
                                                   in picked.toList()) {
+                                                final short = t
+                                                    .split('/')
+                                                    .last;
                                                 final dst =
-                                                    '$target/${t.split('/').last}';
+                                                    '$target/$short';
                                                 final raw = prefs3
                                                     .getString(
                                                         '口令员表 $t');
@@ -3205,6 +3208,25 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                           '口令员表 $dst',
                                                           raw);
                                                   imported++;
+                                                  //  编辑只能在Only
+                                                  //  表(用户规则)——
+                                                  //  引入非Only表时
+                                                  //  自动生成同名Only
+                                                  //  工作副本(已存在
+                                                  //  则不动,保本地成果)
+                                                  if (!short
+                                                      .endsWith('_Only')) {
+                                                    final onlyDst =
+                                                        '$target/${short}_Only';
+                                                    if (!prefs3
+                                                        .containsKey(
+                                                            '口令员表 $onlyDst')) {
+                                                      await prefs3
+                                                          .setString(
+                                                              '口令员表 $onlyDst',
+                                                              raw);
+                                                    }
+                                                  }
                                                 }
                                               }
                                               iset(() {
