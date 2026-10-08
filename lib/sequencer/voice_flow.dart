@@ -150,8 +150,14 @@ class VoiceFlow extends ChangeNotifier {
     if (row0 != null && _isWordsTable) {
       final w = row0.standardCall.trim().toLowerCase();
       if (w.isNotEmpty && !w.contains(' ')) {
-        speech?.setSampleGrammar([w, '[unk]']);
-        debugPrint('isolated grammar for word "$w"');
+        //  单词行 = 该词 + 已校准词库(用户方案:分段识别后
+        //  接起来——先校准音节(s/pit),再分段念"s停plit",
+        //  两拍各自落位拼接成"s pit"存入;严格隔离曾使
+        //  拍子无法解码)
+        final g = <String>[w, ...?_dirWords, '[unk]'];
+        speech?.setSampleGrammar(g);
+        debugPrint('word grammar for "$w" '
+            '(+${_dirWords.length} calibrated)');
       } else {
         speech?.setSampleGrammar(_onlyTableWords());
       }
