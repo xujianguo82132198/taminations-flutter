@@ -2080,7 +2080,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             else
               fm.Expanded(
                   child:fm.Material(
-                    color: Color.WHITE,
+                    color: Color.FLOOR,  //  麦克风行底色=Calls钮底色
                     child: fm.InkWell(
                       key: fm.ValueKey('Tap to start Sequence'),
                       onTap: () {
