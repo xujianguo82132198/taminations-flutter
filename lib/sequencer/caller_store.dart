@@ -1155,7 +1155,12 @@ class CallerTable extends ChangeNotifier {
     //  骨架救援(用户算法):辅音链对位误差更低时采用
     //  (+0.15底盘,防s族最小对误吸——sit与step骨架同为st)
     final sk = sentenceError(_skeleton(a), _skeleton(b));
-    if (sk + 0.15 < err) err = sk + 0.15;
+    if (sk + 0.15 < err) {
+      debugPrint('骨架命中: "${_skeleton(a)}"≈"${_skeleton(b)}" '
+          'sk=${sk.toStringAsFixed(2)} -> err=${(sk + 0.15).toStringAsFixed(2)}'
+          ' (原err=${err.toStringAsFixed(2)})');
+      err = sk + 0.15;
+    }
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
     if (!_sameWords(sa, sb)) {
       err += 0.10;   //  后缀不一致
