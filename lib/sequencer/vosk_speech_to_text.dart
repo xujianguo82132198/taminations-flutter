@@ -242,8 +242,8 @@ class VoskSpeechToText extends ChangeNotifier {
     //  底噪跟踪:**所有非语音帧**(明显低于开门线)都参与
     //  收敛,可上可下——初始估计偏差也不会死锁(曾:初始-50
     //  在底噪-40的房间永不向上收敛,开门线过低,段卡死)
-    final speechT = _noiseFloorDb + 20;   //  噪声抑制加强(原+12)
-    final quietT = _noiseFloorDb + 8;     //  关门也提高(原+5)
+    final speechT = _noiseFloorDb + 16;   //  平衡:噪音抑制+口令保真
+    final quietT = _noiseFloorDb + 7;
     if (db < speechT - 2) {
       _noiseFloorDb = 0.9 * _noiseFloorDb + 0.1 * db;
       if (_noiseFloorDb < -60) _noiseFloorDb = -60;
