@@ -800,6 +800,9 @@ class VoiceFlow extends ChangeNotifier {
   int _lastSegLen = 0;
   final List<String> _callParts = [];
   bool _prefixSeen = false;
+  DateTime? _lastSegmentAt;
+  ///  前后缀最小间隔(用户:0.7秒)
+  static const _prefixSuffixGap = Duration(milliseconds: 700);
 
   void _onSpeech() {
     final s = speech;
@@ -854,8 +857,13 @@ class VoiceFlow extends ChangeNotifier {
       _notify();
     }
     _segIdx++;
-    //  未定前缀:整段先试前缀表(含段首剥离)
-    if (!_prefixSeen) {
+    //  间隔守卫:连续语音(<0.7秒)不进前缀判定
+    final now = DateTime.now();
+    final gapOk = _lastSegmentAt == null ||
+        now.difference(_lastSegmentAt!) >= _prefixSuffixGap;
+    _lastSegmentAt = now;
+    //  未定前缀:整段先试前缀表(含段首剥离,需间隔≥0.7秒)
+    if (!_prefixSeen && gapOk) {
       _prefixTable ??= await _loadAuxTable('${_dirOf}/Prefix');
       final pt = _prefixTable;
       if (pt != null && pt.rows.isNotEmpty) {
@@ -929,7 +937,7 @@ class VoiceFlow extends ChangeNotifier {
       }
     }
     //  后缀判定:口令已有→本段试后缀表
-    if (callResult.isNotBlank && callResult != '…') {
+    if (callResult.isNotBlank && callResult != '…' && gapOk) {
       _suffixTable ??= await _loadAuxTable('${_dirOf}/Sufix');
       final st = _suffixTable;
       if (st != null && st.rows.isNotEmpty) {
