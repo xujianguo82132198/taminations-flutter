@@ -2080,7 +2080,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       errorMaxLines: 2,
                       errorText: model.errorString.isEmpty ? null : model.errorString),
                   enableSuggestions: true,
-                  style: fm.TextStyle(fontSize: 24),
+                  style: fm.TextStyle(fontSize: 20),
                       //  Code to run when user presses Enter
                       onSubmitted: (value) {
                         //  空文本直接忽略(包括语音输出后注入的回车
