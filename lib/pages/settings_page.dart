@@ -94,6 +94,31 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 JoinCallsWithWidget(),
                 SilenceGateWidget(),
                 ConsonantBoostWidget(),
+                //  引擎版权声明(用户:尊重开源版权)
+                fm.Container(
+                    width: double.infinity,
+                    padding: fm.EdgeInsets.all(12),
+                    decoration: fm.BoxDecoration(
+                        border: fm.Border.all(color: fm.Colors.grey.shade300)),
+                    child: fm.Column(
+                        crossAxisAlignment: fm.CrossAxisAlignment.start,
+                        children: [
+                          fm.Text('语音识别引擎',
+                              style: fm.TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: fm.FontWeight.bold)),
+                          fm.SizedBox(height: 4),
+                          fm.Text(
+                              'Vosk (alphacephei.com)
+'
+                              '开源离线语音识别,Apache License 2.0
+'
+                              '模型: vosk-model-en-us-0.22-lgraph',
+                              style: fm.TextStyle(
+                                  fontSize: 14,
+                                  color: fm.Colors.grey)),
+                        ])),
+                fm.SizedBox(height: 8),
                 //  构建版本(用户验证新旧)
                 fm.Container(
                     padding: fm.EdgeInsets.all(12),

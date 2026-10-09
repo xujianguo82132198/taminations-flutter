@@ -16,7 +16,10 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-  Vosk 离线语音识别(原生 AAR 直连,不经任何 Flutter 插件):
+  语音识别引擎:Vosk (https://alphacephei.com/vosk)
+  开源协议:Apache License 2.0
+  模型:vosk-model-en-us-0.22-lgraph (English, 130MB)
+  使用方式:原生 AAR 直连,不经任何 Flutter 插件
   英文小模型打包在 APK 内,完全离线、免费、无调用次数限制。
   对外 API 与讯飞引擎(SpeechToTextProvider)保持一致。
 
