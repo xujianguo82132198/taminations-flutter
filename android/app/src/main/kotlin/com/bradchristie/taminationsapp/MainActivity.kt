@@ -549,7 +549,9 @@ class MainActivity : FlutterActivity() {
           if (gate) {
             val chunkMs = n * 1000L / 16000
             val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
-            val openT0 = noiseFloorDb + 12.0
+            //  噪声抑制加强(用户:冰箱空调房间仍出dive thru):
+            //  开门=底噪+20dB(约为喊口令音量的一半),原+12太松
+            val openT0 = noiseFloorDb + 20.0
             if (db < openT0 - 2.0) {
               noiseFloorDb = 0.9 * noiseFloorDb + 0.1 * db
               if (noiseFloorDb < -60.0) noiseFloorDb = -60.0
@@ -570,8 +572,8 @@ class MainActivity : FlutterActivity() {
             } else {
               deadZoneMs = 0
             }
-            val openT = noiseFloorDb + 12.0
-            val closeT = noiseFloorDb + 5.0
+            val openT = noiseFloorDb + 20.0
+            val closeT = noiseFloorDb + 8.0
             if (!vadOpen) {
               if (db > openT) {
                 vadOpen = true; vadSpeechMs = 0; vadQuietMs = 0
