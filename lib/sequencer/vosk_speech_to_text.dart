@@ -89,7 +89,7 @@ class VoskSpeechToText extends ChangeNotifier {
   //  (再出的声音属于新口令)。段关闭即通知上层查表,
   //  其余时间不查表
   static const _segCloseSilence = Duration(milliseconds: 300);
-  static const _segArmSilence = Duration(milliseconds: 900);
+  static const _segArmSilence = Duration(milliseconds: 2000);
   //  自适应门限:静音期跟踪底噪(慢速),开门=底噪+12dB,
   //  关门=底噪+5dB——环境噪音高低都适用(固定-42曾在
   //  底噪-40的房间里永远关不上段,命令无法完成)

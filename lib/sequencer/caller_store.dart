@@ -223,12 +223,31 @@ class CallerTable extends ChangeNotifier {
             '需要增加家族成员');
       }
 
-      //  全词比对(用骨架,辅音为主)
+      //  全词比对(用骨架,辅音为主)+子序列检查:
+      //  空气侧骨架是口令骨架的子序列时(如"th"⊂"swngthr"),
+      //  意味着空气侧是口令的碎片,也应命中(用户:进s家族
+      //  查出thru最理想)
       CallerRow? best;
       var bestErr = double.infinity;
       for (final r in inFamily) {
         final e = sentenceError(
             _skeleton(work), _skeleton(r.standardCall));
+        //  子序列检查
+        final sk = _skeleton(work);
+        final skFull = _skeleton(r.standardCall);
+        if (_isSubsequence(sk, skFull) &&
+            skFull.length > sk.length) {
+          //  空气侧是口令骨架的子序列:给一个合理的误差
+          final ratio = sk.length / skFull.length;
+          final subseqErr = (1.0 - ratio) * 0.5;  //  覆盖率越高越好
+          if (subseqErr < e && subseqErr < bestErr) {
+            bestErr = subseqErr;
+            best = r;
+            debugPrint('骨架子序列: "$sk" ⊂ "$skFull" '
+                '(覆盖${(ratio * 100).toStringAsFixed(0)}%) '
+                'err=${subseqErr.toStringAsFixed(2)}');
+          }
+        }
         if (e < bestErr) {
           bestErr = e;
           best = r;
@@ -1142,6 +1161,17 @@ class CallerTable extends ChangeNotifier {
   ///  s家族→剥s→p家族→剥p→…→元音收底:slide的骨架
   ///  s-l-d 与 split 的 s-p-l-t 近亲,整体词对不上的
   ///  辅音丛词由此救援)
+  ///  子序列判定:a的每个字符按序出现在b中(如"th"⊂"swngthr")
+  static bool _isSubsequence(String a, String b) {
+    if (a.isEmpty) return true;
+    if (a.length > b.length) return false;
+    var ai = 0;
+    for (var bi = 0; bi < b.length && ai < a.length; bi++) {
+      if (a[ai] == b[bi]) ai++;
+    }
+    return ai == a.length;
+  }
+
   static String _skeleton(String s) =>
       s.toLowerCase().replaceAll(RegExp(r'[aeiou ]'), '');
 
