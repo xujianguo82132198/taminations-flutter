@@ -1274,6 +1274,8 @@ class VoiceFlow extends ChangeNotifier {
       callerTable != null && callerTable!.callerName.endsWith('_Only');
   ///  手动选中的采表行序号(点面板行可重选;null=自动取第一个空行)
   int? dictationSeqOverride;
+  ///  非Only表的点击选中行序号(圆钮录音目标)
+  int? nonOnlySelectedSeq;
 
   ///  选定某行作为当前采表目标(重新录入用)
   void selectDictationRow(int seq) {
@@ -1662,6 +1664,8 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
     return pendingRecord;
   }
+  //  (startRecordInit 仅在 Only 表的补全流程中使用;
+  //   非Only表圆钮改为存入所点行,见 sequence_frame)
 
   ///  口令员在 Calls 画面选中口令:只填入输入行供继续编辑,
   ///  不直接存表;存表时机是口令执行正确(见 completeRecordInit)

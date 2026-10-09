@@ -1371,6 +1371,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                             if (flow.onlyMode) {
                               flow.selectDictationRow(row.seq);
                             } else {
+                              flow.nonOnlySelectedSeq = row.seq;
                               setState(() {
                                 _viewSeq = row.seq;
                               });
@@ -1975,16 +1976,32 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             //  结果只进黄框待确认(不动输入框、不发回车)
             speech.clearResults();
           } else if (sample.isNotBlank) {
+            //  非Only表(用户:圆钮结果存入所点的行,不另建新行)
             later(() async {
-              final row = await flow.startRecordInit(sample);
-              if (row == null || !mounted) return;
-              fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-                  backgroundColor: Color.BLUE,
-                  duration: const Duration(seconds: 4),
-                  content: fm.Text(
-                      '已采集"$sample":请键盘输入正确口令,'
-                      '执行正确后自动存表。',
-                      style: GoogleFonts.roboto(fontSize: 20))));
+              final t = flow.callerTable;
+              final seq = flow.nonOnlySelectedSeq;
+              if (t == null || seq == null) {
+                if (!mounted) return;
+                fm.ScaffoldMessenger.of(context).showSnackBar(
+                    fm.SnackBar(
+                        backgroundColor: Color.RED,
+                        duration: const Duration(seconds: 3),
+                        content: fm.Text('请先点选要录音的行',
+                            style: GoogleFonts.roboto(
+                                fontSize: 20))));
+                return;
+              }
+              await t.updateRow(seq,
+                  recognized: sample, sort: false);
+              debugPrint('非Only录音: 第$seq行 <- "$sample"');
+              if (!mounted) return;
+              fm.ScaffoldMessenger.of(context).showSnackBar(
+                  fm.SnackBar(
+                      backgroundColor: Color.BLUE,
+                      duration: const Duration(seconds: 3),
+                      content: fm.Text('第$seq行已录入"$sample"',
+                          style: GoogleFonts.roboto(
+                              fontSize: 20))));
             });
             speech.clearResults();
           } else {
