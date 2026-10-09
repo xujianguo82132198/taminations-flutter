@@ -766,6 +766,8 @@ class VoiceFlow extends ChangeNotifier {
   String callResult = '';
   String suffixResult = '';
   ///  组合完成的整条口令(输入行执行后由 consumeAssembled 清)
+  ///  最近一次麦克风命令的识别文本(供「存」钮存入表行)
+  String lastMicText = '';
   ///  递归识别过程(用户要看到):辅音家族导航的逐步结果
   List<String> recursiveSteps = [];
   String assembledCall = '';
@@ -987,6 +989,7 @@ class VoiceFlow extends ChangeNotifier {
       return;
     }
     final callSeg = _callParts.join(' ');
+    if (callSeg.isNotBlank && !callSeg.contains('unk')) lastMicText = callSeg;
     //  纯填充词判定(碎片曾"the the"命中Flutterwheel):
     //  闸门装在查表**之后**——先扫描(进表标志…),命中若为
     //  纯填充词再拒(用户:即使扫不到也要进表,过程要诚实)
@@ -1277,6 +1280,35 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  口令已被输入行执行。三个显示区**保留**到下一条口令
   /// 开始时清零(用户:显示不能一闪而过,要看得见)
+  ///  「存」钮:把最近一次麦克风识别文本存入选中行
+  ///  (用户:用麦克风产出直接当指纹,不用圆钮的干净版)
+  Future<void> saveMicToken() async {
+    final t = callerTable;
+    CallerRow? row;
+    if (t != null && nonOnlySelectedSeq != null) {
+      for (final r in t.rows) {
+        if (r.seq == nonOnlySelectedSeq) {
+          row = r;
+          break;
+        }
+      }
+    }
+    if (t == null || row == null) {
+      debugPrint('saveMicToken: 无选中行');
+      return;
+    }
+    if (lastMicText.isBlank) {
+      debugPrint('saveMicToken: 无识别文本');
+      return;
+    }
+    final newToken = row.recognized.isNotBlank
+        ? '${row.recognized}|$lastMicText'
+        : lastMicText;
+    await t.updateRow(row.seq, recognized: newToken, sort: false);
+    debugPrint('saveMicToken: 第${row.seq}行 <- "$lastMicText"');
+    _notify();
+  }
+
   ///  清零三区+递归(开/关麦克风/X钮/点输入框/命令超时)
   void clearAllDisplays() {
     tableFlags = '';

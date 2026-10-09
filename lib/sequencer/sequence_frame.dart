@@ -913,6 +913,42 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
           ),
           //  拖动时显示+dB值,停止1.5秒后回到"噪"
           _NoiseSuppressLabel(),
+          //  「存」钮:把麦克风识别文本存入选中行(用户:
+          //  用麦克风产出当指纹,不用圆钮干净版)
+          if (flow.lastMicText.isNotBlank &&
+              flow.nonOnlySelectedSeq != null)
+            fm.Padding(
+              padding: fm.EdgeInsets.only(left: 4),
+              child: fm.InkWell(
+                onTap: () {
+                  flow.saveMicToken();
+                  fm.ScaffoldMessenger.of(context).showSnackBar(
+                      fm.SnackBar(
+                          backgroundColor: Color.BLUE,
+                          duration:
+                              const Duration(seconds: 2),
+                          content: fm.Text(
+                              '已存入第${flow.nonOnlySelectedSeq}行: '
+                              '"${flow.lastMicText}"',
+                              style: fm.TextStyle(
+                                  fontSize: 16))));
+                },
+                child: fm.Container(
+                  padding: fm.EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: fm.BoxDecoration(
+                      color: Color.GREEN,
+                      borderRadius:
+                          fm.BorderRadius.circular(6)),
+                  child: fm.Text('存',
+                      style: fm.TextStyle(
+                          fontSize: 16,
+                          color: Color.WHITE,
+                          fontWeight:
+                              fm.FontWeight.bold)),
+                ),
+              ),
+            ),
         ]));
   }
 }
