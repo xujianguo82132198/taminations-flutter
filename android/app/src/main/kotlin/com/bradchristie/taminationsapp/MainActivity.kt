@@ -614,17 +614,21 @@ class MainActivity : FlutterActivity() {
                         speechBuffer.add(((hi shl 8) or lo).toShort())
                     }
                     if (speechBuffer.size > 16000 * 10) {
-                        //  超10秒:强制结束(防内存溢出)
-                        Log.w(TAG, "WU: buffer overflow, force end")
+                        //  超10秒:停止缓存+只保留最近10秒
+                        Log.w(TAG, "WU: buffer overflow, keep last 10s")
+                        val keep = 16000 * 10
+                        val excess = speechBuffer.size - keep
+                        speechBuffer = ArrayList(speechBuffer.subList(excess, speechBuffer.size))
+                        bufferActive = false
                         bufferEndAt = System.currentTimeMillis()
                     }
-                } else if (bufferActive) {
-                    //  闸门关:等待静音确认后批量识别
+                } else if (bufferActive || bufferEndAt > 0L) {
+                    //  闸门关或overflow后:等待静音确认后批量识别
                     if (bufferEndAt == 0L) {
                         bufferEndAt = System.currentTimeMillis()
                     }
                     val silent = System.currentTimeMillis() - bufferEndAt
-                    if (silent >= 2000) {
+                    if (silent >= 2000 && speechBuffer.size > 0) {
                         //  静音满2秒:整段识别
                         bufferActive = false
                         bufferEndAt = 0
@@ -658,6 +662,7 @@ class MainActivity : FlutterActivity() {
                             Log.i(TAG, "WU: too short ($total), discard")
                         }
                         speechBuffer.clear()
+                        bufferEndAt = 0L
                     }
                 }
                 //  整段模式:跳过实时喂识别器
