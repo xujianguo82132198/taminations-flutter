@@ -1183,10 +1183,44 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               child: fm.Row(children: [
                 fm.Expanded(
                   child: fm.GestureDetector(
-                    //  Only表:长按=增加记录;非Only表:长按=按口令
-                    //  搜索行(滚动定位+高亮)
-                    onLongPress:
-                        flow.onlyMode ? _addRecordDialog : _panelSearch,
+                    //  Only表:长按=增加记录;非Only表:菜单
+                    //  (增加记录/搜索口令)
+                    onLongPress: () async {
+                      if (flow.onlyMode) {
+                        await _addRecordDialog();
+                        return;
+                      }
+                      final sel = await fm.showDialog<String>(
+                          context: context,
+                          builder: (ctx) => fm.AlertDialog(
+                            title: fm.Text(flow.callerName ?? '',
+                                style: fm.TextStyle(fontSize: 18)),
+                            content: fm.Text('选择操作',
+                                style: fm.TextStyle(fontSize: 16)),
+                            actions: [
+                              fm.TextButton(
+                                  onPressed: () => fm.Navigator.of(
+                                          ctx)
+                                      .pop('add'),
+                                  child: fm.Text('增加记录',
+                                      style: fm.TextStyle(
+                                          fontSize: 18,
+                                          color: Color.BLUE))),
+                              fm.TextButton(
+                                  onPressed: () => fm.Navigator.of(
+                                          ctx)
+                                      .pop('search'),
+                                  child: fm.Text('搜索口令',
+                                      style: fm.TextStyle(
+                                          fontSize: 18))),
+                            ],
+                          ));
+                      if (sel == 'add') {
+                        await _addRecordForAnyTable();
+                      } else if (sel == 'search') {
+                        await _panelSearch();
+                      }
+                    },
                     child: fm.Center(
                       child: fm.Text(
                       '${flow.callerName}(${table.rows.length}条)',
@@ -1612,6 +1646,12 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
           content: fm.Text(
               '已删空行$del行,去重$dup行,剩${t.rows.length}行',
               style: fm.TextStyle(fontSize: 18))));
+  }
+
+  //  非Only表的增加记录:直接增行+键入口令(不走去选择)
+  Future<void> _addRecordForAnyTable() async {
+    final row = await flow.addReadingRow();
+    if (row != null && mounted) await _editStandardCall(row);
   }
 
   Future<void> _addRecordDialog() async {
