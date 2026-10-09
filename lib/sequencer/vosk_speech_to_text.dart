@@ -158,7 +158,7 @@ class VoskSpeechToText extends ChangeNotifier {
           gate: Settings.silenceGate,
           consonant: Settings.consonantBoost,
           noiseSuppress: Settings.noiseSuppression,
-          wholeUtterance: true);
+          wholeUtterance: false);
       _sub = musicMonitor.events.listen(_onEvent);
     } catch (e) {
       _log('recycle FAILED: $e');
@@ -528,7 +528,7 @@ class VoskSpeechToText extends ChangeNotifier {
           gate: Settings.silenceGate,
           consonant: Settings.consonantBoost,
           noiseSuppress: Settings.noiseSuppression,
-          wholeUtterance: true);
+          wholeUtterance: false);
       _isListening = true;
       _log('session: listening');
     } catch (e) {
