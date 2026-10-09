@@ -2034,7 +2034,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       }
 
       return fm.Container(
-        color: Color.FLOOR,   //  与右侧按钮区同底色(用户要求)
+        color: Color.WHITE,   //  输入区始终白色(用户要求)
         padding: fm.EdgeInsets.only(left: 3),
         child: fm.Column(
           mainAxisSize: fm.MainAxisSize.min,
@@ -2056,25 +2056,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   },
                   decoration: fm.InputDecoration(
                       hintText: 'Enter calls',
-                      suffixIcon: fm.IconButton(
-                          icon:fm.Icon(fm.Icons.clear),
-                        onPressed: () {
-                          textFieldController.clear();
-                          //  清除输入框的同时清掉错误提示并刷新UI
-                          //  (口令没进执行队列,只在框内;清框即恢复);
-                          //  errorString 是普通字段,赋值不会自动
-                          //  notifyListeners,必须显式刷新
-                          if (model.errorString.isNotEmpty) {
-                            model.errorString = '';
-                            model.notifyListeners();
-                          }
-                          //  底部错误 SnackBar 一并撤下
-                          fm.ScaffoldMessenger.of(context)
-                              .removeCurrentSnackBar();
-                          //  语音错误标志复位,避免后续误报
-                          _isVoiceCall = false;
-                        },
-                      ),
+
                       errorStyle: fm.TextStyle(fontSize: 13,
                           color: model.errorString.contains('Note') ? fm.Colors.blue : fm.Colors.red),
                       errorMaxLines: 2,
