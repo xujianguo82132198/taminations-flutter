@@ -1358,7 +1358,9 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                         final isCandidate = flow.lastCandidate != null &&
                             flow.lastCandidate!.seq == row.seq;
                         final isViewSel =
-                            !flow.onlyMode && row.seq == _viewSeq;
+                            !flow.onlyMode &&
+                            (row.seq == _viewSeq ||
+                                row.seq == flow.nonOnlySelectedSeq);
                         return fm.InkWell(
                           //  Only 模式:点行=选定为采表目标;
                           //   长按=编辑第3列/删除
@@ -1995,9 +1997,6 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               debugPrint('非Only录音: 第$seq行 <- "$sample"');
               //  录音后保持该行高亮(用户:取样成功要看到选中)
               flow.nonOnlySelectedSeq = seq;
-              setState(() {
-                _viewSeq = seq;
-              });
               if (!mounted) return;
               fm.ScaffoldMessenger.of(context).showSnackBar(
                   fm.SnackBar(
