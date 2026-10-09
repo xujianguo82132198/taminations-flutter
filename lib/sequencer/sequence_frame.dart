@@ -885,6 +885,35 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
           part('口令', flow.callResult, fm.Colors.green.shade800),
           fm.SizedBox(width: 6),
           part('后缀', flow.suffixResult, fm.Colors.orange.shade800),
+          fm.SizedBox(width: 8),
+          //  噪声抑制滑动条(最左=空调干扰,最右=人喊听不到)
+          fm.Expanded(
+            child: fm.SliderTheme(
+              data: fm.SliderThemeData(
+                trackHeight: 4,
+                thumbShape: fm.RoundSliderThumbShape(
+                    enabledThumbRadius: 8),
+              ),
+              child: pp.Consumer<Settings>(
+                builder: (ctx, settings, _) => fm.Slider(
+                  value: Settings.noiseSuppression,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged:
+                      flow.speech?.isListening == true
+                          ? (v2) {
+                              Settings.noiseSuppression = v2;
+                            }
+                          : null,
+                  activeColor: Color.BLUE,
+                  inactiveColor: Color.LIGHTGREY,
+                ),
+              ),
+            ),
+          ),
+          fm.Text('噪',
+              style: fm.TextStyle(
+                  fontSize: 14, color: Color.GRAY)),
         ]));
   }
 }
