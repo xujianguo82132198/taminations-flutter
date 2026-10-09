@@ -1118,6 +1118,12 @@ class VoiceFlow extends ChangeNotifier {
     debugPrint('三表组合执行: "$assembledCall"');
     _notify();
     _resetAssembly();
+    //  执行后3秒自动清零三区(用户:实时状态,不留旧信息)
+    Future.delayed(const Duration(seconds: 3), () {
+      if (assembledCall.isBlank) {
+        clearAllDisplays();
+      }
+    });
   }
 
   void _resetAssembly() {
@@ -1265,6 +1271,22 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  口令已被输入行执行。三个显示区**保留**到下一条口令
   /// 开始时清零(用户:显示不能一闪而过,要看得见)
+  ///  清零三区+递归(开/关麦克风/X钮/点输入框/命令超时)
+  void clearAllDisplays() {
+    tableFlags = '';
+    prefixResult = '';
+    callResult = '';
+    suffixResult = '';
+    recursiveSteps = [];
+    assembledCall = '';
+    _callParts.clear();
+    _prefixSeen = false;
+    _lastSegLen = 0;
+    _segIdx = 0;
+    _assemblyDone = false;
+    _notify();
+  }
+
   void consumeAssembled() {
     assembledCall = '';
     _notify();
@@ -1787,6 +1809,7 @@ class VoiceFlow extends ChangeNotifier {
   ///  仅结束语音识别(表保持打开,麦克风钮再按可重启;
   ///  不清表、不动音乐节拍状态)
   void stopListening() {
+    clearAllDisplays();
     debugPrint('VoiceFlow.stopListening (phase=$phase)');
     speech?.cancel();
     if (phase != 'awaiting' && phase != 'detecting')
@@ -1973,6 +1996,7 @@ class VoiceFlow extends ChangeNotifier {
 
   //  节拍检测完成后自动进入语音识别
   void startListening() {
+    clearAllDisplays();
     final s = speech;
     if (s == null) return;
     //  麦克风识别开始:面板保持打开(用户:要看到系统选了

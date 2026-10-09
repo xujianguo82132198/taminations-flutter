@@ -871,7 +871,7 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
                 border: fm.Border.all(color: c, width: 1.5),
                 borderRadius: fm.BorderRadius.circular(6)),
             child: fm.Text(
-                text.isBlank ? '$tag:' : '$tag:$text',
+                text.isBlank ? '$tag:' : text,
                 style: fm.TextStyle(
                     fontSize: 16, color: c,
                     fontWeight: fm.FontWeight.bold)));
@@ -2126,6 +2126,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                     child: fm.InkWell(
                       key: fm.ValueKey('Tap to start Sequence'),
                       onTap: () {
+                        flow.clearAllDisplays();
                         setState(() {
                           virtualKeyboard.isVisible = true;
                           focusNode.requestFocus();
@@ -2244,6 +2245,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   fm.ScaffoldMessenger.of(context)
                       .removeCurrentSnackBar();
                   _isVoiceCall = false;
+                  flow.clearAllDisplays();
                 }),
             //  Mic icon for touch devices to do voice input
             //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
