@@ -661,7 +661,6 @@ class MainActivity : FlutterActivity() {
                             }.start()
                         } else {
                             Log.i(TAG, "WU: too short ($total), discard")
-                        }")
                         }
                         speechBuffer.clear()
                         bufferEndAt = 0L
