@@ -92,7 +92,6 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 DancerIdentificationWidget(),
                 GeometrySettingWidget(),
                 JoinCallsWithWidget(),
-                SpeechEngineWidget(),
                 SilenceGateWidget(),
                 ConsonantBoostWidget(),
                 //  构建版本(用户验证新旧)

@@ -36,8 +36,19 @@ import 'package:flutter/foundation.dart';
 import '../settings.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
-import 'xfyun_speech_to_text.dart'
-    show SpeechRecognitionAlternative, SpeechRecognitionResult;
+//  识别结果类型(原从讯飞引擎import,云端删除后内联)
+class SpeechRecognitionAlternative {
+  final String recognizedWords;
+  final double confidence;
+  const SpeechRecognitionAlternative(this.recognizedWords, this.confidence);
+}
+class SpeechRecognitionResult {
+  final List<SpeechRecognitionAlternative> alternates;
+  final bool finalResult;
+  const SpeechRecognitionResult(this.alternates, this.finalResult);
+  String get recognizedWords =>
+      alternates.isEmpty ? '' : alternates.first.recognizedWords;
+}
 
 class VoskSpeechToText extends ChangeNotifier {
 

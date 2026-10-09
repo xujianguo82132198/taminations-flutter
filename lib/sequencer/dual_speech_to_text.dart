@@ -29,31 +29,25 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'google_speech_to_text.dart';
 import 'vosk_speech_to_text.dart';
-import 'xfyun_speech_to_text.dart';
 
 class DualSpeechProvider extends ChangeNotifier {
 
   static const _prefKey = '语音引擎';   //  auto / vosk / xfyun / google
 
-  final xfyun = SpeechToTextProvider();
-  final google = GoogleSpeechToText();
   final vosk = VoskSpeechToText();
 
   ///  当前生效引擎名:'vosk' / 'xfyun' / 'google'
   String engine = 'vosk';
   String _setting = 'auto';   //  auto / vosk / xfyun / google
 
-  dynamic get _active =>
-      engine == 'google' ? google
-      : (engine == 'xfyun' ? xfyun : vosk);
+  dynamic get _active => vosk;
 
   bool get isAvailable => _active.isAvailable;
   bool get isListening => _active.isListening;
   bool get hasResults => _active.hasResults;
   String? get lastError =>
-      engine == 'google' ? null : _active.lastError;
+      _active.lastError;
   SpeechRecognitionResult? get lastResult => _active.lastResult;
 
   ///  分段取样(仅Vosk采样会话):已收段文本(0.3秒静音收段,
@@ -77,8 +71,6 @@ class DualSpeechProvider extends ChangeNotifier {
     debugPrint('BUILD STAMP: $buildStamp');
     _loadSetting();
     //  任一引擎通知都向上转发
-    xfyun.addListener(_forward);
-    google.addListener(_forward);
     vosk.addListener(_forward);
   }
 
@@ -95,16 +87,13 @@ class DualSpeechProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _engineFor(String setting) =>
-      setting == 'google' ? 'google'
-      : (setting == 'xfyun' ? 'xfyun' : 'vosk');
+  String _engineFor(String setting) => 'vosk';
 
   ///  设置引擎(auto/vosk/xfyun/google),持久化并立即生效
   Future<void> setEngine(String value) async {
-    _setting = value;
-    engine = _engineFor(value);
-    //  切到新引擎时立即预热
-    unawaited(_active.initialize());
+    _setting = 'vosk';
+    engine = 'vosk';
+    unawaited(vosk.initialize());
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefKey, value);
@@ -122,23 +111,7 @@ class DualSpeechProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      if (_setting == 'auto') {
-        //  自动模式兜底:离线模型异常时退回云端
-        final xok = await xfyun.initialize();
-        if (xok) {
-          engine = 'xfyun';
-          debugPrint('DualSpeech: vosk unavailable -> xfyun');
-          notifyListeners();
-          return true;
-        }
-        final gok = await google.initialize();
-        if (gok) {
-          engine = 'google';
-          debugPrint('DualSpeech: vosk/xfyun unavailable -> google');
-          notifyListeners();
-          return true;
-        }
-      }
+
       notifyListeners();
       return false;
     }
@@ -175,11 +148,7 @@ class DualSpeechProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    xfyun.removeListener(_forward);
-    google.removeListener(_forward);
     vosk.removeListener(_forward);
-    xfyun.dispose();
-    google.dispose();
     vosk.dispose();
     super.dispose();
   }
