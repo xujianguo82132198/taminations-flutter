@@ -2207,6 +2207,20 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   )
               ),
 
+            //  X钮:清空输入框——始终可见,不受键盘显隐影响
+            //  (用户:打开表后提示文字盖住了X钮)
+            fm.IconButton(
+                icon: fm.Icon(fm.Icons.clear, size: 24),
+                onPressed: () {
+                  textFieldController.clear();
+                  if (model.errorString.isNotEmpty) {
+                    model.errorString = '';
+                    model.notifyListeners();
+                  }
+                  fm.ScaffoldMessenger.of(context)
+                      .removeCurrentSnackBar();
+                  _isVoiceCall = false;
+                }),
             //  Mic icon for touch devices to do voice input
             //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
             //  该口令员的映射表,之后才开始语音识别
