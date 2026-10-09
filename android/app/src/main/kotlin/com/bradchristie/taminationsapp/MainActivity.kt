@@ -595,6 +595,76 @@ class MainActivity : FlutterActivity() {
           if (voskFeed && rec != null) {
             val gateClosed = gate && !vadOpen
             val feed: ByteArray = if (gateClosed) ByteArray(n * 2) else bytes
+
+            //  ============ 整段识别模式 ============
+            //  闸门开=缓存音频(不实时喂识别器)
+            //  闸门关+2秒静音=整段批量识别
+            if (wholeUtteranceMode && gate) {
+                if (vadOpen) {
+                    //  闸门开:缓存真实音频
+                    if (!bufferActive) {
+                        bufferActive = true
+                        speechBuffer.clear()
+                        Log.i(TAG, "WU: buffer start")
+                    }
+                    for (i in 0 until n) {
+                        //  从bytes还原short(bytes是处理后的)
+                        val lo = bytes[i * 2].toInt() and 0xff
+                        val hi = bytes[i * 2 + 1].toInt()
+                        speechBuffer.add(((hi shl 8) or lo).toShort())
+                    }
+                    if (speechBuffer.size > 16000 * 10) {
+                        //  超10秒:强制结束(防内存溢出)
+                        Log.w(TAG, "WU: buffer overflow, force end")
+                        bufferEndAt = System.currentTimeMillis()
+                    }
+                } else if (bufferActive) {
+                    //  闸门关:等待静音确认后批量识别
+                    if (bufferEndAt == 0L) {
+                        bufferEndAt = System.currentTimeMillis()
+                    }
+                    val silent = System.currentTimeMillis() - bufferEndAt
+                    if (silent >= 2000) {
+                        //  静音满2秒:整段识别
+                        bufferActive = false
+                        bufferEndAt = 0
+                        val total = speechBuffer.size
+                        if (total > 16000 / 5) {  //  至少0.2秒
+                            Log.i(TAG, "WU: recognizing $total samples")
+                            val bufBytes = ByteArray(total * 2)
+                            for (i in 0 until total) {
+                                val sv = speechBuffer[i].toInt()
+                                bufBytes[i * 2] = (sv and 0xff).toByte()
+                                bufBytes[i * 2 + 1] = ((sv shr 8) and 0xff).toByte()
+                            }
+                            //  交给识别器整段识别
+                            synchronized(voskLock) {
+                                val rec = voskRecognizer
+                                if (rec != null) {
+                                    try {
+                                        rec.acceptWaveForm(bufBytes, bufBytes.size)
+                                        val json = rec.finalResult
+                                        if (json != null) {
+                                            mainHandler.post {
+                                                sendEvent("vosk_final", json)
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "WU: recognize failed", e)
+                                    }
+                                }
+                            }
+                        } else {
+                            Log.i(TAG, "WU: too short ($total), discard")
+                        }
+                        speechBuffer.clear()
+                    }
+                }
+                //  整段模式:跳过实时喂识别器
+                sendBytes("speech_audio", ByteArray(0))
+                continue
+            }
+            //  ============ 整段模式结束,以下为原有实时识别 ============
             //  离线识别:音频直接喂 Vosk,结果推给 Dart,不发音频流
             var finalJson: String? = null
             var partialJson: String? = null
@@ -683,6 +753,14 @@ class MainActivity : FlutterActivity() {
   //  辅音助听器开关+分频器状态(一阶低通1500Hz@16k)
   @Volatile private var consonantBoost = false
   @Volatile private var noiseSuppressRatio = 0.4
+
+  //  ============ 整段识别模式(用户设计:闸门控制边界) ============
+  //  闸门开=开始缓存音频,闸门关+静音=结束缓存,
+  //  整段一次性交给全新识别器(绕过vosk断句器碎片化)
+  private var speechBuffer = ArrayList<Short>(16000 * 10)  // 最多10秒
+  @Volatile private var bufferActive = false
+  @Volatile private var wholeUtteranceMode = false
+  private var bufferEndAt = 0L
   private var consLp = 0.0
   private var deadZoneMs = 0
 
@@ -782,6 +860,7 @@ class MainActivity : FlutterActivity() {
         voskFeed = true
         voskGate = gate
         consonantBoost = consonant
+        wholeUtteranceMode = (call.argument<Boolean>("wholeUtterance") ?: false)
         noiseSuppressRatio = (call.argument<Double>("noiseSuppress") ?: 0.4)
         vadOpen = false; vadSpeechMs = 0; vadQuietMs = 0; vadLastUtteranceMs = 0
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")

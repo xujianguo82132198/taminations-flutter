@@ -143,7 +143,8 @@ class VoskSpeechToText extends ChangeNotifier {
               ? null : jsonEncode(_grammarWords),
           gate: Settings.silenceGate,
           consonant: Settings.consonantBoost,
-          noiseSuppress: Settings.noiseSuppression);
+          noiseSuppress: Settings.noiseSuppression,
+          wholeUtterance: true);
       _sub = musicMonitor.events.listen(_onEvent);
     } catch (e) {
       _log('recycle FAILED: $e');
@@ -512,7 +513,8 @@ class VoskSpeechToText extends ChangeNotifier {
               ? null : jsonEncode(_grammarWords),
           gate: Settings.silenceGate,
           consonant: Settings.consonantBoost,
-          noiseSuppress: Settings.noiseSuppression);
+          noiseSuppress: Settings.noiseSuppression,
+          wholeUtterance: true);
       _isListening = true;
       _log('session: listening');
     } catch (e) {
