@@ -911,10 +911,49 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
               ),
             ),
           ),
-          fm.Text('噪',
-              style: fm.TextStyle(
-                  fontSize: 14, color: Color.GRAY)),
+          //  拖动时显示+dB值,停止1.5秒后回到"噪"
+          _NoiseSuppressLabel(),
         ]));
+  }
+}
+
+///  噪声抑制标签:拖动时显示+XXdB,停止1.5秒后显示"噪"
+class _NoiseSuppressLabel extends fm.StatefulWidget {
+  @override
+  _NoiseSuppressLabelState createState() => _NoiseSuppressLabelState();
+}
+class _NoiseSuppressLabelState extends fm.State<_NoiseSuppressLabel> {
+  Timer? _resetTimer;
+  bool _dragging = false;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final settings = pp.Provider.of<Settings>(context);
+    //  监听值变化=拖动中
+    settings.addListener(() {
+      if (mounted) {
+        _dragging = true;
+        _resetTimer?.cancel();
+        _resetTimer = Timer(const Duration(milliseconds: 1500), () {
+          if (mounted) setState(() => _dragging = false);
+        });
+        setState(() {});
+      }
+    });
+    final db = 8.0 + Settings.noiseSuppression * 20.0;
+    return fm.Text(
+        _dragging ? '+${db.round()}dB' : '噪',
+        style: fm.TextStyle(
+            fontSize: 14,
+            color: _dragging ? Color.BLUE : Color.GRAY,
+            fontWeight: _dragging ? fm.FontWeight.bold
+                : fm.FontWeight.normal));
   }
 }
 
