@@ -1323,6 +1323,17 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  采表确认:输入框文字写入当前待录行第2列,跳下一行
+  ///  前5字母校验(用户严格限制):录音记号与标准口令的
+  ///  前5个字母必须一致——确保指纹质量,再探讨递归识别
+  static bool _prefix5Match(String token, String call) {
+    String letters(String s) =>
+        s.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+    final a = letters(token);
+    final b = letters(call);
+    if (a.length < 5 || b.length < 5) return true;  //  过短不卡
+    return a.substring(0, 5) == b.substring(0, 5);
+  }
+
   Future<bool> confirmDictation(String text,
       {bool force = false}) async {
     final t = callerTable;
@@ -1408,6 +1419,24 @@ class VoiceFlow extends ChangeNotifier {
       await t.removeRow(identicalRow.seq);
       debugPrint('identical rows: old row '
           '${identicalRow.seq} removed');
+    }
+    //  前5字母校验(用户严格限制):不过则提示,再点一次=仍存
+    if (!_prefix5Match(newToken, row.standardCall) && !force) {
+      debugPrint('前5字母不符: "$newToken" vs '
+          '"${row.standardCall}"');
+      conflictPending = true;
+      lastError =
+          'token_conflict:0|${row.standardCall}|'
+          '$newToken|前5字母不符,再点一次=仍要存入';
+      _notify();
+      Future.delayed(const Duration(seconds: 5), () {
+        if (lastError != null &&
+            lastError!.startsWith('token_conflict')) {
+          lastError = null;
+          _notify();
+        }
+      });
+      return false;
     }
     //  确认即替换:重新采同一条时删旧记号、记新记号
     await t.updateRow(row.seq,
