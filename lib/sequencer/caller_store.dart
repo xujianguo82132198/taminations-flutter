@@ -181,6 +181,83 @@ class CallerTable extends ChangeNotifier {
 
   // ------------------------------------------------ 建表向导
 
+  ///  递归识别法(用户定义):
+  ///  1.取口令段首辅音→定家族
+  ///  2.家族内全词比对→合格=选中执行
+  ///  3.不合格→首辅音确认→剥去→余下递归(进下一家族)
+  ///  4.所有家族进不去→提示缺哪个家族→退出
+  ///  返回(命中行, 递归过程描述, 缺失家族提示)
+  static (CallerRow?, List<String>, String?) recursiveRecognize(
+      String token, List<CallerRow> candidates) {
+    final steps = <String>[];
+    var work = token.trim().toLowerCase();
+    var confirmedPrefix = '';
+
+    while (work.isNotEmpty) {
+      //  1.首辅音→家族
+      final fam = consonantFamily(work);
+      if (fam == null) {
+        final vowel = work[0];
+        steps.add('首字符"$vowel"是元音,跳过');
+        confirmedPrefix += vowel;
+        work = work.substring(1);
+        continue;
+      }
+      steps.add('辅音"$work"→$fam 家族');
+
+      //  2.家族内全词比对
+      final famMembers = consonantFamilies[fam]!;
+      final inFamily = candidates.where((r) {
+        final callStart = r.standardCall.toLowerCase()
+            .replaceAll(RegExp(r'[^a-z]'), '');
+        if (callStart.isEmpty) return false;
+        return famMembers.contains(callStart[0]) ||
+            famMembers.any((m) => m.length > 1 &&
+                callStart.startsWith(m));
+      }).toList();
+
+      if (inFamily.isEmpty) {
+        steps.add('$fam 家族在候选中无成员(家族不全?)');
+        return (null, steps,
+            '"$work"的首辅音/$fam/家族找不到匹配,'
+            '需要增加家族成员');
+      }
+
+      //  全词比对(用骨架,辅音为主)
+      CallerRow? best;
+      var bestErr = double.infinity;
+      for (final r in inFamily) {
+        final e = sentenceError(
+            _skeleton(work), _skeleton(r.standardCall));
+        if (e < bestErr) {
+          bestErr = e;
+          best = r;
+        }
+      }
+
+      if (best != null && bestErr <= 0.45) {
+        steps.add('$fam 家族命中: "$work" ≈ '
+            '"${best.standardCall}" '
+            '(err=${bestErr.toStringAsFixed(2)})');
+        return (best, steps, null);
+      }
+
+      //  3.不合格→首辅音确认→剥去→递归
+      steps.add('$fam 家族全词比对不合格'
+          '(best=${bestErr.toStringAsFixed(2)}),'
+          '首辅音"${work[0]}"已确认,剥去递归');
+      confirmedPrefix += work[0];
+      work = work.substring(1).trim();
+      if (work.isEmpty) {
+        steps.add('记号已剥完(全部辅音已确认),无剩余');
+        return (null, steps, null);
+      }
+    }
+    steps.add('递归结束:确认前缀="$confirmedPrefix",'
+        '未找到完整命中');
+    return (null, steps, null);
+  }
+
   ///  级别核心口令标题:与 Calls 页面同一取法——
   ///  callIndex 的 CallEntry 一条一个口令家族(Calls->
   ///  Mainstream 页面显示的总数即此数,MS 为 82),
@@ -1034,6 +1111,31 @@ class CallerTable extends ChangeNotifier {
   ///  整句相似度不得越过主语差异
   static bool sameCommandPrefix(String a, String b) =>
       samePrefix(decomposeCall(a).$1, decomposeCall(b).$1);
+
+  ///  辅音家族(用户递归识别法的分支节点):
+  ///  同一家族的辅音在空气中形状相近,一个听错可以族内换
+  static const consonantFamilies = <String, List<String>>{
+    's': ['s', 'c', 'x', 'z', 'ps', 'ks', 'ts'],
+    'p': ['p', 'b'],
+    't': ['t', 'd'],
+    'k': ['k', 'g'],
+    'f': ['f', 'v'],
+    'm': ['m', 'n'],
+    'l': ['l', 'r'],
+    'h': ['h', 'w', 'y'],
+    'j': ['j', 'ch', 'sh', 'zh'],
+  };
+
+  ///  取词的首辅音的家族键(如 "split"→'s', "wheel"→'w'→'h')
+  static String? consonantFamily(String s) {
+    final w = s.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+    if (w.isEmpty) return null;
+    final first = w[0];
+    for (final e in consonantFamilies.entries) {
+      if (e.value.contains(first)) return e.key;
+    }
+    return null;  //  找不到家族(元音开头或超出表)
+  }
 
   ///  辅音骨架(用户算法:辅音承载词的身份,元音承载声音
   ///  ——"我们的声音来自于元音"。听到的词先按辅音链对位,

@@ -990,6 +990,35 @@ class VoiceFlow extends ChangeNotifier {
       final r = act.lookupSequential(callSeg);
       debugPrint('口令查表: "$callSeg" err=${r.error.toStringAsFixed(2)} '
           '-> ${r.hit?.standardCall}');
+      //  递归识别法(用户算法定义,在常规查表后追加):
+      ///  常规查表未中时,走辅音家族递归导航——日志全程
+      ///  可见,命中则采用,家族缺失则提示
+      if (r.hit == null || r.error > 0.45) {
+        final candidates = act.rows
+            .where((row) => row.recognized.isNotBlank ||
+                row.standardCall.isNotBlank)
+            .toList();
+        final (hit2, steps, missingFam) =
+            CallerTable.recursiveRecognize(callSeg, candidates);
+        for (final st in steps) {
+          debugPrint('递归: $st');
+        }
+        if (missingFam != null) {
+          debugPrint('递归缺家族: $missingFam');
+        }
+        if (hit2 != null) {
+          debugPrint('递归命中: "$callSeg" -> '
+              '"${hit2.standardCall}"');
+          callResult = hit2.standardCall;
+          if (!tableFlags.contains('C')) {
+            tableFlags += tableFlags.isEmpty ? 'C' : '_C';
+          }
+          _notify();
+          _armAssemblyTimer(const Duration(milliseconds: 900));
+          _callParts.clear();
+          return;
+        }
+      }
       if (r.hit != null && r.error <= 0.45) {
         if (allFiller) {
           debugPrint('命中但纯填充词,拒绝: "$callSeg" -> '
