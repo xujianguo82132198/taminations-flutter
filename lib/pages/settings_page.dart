@@ -97,9 +97,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 //  引擎版权声明(用户:尊重开源版权)
                 fm.Container(
                     width: double.infinity,
+                    color: fm.Colors.white,
                     padding: fm.EdgeInsets.all(12),
-                    decoration: fm.BoxDecoration(
-                        border: fm.Border.all(color: fm.Colors.grey.shade300)),
                     child: fm.Column(
                         crossAxisAlignment: fm.CrossAxisAlignment.start,
                         children: [
@@ -114,16 +113,19 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                               '模型: vosk-model-en-us-0.22-lgraph',
                               style: fm.TextStyle(
                                   fontSize: 14,
-                                  color: fm.Colors.grey)),
+                                  color: fm.Colors.black54)),
                         ])),
                 fm.SizedBox(height: 8),
                 //  构建版本(用户验证新旧)
                 fm.Container(
+                    width: double.infinity,
+                    color: fm.Colors.white,
+                    margin: fm.EdgeInsets.only(top: 3),
                     padding: fm.EdgeInsets.all(12),
                     child: fm.Text(
                         '构建: ${DualSpeechProvider.buildStamp}',
                         style: fm.TextStyle(
-                            fontSize: 14, color: fm.Colors.grey)))
+                            fontSize: 14, color: fm.Colors.black54)))
               ]));
         });
   }
