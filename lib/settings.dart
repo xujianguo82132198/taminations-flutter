@@ -169,6 +169,18 @@ class Settings extends fm.ChangeNotifier {
     _instance.notifyListeners();
   }
 
+  ///  噪声抑制强度(用户手动滑动调节,0.0~1.0):
+  ///  0.0=+8dB(最松),1.0=+28dB(最紧,人喊恰好听不到)
+  static double get noiseSuppression =>
+      double.tryParse(
+          _instance.proxy.getString('Noise Suppression') ?? '') ??
+      0.4;
+  static set noiseSuppression(double value) {
+    _instance.proxy.setString(
+        'Noise Suppression', value.toStringAsFixed(2));
+    _instance.notifyListeners();
+  }
+
   ///  辅音助听器(默认开,用户设想):开头辅音赋予更高决策权,
   ///  减少元音确定权——两分频,高频段(辅音)提升约9dB,
   ///  低频段(元音+冰箱嗡嗡)压3dB

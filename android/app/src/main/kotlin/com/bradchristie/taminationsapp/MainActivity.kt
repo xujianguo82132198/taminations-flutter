@@ -551,7 +551,7 @@ class MainActivity : FlutterActivity() {
             val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
             //  噪声抑制加强(用户:冰箱空调房间仍出dive thru):
             //  开门=底噪+20dB(约为喊口令音量的一半),原+12太松
-            val openT0 = noiseFloorDb + 16.0
+            val openT0 = noiseFloorDb + 8.0 + noiseSuppressRatio * 20.0
             if (db < openT0 - 2.0) {
               noiseFloorDb = 0.9 * noiseFloorDb + 0.1 * db
               if (noiseFloorDb < -60.0) noiseFloorDb = -60.0
@@ -572,8 +572,8 @@ class MainActivity : FlutterActivity() {
             } else {
               deadZoneMs = 0
             }
-            val openT = noiseFloorDb + 16.0
-            val closeT = noiseFloorDb + 7.0
+            val openT = noiseFloorDb + 8.0 + noiseSuppressRatio * 20.0
+            val closeT = noiseFloorDb + (8.0 + noiseSuppressRatio * 20.0) * 0.45
             if (!vadOpen) {
               if (db > openT) {
                 vadOpen = true; vadSpeechMs = 0; vadQuietMs = 0
@@ -682,6 +682,7 @@ class MainActivity : FlutterActivity() {
   @Volatile private var noiseFloorDb = -45.0
   //  辅音助听器开关+分频器状态(一阶低通1500Hz@16k)
   @Volatile private var consonantBoost = false
+  @Volatile private var noiseSuppressRatio = 0.4
   private var consLp = 0.0
   private var deadZoneMs = 0
 
@@ -781,6 +782,7 @@ class MainActivity : FlutterActivity() {
         voskFeed = true
         voskGate = gate
         consonantBoost = consonant
+        noiseSuppressRatio = (call.argument<Double>("noiseSuppress") ?: 0.4)
         vadOpen = false; vadSpeechMs = 0; vadQuietMs = 0; vadLastUtteranceMs = 0
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
         Log.i(TAG, "vosk: gate=${if (gate) "on" else "off"}")

@@ -119,12 +119,13 @@ class MusicMonitor {
   ///  gate 为静音门限开关(持续监听传 true:静音/环境噪音不喂
   ///  识别器;PTT 采样传 false:按下即刻意语音)
   Future<void> voskStart({String? grammar, bool gate = false,
-      bool consonant = false}) async {
+      bool consonant = false, double noiseSuppress = 0.4}) async {
     try {
       final args = <String, dynamic>{
         if (grammar != null) 'grammar': grammar,
         'gate': gate,
         'consonant': consonant,
+        'noiseSuppress': noiseSuppress,
       };
       await _channel.invokeMethod('voskStart', args);
     } on PlatformException catch (e) {

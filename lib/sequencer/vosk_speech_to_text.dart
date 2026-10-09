@@ -142,7 +142,8 @@ class VoskSpeechToText extends ChangeNotifier {
           grammar: _grammarWords == null || _grammarWords!.isEmpty
               ? null : jsonEncode(_grammarWords),
           gate: Settings.silenceGate,
-          consonant: Settings.consonantBoost);
+          consonant: Settings.consonantBoost,
+          noiseSuppress: Settings.noiseSuppression);
       _sub = musicMonitor.events.listen(_onEvent);
     } catch (e) {
       _log('recycle FAILED: $e');
@@ -242,8 +243,9 @@ class VoskSpeechToText extends ChangeNotifier {
     //  底噪跟踪:**所有非语音帧**(明显低于开门线)都参与
     //  收敛,可上可下——初始估计偏差也不会死锁(曾:初始-50
     //  在底噪-40的房间永不向上收敛,开门线过低,段卡死)
-    final speechT = _noiseFloorDb + 16;   //  平衡:噪音抑制+口令保真
-    final quietT = _noiseFloorDb + 7;
+    final boost = 8.0 + Settings.noiseSuppression * 20.0;
+    final speechT = _noiseFloorDb + boost;
+    final quietT = _noiseFloorDb + boost * 0.45;
     if (db < speechT - 2) {
       _noiseFloorDb = 0.9 * _noiseFloorDb + 0.1 * db;
       if (_noiseFloorDb < -60) _noiseFloorDb = -60;
@@ -509,7 +511,8 @@ class VoskSpeechToText extends ChangeNotifier {
           grammar: _grammarWords == null || _grammarWords!.isEmpty
               ? null : jsonEncode(_grammarWords),
           gate: Settings.silenceGate,
-          consonant: Settings.consonantBoost);
+          consonant: Settings.consonantBoost,
+          noiseSuppress: Settings.noiseSuppression);
       _isListening = true;
       _log('session: listening');
     } catch (e) {
