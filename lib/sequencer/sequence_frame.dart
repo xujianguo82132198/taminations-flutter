@@ -2075,9 +2075,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           _isVoiceCall = false;
                         },
                       ),
-                      errorStyle: fm.TextStyle(fontSize: 20,
+                      errorStyle: fm.TextStyle(fontSize: 13,
                           color: model.errorString.contains('Note') ? fm.Colors.blue : fm.Colors.red),
-                      errorMaxLines: 20,
+                      errorMaxLines: 2,
                       errorText: model.errorString.isEmpty ? null : model.errorString),
                   enableSuggestions: true,
                   style: fm.TextStyle(fontSize: 24),
