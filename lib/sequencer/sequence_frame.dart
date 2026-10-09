@@ -2034,7 +2034,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       }
 
       return fm.Container(
-        color: Color.WHITE,
+        color: Color(0xfff5f5f0),   //  浅米灰(与按钮区白色区分)
         padding: fm.EdgeInsets.only(left: 3),
         child: fm.Column(
           mainAxisSize: fm.MainAxisSize.min,
