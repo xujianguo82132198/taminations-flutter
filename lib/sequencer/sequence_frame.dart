@@ -1379,7 +1379,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                           },
                           onLongPress:
                               (flow.callerTable != null &&
-                                  flow.onlyMode &&
                                   !(flow.speech?.isListening ?? false) &&
                                   !flow.pttActive)
                               ? () => _rowActionMenu(row)
