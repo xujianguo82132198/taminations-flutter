@@ -24,6 +24,7 @@ import 'package:provider/provider.dart' as pp;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../common_flutter.dart';
+import '../sequencer/dual_speech_to_text.dart';
 import 'page.dart';
 
 //  Settings page, only used in Portrait
@@ -93,7 +94,14 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 JoinCallsWithWidget(),
                 SpeechEngineWidget(),
                 SilenceGateWidget(),
-                ConsonantBoostWidget()
+                ConsonantBoostWidget(),
+                //  构建版本(用户验证新旧)
+                fm.Container(
+                    padding: fm.EdgeInsets.all(12),
+                    child: fm.Text(
+                        '构建: ${DualSpeechProvider.buildStamp}',
+                        style: fm.TextStyle(
+                            fontSize: 14, color: fm.Colors.grey)))
               ]));
         });
   }

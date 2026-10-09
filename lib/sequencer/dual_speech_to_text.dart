@@ -71,7 +71,10 @@ class DualSpeechProvider extends ChangeNotifier {
   List<List<String>> get segmentAlts =>
       engine == 'vosk' ? vosk.segmentAlts : const <List<String>>[];
 
+  ///  构建时间戳(每次构建手动更新,用户可验证新旧版本)
+  static const buildStamp = '2026-10-09 15:33';
   DualSpeechProvider() {
+    debugPrint('BUILD STAMP: $buildStamp');
     _loadSetting();
     //  任一引擎通知都向上转发
     xfyun.addListener(_forward);
