@@ -109,10 +109,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                                   fontWeight: fm.FontWeight.bold)),
                           fm.SizedBox(height: 4),
                           fm.Text(
-                              'Vosk (alphacephei.com)
-'
-                              '开源离线语音识别,Apache License 2.0
-'
+                              'Vosk (alphacephei.com)\n'
+                              '开源离线语音识别,Apache License 2.0\n'
                               '模型: vosk-model-en-us-0.22-lgraph',
                               style: fm.TextStyle(
                                   fontSize: 14,
