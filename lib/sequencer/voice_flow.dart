@@ -1964,9 +1964,8 @@ class VoiceFlow extends ChangeNotifier {
   void startListening() {
     final s = speech;
     if (s == null) return;
-    //  麦克风识别开始:面板让位——口令列表需要空间
-    //  (用户:识别时不用开着表,别占口令列表的地方)
-    if (!onlyMode) setPanelMinimized(true);
+    //  麦克风识别开始:面板保持打开(用户:要看到系统选了
+    // 哪条口令,命中行高亮,不关表)
     //  喊口令:语法=当前表+全目录词池(前缀/后缀表的词
     //  都在场,三表流水线才解码得到)
     final callG = <String>{
