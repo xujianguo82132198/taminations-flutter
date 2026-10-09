@@ -1993,6 +1993,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               await t.updateRow(seq,
                   recognized: sample, sort: false);
               debugPrint('非Only录音: 第$seq行 <- "$sample"');
+              //  录音后保持该行高亮(用户:取样成功要看到选中)
+              flow.nonOnlySelectedSeq = seq;
+              setState(() {
+                _viewSeq = seq;
+              });
               if (!mounted) return;
               fm.ScaffoldMessenger.of(context).showSnackBar(
                   fm.SnackBar(
