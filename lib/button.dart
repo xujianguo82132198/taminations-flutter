@@ -38,7 +38,7 @@ class Button extends fm.StatelessWidget {
 
   @override
   fm.Widget build(fm.BuildContext context) =>
-    fm.Padding(padding:fm.EdgeInsets.all(4.0),
+    fm.Padding(padding:fm.EdgeInsets.all(1.0),
         child:_ButtonBorder(
           child:fm.Semantics(
             button: true,
@@ -94,7 +94,7 @@ class _ButtonContainer extends fm.StatelessWidget {
                   colors: [Color(0xffffffff), Color(0xffa0a0a0)]
               )
           ),
-          padding: fm.EdgeInsets.all(6.0),
+          padding: fm.EdgeInsets.all(2.0),
           child: fm.Center(child: child)
       );
 }

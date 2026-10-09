@@ -75,7 +75,7 @@ class PortraitSequencerAnimationFrame extends fm.StatelessWidget {
                   SequencerCopyButton(),
                   SequencerPasteButton(),
                   if (constraints.maxHeight > 50)
-                    ...[fm.Divider(color: Color.GRAY, height: 8),
+                    ...[fm.Divider(color: Color.GRAY, height: 2),
                   _SequencerHelpButton(),
                   _SequencerSettingsButton(),
                   _SequencerAbbrevButton(),
