@@ -236,10 +236,13 @@ class CallerTable extends ChangeNotifier {
         final sk = _skeleton(work);
         final skFull = _skeleton(r.standardCall);
         if (_isSubsequence(sk, skFull) &&
-            skFull.length > sk.length) {
-          //  空气侧是口令骨架的子序列:给一个合理的误差
+            skFull.length > sk.length &&
+            sk.length >= skFull.length * 0.5) {
+          //  空气侧是口令骨架的子序列且覆盖≥50%
+          //  (曾"th"⊂"dvthr"40%即命中Dive Thru——太松,
+          //   需要至少覆盖一半辅音才能算碎片匹配)
           final ratio = sk.length / skFull.length;
-          final subseqErr = (1.0 - ratio) * 0.5;  //  覆盖率越高越好
+          final subseqErr = (1.0 - ratio) * 0.5;
           if (subseqErr < e && subseqErr < bestErr) {
             bestErr = subseqErr;
             best = r;
