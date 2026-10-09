@@ -804,7 +804,7 @@ class VoiceFlow extends ChangeNotifier {
   bool _prefixSeen = false;
   DateTime? _lastSegmentAt;
   ///  前后缀最小间隔(用户:0.7秒)
-  static const _prefixSuffixGap = Duration(milliseconds: 700);
+  static const _prefixSuffixGap = Duration(milliseconds: 1500);
 
   void _onSpeech() {
     final s = speech;
@@ -876,7 +876,7 @@ class VoiceFlow extends ChangeNotifier {
         //  整段模糊查前缀表(记号=指纹,精确比对必失配)
         var r = pt.lookupSequential(text);
         if (r.hit != null &&
-            r.error <= 0.45 &&
+            r.error <= 0.30 &&
             _plausiblePrefixHit(
                 text, CallerTable.spokenForm(r.hit!.standardCall))) {
           _prefixSeen = true;
@@ -1188,7 +1188,7 @@ class VoiceFlow extends ChangeNotifier {
     if (act0 != null) {
       final whole = segs.join(' ').trim();
       final rw = act0.lookupSequential(whole);
-      if (rw.hit != null && rw.error <= 0.45) {
+      if (rw.hit != null && rw.error <= 0.30) {
         callResult = rw.hit!.standardCall;
         lastCandidate = rw.hit;
         lastCandidateError = rw.error;
@@ -1230,7 +1230,7 @@ class VoiceFlow extends ChangeNotifier {
         debugPrint('P-lookup "$prefixSeg" '
             'err=${r.error.toStringAsFixed(2)} '
             '-> ${r.hit?.standardCall}');
-        if (r.hit != null && r.error <= 0.45) {
+        if (r.hit != null && r.error <= 0.30) {
           prefixResult = r.hit!.standardCall;
           tableFlags = 'P';
           _notify();
