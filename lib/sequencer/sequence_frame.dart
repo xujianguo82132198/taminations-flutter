@@ -2034,7 +2034,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       }
 
       return fm.Container(
-        color: Color.WHITE,   //  输入区始终白色(用户要求)
+        color: Color.FLOOR,   //  外框与Calls钮底色同(用户要求)
         padding: fm.EdgeInsets.only(left: 3),
         child: fm.Column(
           mainAxisSize: fm.MainAxisSize.min,
