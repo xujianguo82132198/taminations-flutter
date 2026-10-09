@@ -1010,6 +1010,8 @@ class VoiceFlow extends ChangeNotifier {
           debugPrint('递归命中: "$callSeg" -> '
               '"${hit2.standardCall}"');
           callResult = hit2.standardCall;
+          lastCandidate = hit2;
+          lastCandidateError = 0.0;
           if (!tableFlags.contains('C')) {
             tableFlags += tableFlags.isEmpty ? 'C' : '_C';
           }
@@ -1030,6 +1032,9 @@ class VoiceFlow extends ChangeNotifier {
           return;
         }
         callResult = r.hit!.standardCall;
+        //  命中行高亮(面板isCandidate依赖lastCandidate)
+        lastCandidate = r.hit;
+        lastCandidateError = r.error;
         if (!tableFlags.contains('C')) {
           tableFlags += tableFlags.isEmpty ? 'C' : '_C';
         }
@@ -1166,6 +1171,8 @@ class VoiceFlow extends ChangeNotifier {
       final rw = act0.lookupSequential(whole);
       if (rw.hit != null && rw.error <= 0.45) {
         callResult = rw.hit!.standardCall;
+        lastCandidate = rw.hit;
+        lastCandidateError = rw.error;
         tableFlags = 'C';
         assembledCall = callResult;
         debugPrint('whole-command hit: "$whole" -> "$callResult" '
