@@ -840,6 +840,9 @@ class VoiceFlow extends ChangeNotifier {
   static bool _plausiblePrefixHit(String heard, String matched) {
     if (heard.contains('unk')) return false;
     if (heard.trim().length < 3) return false;
+    //  骨架至少3个辅音("the"骨架th只有2个,碎片不当前缀)
+    final sk = CallerTable.skeletonOf(heard);
+    if (sk.length < 3) return false;
     final hw = heard.trim().split(' ').length;
     final mw = matched.trim().split(' ').length;
     return hw / mw >= 0.5 && mw / hw <= 2.0;

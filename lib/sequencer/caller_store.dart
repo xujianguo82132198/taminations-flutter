@@ -1175,6 +1175,7 @@ class CallerTable extends ChangeNotifier {
     return ai == a.length;
   }
 
+  static String skeletonOf(String s) => _skeleton(s);
   static String _skeleton(String s) =>
       s.toLowerCase().replaceAll(RegExp(r'[aeiou ]'), '');
 
