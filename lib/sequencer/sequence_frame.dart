@@ -1031,7 +1031,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     }
     if (target == null) return;
     final index = table.rows
-        .indexWhere((r) => r.seq == target.seq);
+        .indexWhere((r) => r.seq == target!.seq);
     if (index < 0) return;
     fm.WidgetsBinding.instance.addPostFrameCallback((_) {
       //  高亮行定位到第3行可见区(alignment≈0.1,靠上)
