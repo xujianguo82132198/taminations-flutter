@@ -1120,9 +1120,7 @@ class VoiceFlow extends ChangeNotifier {
     _resetAssembly();
     //  执行后3秒自动清零三区(用户:实时状态,不留旧信息)
     Future.delayed(const Duration(seconds: 3), () {
-      if (assembledCall.isBlank) {
-        clearAllDisplays();
-      }
+      clearAllDisplays();  //  无条件清零(用户:超时必须清)
     });
   }
 
