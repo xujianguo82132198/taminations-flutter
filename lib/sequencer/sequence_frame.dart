@@ -1378,6 +1378,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                           },
                           onLongPress:
                               (flow.callerTable != null &&
+                                  flow.onlyMode &&
                                   !(flow.speech?.isListening ?? false) &&
                                   !flow.pttActive)
                               ? () => _rowActionMenu(row)
@@ -3587,9 +3588,9 @@ class SequencerUndoButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final model = pp.Provider.of<SequencerModel>(context,listen: false);
     return fm.Expanded(
-        child: Button('Undo', child: fm.Center(child: fm.Text('Undo', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18))), onPressed: () {
+        child: fm.Center(child: Button('Undo', child: fm.Text('Undo', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           model.undoLastCall();
-        })
+        }))
     );
   }
 }
@@ -3600,9 +3601,9 @@ class SequencerResetButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final model = pp.Provider.of<SequencerModel>(context,listen: false);
     return fm.Expanded(
-        child: Button('Reset', child: fm.Center(child: fm.Text('Reset', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18))), onPressed: () {
+        child: fm.Center(child: Button('Reset', child: fm.Text('Reset', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           model.reset();
-        })
+        }))
     );
   }
 }
@@ -3612,7 +3613,7 @@ class SequencerCopyButton extends fm.StatelessWidget {
   fm.Widget build(fm.BuildContext context) {
     final model = pp.Provider.of<SequencerModel>(context,listen: false);
     return fm.Expanded(
-        child: Button('Copy', child: fm.Center(child: fm.Text('Copy', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18))), onPressed: () {
+        child: fm.Center(child: Button('Copy', child: fm.Text('Copy', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           model.copy();
           final count = model.calls.length;
           final countText = count == 1 ? '1 call' : '$count calls';
@@ -3622,7 +3623,7 @@ class SequencerCopyButton extends fm.StatelessWidget {
               content: fm.Text('$countText copied to Clipboard.',
                   style: GoogleFonts.roboto(fontSize: 20))
           ));
-        })
+        }))
     );
   }
 }
@@ -3655,7 +3656,7 @@ class SequencerPasteButton extends fm.StatelessWidget {
   @override
   fm.Widget build(fm.BuildContext context) {
     return fm.Expanded(
-        child: Button('Paste', child: fm.Center(child: fm.Text('Paste', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18))), onPressed: () {
+        child: fm.Center(child: Button('Paste', child: fm.Text('Paste', maxLines: 1, style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 18)), onPressed: () {
           //  Show the calls to paste
           //  and let the user confirm and edit
           fs.Clipboard.getData('text/plain').then((value) async {
@@ -3670,7 +3671,7 @@ class SequencerPasteButton extends fm.StatelessWidget {
                 await pasteDialog(context, '');
               }
           );
-        })
+        }))
     );
   }
 }
