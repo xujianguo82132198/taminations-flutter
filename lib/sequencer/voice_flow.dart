@@ -766,6 +766,8 @@ class VoiceFlow extends ChangeNotifier {
   String callResult = '';
   String suffixResult = '';
   ///  组合完成的整条口令(输入行执行后由 consumeAssembled 清)
+  ///  递归识别过程(用户要看到):辅音家族导航的逐步结果
+  List<String> recursiveSteps = [];
   String assembledCall = '';
   int _lastCommandSeq = 0;
   CallerTable? _prefixTable;
@@ -1000,9 +1002,11 @@ class VoiceFlow extends ChangeNotifier {
             .toList();
         final (hit2, steps, missingFam) =
             CallerTable.recursiveRecognize(callSeg, candidates);
+        recursiveSteps = steps;
         for (final st in steps) {
           debugPrint('递归: $st');
         }
+        _notify();
         if (missingFam != null) {
           debugPrint('递归缺家族: $missingFam');
         }
