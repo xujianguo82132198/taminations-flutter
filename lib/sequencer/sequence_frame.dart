@@ -2080,6 +2080,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       errorMaxLines: 2,
                       errorText: model.errorString.isEmpty ? null : model.errorString),
                   enableSuggestions: true,
+                  maxLines: 1,
                   style: fm.TextStyle(fontSize: 16),
                       //  Code to run when user presses Enter
                       onSubmitted: (value) {
