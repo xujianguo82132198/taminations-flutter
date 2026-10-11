@@ -1937,6 +1937,20 @@ class VoiceFlow extends ChangeNotifier {
   ///  增加记录:以选定的口令名新建一行(第2列空,待圆钮采样),
   ///  光标跳到新行。多对一:同一口令允许重复建行,
   ///  每行录一笔语音读法(合并时记号自动归并)
+  ///  增加记录:CALL页/搜索选中的口令要填入的预建空行序号
+  /// (用户:先建空行选为当前,再进画面;各路径都往此行填)
+  int? addRecordRowSeq;
+
+  ///  把口令填入预建空行(增加记录流程的填充路径)
+  Future<void> fillRecordRow(int seq, String call) async {
+    final t = callerTable;
+    if (t == null) return;
+    await t.updateRow(seq, standardCall: call.trim(), sort: false);
+    dictationSeqOverride = seq;
+    dictationText = '';
+    _notify();
+  }
+
   Future<void> addRecordWithCall(String call) async {
     final t = callerTable;
     if (t == null) return;
