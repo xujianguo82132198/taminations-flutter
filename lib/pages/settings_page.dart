@@ -98,7 +98,6 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 fm.Container(
                     width: double.infinity,
                     color: fm.Colors.white,
-                    margin: fm.EdgeInsets.only(bottom: 3),
                     padding: fm.EdgeInsets.all(12),
                     child: fm.Column(
                         crossAxisAlignment: fm.CrossAxisAlignment.start,
@@ -119,10 +118,11 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 SilenceGateWidget(),
                 ConsonantBoostWidget(),
                 //  构建版本(独立一块,页面最下;用户验证新旧)
+                //  顶缝=语音组块的收尾横线
                 fm.Container(
                     width: double.infinity,
                     color: fm.Colors.white,
-                    margin: fm.EdgeInsets.only(bottom: 3),
+                    margin: fm.EdgeInsets.only(top: 3),
                     padding: fm.EdgeInsets.all(12),
                     child: fm.Text(
                         '构建: ${DualSpeechProvider.buildStamp}',
@@ -224,6 +224,7 @@ class SilenceGateWidget extends fm.StatelessWidget {
       builder: (context,settings,child) => _SettingCheckbox(
         name:'静音门限(噪音不识别)',
         value: Settings.silenceGate,
+        joinBelow: true,
         onChanged: (value) {
           Settings.silenceGate = value;
         },
@@ -242,6 +243,7 @@ class ConsonantBoostWidget extends fm.StatelessWidget {
       builder: (context,settings,child) => _SettingCheckbox(
         name:'辅音增强(识别)',
         value: Settings.consonantBoost,
+        joinBelow: true,
         onChanged: (value) {
           Settings.consonantBoost = value;
         },
@@ -289,11 +291,14 @@ class _SettingCheckbox extends fm.StatefulWidget {
   final String name;
   final bool value;
   final _boolChanger onChanged;
+  ///  下方不留缝(无线):与相邻行同属一块(语音设置组)
+  final bool joinBelow;
 
   _SettingCheckbox({
     required this.name,
     required this.value,
-    required this.onChanged});
+    required this.onChanged,
+    this.joinBelow = false});
 
   @override
   __SettingCheckboxState createState() => __SettingCheckboxState();
@@ -304,7 +309,7 @@ class __SettingCheckboxState extends fm.State<_SettingCheckbox> {
   fm.Widget build(fm.BuildContext context) {
     return fm.Container(
         color: fm.Colors.white,
-        margin: fm.EdgeInsets.only(bottom:3),
+        margin: fm.EdgeInsets.only(bottom: widget.joinBelow ? 0 : 3),
         child: fm.InkWell(
           onTap: () { widget.onChanged(!widget.value); },
           child: fm.Row (
