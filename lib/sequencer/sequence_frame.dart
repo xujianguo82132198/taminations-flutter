@@ -3226,27 +3226,17 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                               //  全选行(紧凑)
                                               fm.InkWell(
                                                 onTap: () => iset(() {
-                                                  //  全选=除ms系外全选
-                                                  //  (ms是本地成果,
-                                                  //  引入会覆盖重录)
-                                                  final wanted =
-                                                      tables.where((t) {
-                                                    final last = t
-                                                        .split('/')
-                                                        .last;
-                                                    return last !=
-                                                            'ms' &&
-                                                        last !=
-                                                            'ms_Only';
-                                                  }).toSet();
-                                                  if (picked
-                                                      .containsAll(
-                                                          wanted)) {
+                                                  //  全选=全部照拷
+                                                  //  (用户:每个所选表
+                                                  //  都要拷到目的目录,
+                                                  //  Only表也要)
+                                                  if (picked.length ==
+                                                      tables.length) {
                                                     picked.clear();
                                                   } else {
                                                     picked
                                                       ..clear()
-                                                      ..addAll(wanted);
+                                                      ..addAll(tables);
                                                   }
                                                 }),
                                                 child: fm.Padding(
@@ -3408,30 +3398,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                     .getString(
                                                         '口令员表 $t');
                                                 if (raw != null) {
+                                                  //  照单全拷(用户:
+                                                  //  选什么拷什么,
+                                                  //  Only表也要,
+                                                  //  不额外生成)
                                                   await prefs3
                                                       .setString(
                                                           '口令员表 $dst',
                                                           raw);
                                                   imported++;
-                                                  //  编辑只能在Only
-                                                  //  表(用户规则)——
-                                                  //  引入非Only表时
-                                                  //  自动生成同名Only
-                                                  //  工作副本(已存在
-                                                  //  则不动,保本地成果)
-                                                  if (!short
-                                                      .endsWith('_Only')) {
-                                                    final onlyDst =
-                                                        '$target/${short}_Only';
-                                                    if (!prefs3
-                                                        .containsKey(
-                                                            '口令员表 $onlyDst')) {
-                                                      await prefs3
-                                                          .setString(
-                                                              '口令员表 $onlyDst',
-                                                              raw);
-                                                    }
-                                                  }
                                                 }
                                               }
                                               iset(() {
