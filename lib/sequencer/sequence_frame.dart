@@ -2372,6 +2372,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 onPointerDown: (_) {
                   debugPrint('INPUT_BTN: pointer down');
                   textFieldController.clear();
+                  //  模仿人工点击输入框(与InkWell.onTap同款):
+                  //  显示TextField+焦点——否则触屏设备显示的
+                  //  是静态提示,语音结果写了controller也无处
+                  //  显示;口令员随后的回车也需要键盘在场
+                  setState(() {
+                    virtualKeyboard.isVisible = true;
+                  });
+                  focusNode.requestFocus();
                   flow.startInputSample();
                 },
                 onPointerUp: (_) {
