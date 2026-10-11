@@ -2457,40 +2457,23 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               //  PTT 采样按钮:只负责按下朗读,抬起结束
               //  按下说话,抬起结束并给出识别结果,
               //  结果直接进入记录初始化(写入映射表第二列)
-              if (TamUtils.canListen)
+              //  老圆钮只在Only采表模式出现(用户:两个圆钮
+              //  同屏太易按错;非Only画面只用输入行的新圆钮)
+              if (TamUtils.canListen && flow.onlyMode)
                 fm.Listener(
                   onPointerDown: (_) {
                     //  此按钮只负责"按下朗读,抬起结束"
                     //  打开表由独立的"打开表"按钮负责
                     if (!flow.isActive) return;
-                    if (flow.onlyMode) {
-                      //  Only采表:原样走录表采样
-                      if (flow.startSample()) _showPttHint();
-                    } else {
-                      //  非Only:与输入行圆钮同款Input流程
-                      //  (Selection输入法同款:清框→焦点→键盘)
-                      debugPrint('INPUT_BTN: column PTT down');
-                      focusNode.requestFocus();
-                      setState(() {
-                        virtualKeyboardSetVisible(true);
-                      });
-                      flow.startInputSample(
-                          seedText: textFieldController.text);
-                    }
+                    if (flow.startSample()) _showPttHint();
                   },
                   onPointerUp: (_) {
                     _hidePttHint();
-                    if (flow.onlyMode) flow.endSample();
-                    else {
-                      flow.endInputSample();
-                      //  松手=结果已定:确保键盘在场供口令员回车
-                      focusNode.requestFocus();
-                    }
+                    flow.endSample();
                   },
                   onPointerCancel: (_) {
                     _hidePttHint();
-                    if (flow.onlyMode) flow.endSample();
-                    else flow.endInputSample();
+                    flow.endSample();
                   },
                   child: fm.Container(
                     padding: fm.EdgeInsets.all(2),
