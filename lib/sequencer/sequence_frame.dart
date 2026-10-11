@@ -2637,6 +2637,41 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     }
     tableNames.clear();
     tableNames.addAll(CallerTable.listTableNames(prefs));
+    //  自动创建PSfix表(用户设计:前缀+后缀合并):
+    //  1. PSfix不存在且Prefix/Sufix有→合并生成
+    //  2. PSfix_Only不存在且PSfix有→拷贝为可编辑副本
+    for (final dir in tableNames
+        .where((n) => n.contains('/'))
+        .map((n) => n.split('/').first)
+        .toSet()) {
+      final psfixName = '$dir/PSfix';
+      final psfixOnly = '$dir/PSfix_Only';
+      if (!tableNames.contains(psfixName)) {
+        final hasPrefix =
+            tableNames.contains('$dir/Prefix');
+        final hasSufix =
+            tableNames.contains('$dir/Sufix');
+        if (hasPrefix || hasSufix) {
+          final n = await CallerTable.mergeToPSfix(
+              prefs, dir);
+          if (n > 0) {
+            debugPrint('自动创建 $psfixName ($n行)');
+          }
+        }
+      }
+      //  PSfix_Only不存在且PSfix有→拷贝
+      if (tableNames.contains(psfixName) &&
+          !tableNames.contains(psfixOnly)) {
+        final raw = prefs.getString('口令员表 $psfixName');
+        if (raw != null) {
+          await prefs.setString('口令员表 $psfixOnly', raw);
+          debugPrint('自动创建 $psfixOnly (可编辑)');
+        }
+      }
+    }
+    //  重新加载(PSfix可能刚创建)
+    tableNames.clear();
+    tableNames.addAll(CallerTable.listTableNames(prefs));
     //  诊断:存储区完整表清单(所见即所得的核账)
     debugPrint('ALL TABLES (${tableNames.length}):');
     for (final n in tableNames) {
