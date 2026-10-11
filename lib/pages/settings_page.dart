@@ -117,12 +117,11 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                         ])),
                 SilenceGateWidget(),
                 ConsonantBoostWidget(),
-                //  构建版本(独立一块,页面最下;用户验证新旧)
-                //  顶缝=语音组块的收尾横线
+                //  构建版本并入语音块(用户:它是语音识别系统的
+                //  构建戳,不隔离到线外;无线,页面到此为止)
                 fm.Container(
                     width: double.infinity,
                     color: fm.Colors.white,
-                    margin: fm.EdgeInsets.only(top: 3),
                     padding: fm.EdgeInsets.all(12),
                     child: fm.Text(
                         '构建: ${DualSpeechProvider.buildStamp}',
