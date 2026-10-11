@@ -156,6 +156,77 @@ class CallerTable extends ChangeNotifier {
     return out.length;
   }
 
+  ///  通用两表合并(口令员自助:合并钮选两张表)。
+  ///  清理=同口令归组(跨表相同条目合一)/同记号去重/
+  ///  每条保够3行录音位;返回(总行数,去重行数)
+  static Future<(int, int)> mergeTwoTables(SharedPreferences prefs,
+      String tableA, String tableB, String dstName) async {
+    final rows = <CallerRow>[];
+    for (final name in [tableA, tableB]) {
+      final raw = prefs.getString('$_keyPrefix$name');
+      if (raw == null) continue;
+      try {
+        final d = jsonDecode(raw);
+        if (d is Map && d['rows'] is List) {
+          for (final r in d['rows']) {
+            if (r is Map) rows.add(CallerRow.fromJson(r));
+          }
+        }
+      } on FormatException {}
+    }
+    if (rows.isEmpty) return (0, 0);
+
+    final byCall = <String, List<CallerRow>>{};
+    for (final r in rows) {
+      final key = r.standardCall.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      byCall.putIfAbsent(key, () => []).add(r);
+    }
+    final out = <CallerRow>[];
+    var deduped = 0;
+    byCall.forEach((key, group) {
+      final seen = <String>{};
+      final recorded = <CallerRow>[];
+      for (final r in group) {
+        if (r.recognized.isBlank) continue;
+        final tok = r.recognized.trim().toLowerCase();
+        if (seen.contains(tok)) {
+          deduped++;
+          continue;
+        }
+        seen.add(tok);
+        recorded.add(r);
+      }
+      final template = group.first.standardCall;
+      for (final r in recorded) {
+        out.add(CallerRow(seq: 0,
+            recognized: r.recognized, standardCall: template));
+      }
+      //  不足3行补空行(多归一录音位)
+      for (var i = recorded.length; i < 3; i++) {
+        out.add(CallerRow(seq: 0, recognized: '', standardCall: template));
+      }
+    });
+
+    out.sort((a, b) => a.recognized.toLowerCase()
+        .compareTo(b.recognized.toLowerCase()));
+    for (var i = 0; i < out.length; i++) out[i].seq = i + 1;
+    await prefs.setString('$_keyPrefix$dstName',
+        jsonEncode({'rows': out.map((r) => r.toJson()).toList()}));
+    debugPrint('mergeTwoTables($tableA+$tableB->$dstName): '
+        '${out.length} rows (deduped $deduped)');
+    return (out.length, deduped);
+  }
+
+  ///  PSfix_Only一键生成(目录画面PSfix钮):Prefix_Only+
+  ///  Sufix_Only合并清理(用户:两表许多条目相同,合并统一
+  ///  省内存;识别只查PSfix_Only+口令表,多归一录入在此表)
+  static Future<(int, int)> mergeOnlyToPSfix(
+      SharedPreferences prefs, String caller) async {
+    return mergeTwoTables(prefs, '${caller}Prefix_Only',
+        '${caller}Sufix_Only', '${caller}PSfix_Only');
+  }
+
   ///  历史修复:把含 "|" 的行拆回多行(合成曾把多归一的
   ///  几行归并成一行,违反"合成不得修改记录"——无损还原:
   ///  按 | 拆开,一行一笔,原样排列)。幂等

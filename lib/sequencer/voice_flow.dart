@@ -963,11 +963,14 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  加载辅助表:优先PSfix(合并表),没有则回退Prefix/Sufix
   Future<CallerTable?> _loadPSfix() async {
+    //  优先PSfix_Only(用户:合并统一的工作表,直接录音,
+    //  识别只查它+口令表)
+    _psfixTable ??= await _loadAuxTable('${_dirOf}PSfix_Only');
     _psfixTable ??= await _loadAuxTable('${_dirOf}PSfix');
     if (_psfixTable != null && _psfixTable!.rows.isNotEmpty) {
       return _psfixTable;
     }
-    //  PSfix不存在:现场合并Prefix+Sufix
+    //  兜底1:Prefix+Sufix合并成PSfix
     try {
       final prefs = await SharedPreferences.getInstance();
       final n = await CallerTable.mergeToPSfix(prefs, _dirOf);
@@ -977,6 +980,18 @@ class VoiceFlow extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('mergeToPSfix failed: $e');
+    }
+    //  兜底2:2张Only表(Prefix_Only+Sufix_Only)合并清理
+    //  成PSfix_Only(含已录声纹,多归一录音位保够3行)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final r = await CallerTable.mergeOnlyToPSfix(prefs, _dirOf);
+      if (r.$1 > 0) {
+        _psfixTable = await _loadAuxTable('${_dirOf}PSfix_Only');
+        return _psfixTable;
+      }
+    } catch (e) {
+      debugPrint('mergeOnlyToPSfix failed: $e');
     }
     return null;
   }

@@ -3589,12 +3589,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       }),
                       //  表补全:把口令库全部口令预写入映射表,
                       //  使喊口令时标准说法即可命中
-                      //  合并:把选中的 _Only 表与源表合并排序另存
-                      _tableMgmtButton(ctx,
-                          selected.endsWith('_Only'),
+                      //  合并(口令员自助两表合并):第一张=选中
+                      //  表,第二张在对话框下拉选(默认按级别累积
+                      //  推),结果名可改(如Prefix_Only+Sufix_Only
+                      //  →PSfix_Only);清理=同口令归组/同记号去重/
+                      //  每条保够3行录音位
+                      _tableMgmtButton(ctx, selected.isNotBlank,
                           '合并', () async {
-                        //  源表名 = 下一级合并表(ms 用基础源表)
-                        //  级别累积:plus与ms合并表合并,依此类推
                         final mReg = RegExp(
                                 r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
                             .firstMatch(selected);
@@ -3606,19 +3607,55 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         final base = mReg == null
                             ? selected
                             : selected.substring(0, mReg.start);
-                        final src = lvIdx > 0
+                        final defSrc = lvIdx > 0
                             ? base + '_' + lvOrder[lvIdx - 1]
                             : base;
-                        //  目标表名 = 去掉 "_Only"
-                        final dst = selected.replaceAll('_Only', '');
+                        final others = tableNames
+                            .where((n) => n != selected)
+                            .toList();
+                        var second = others.contains(defSrc)
+                            ? defSrc : '';
+                        final dstCtrl = fm.TextEditingController(
+                            text: selected.replaceAll('_Only', ''));
                         final ok = await fm.showDialog<bool>(
                             context: context,
-                            builder: (mctx) => fm.AlertDialog(
-                              title: fm.Text('合并映射表'),
-                              content: fm.Text(
-                                  '把 "$selected" 与 "$src" 合并\n'
-                                  '另存为 "$dst"?',
+                            builder: (mctx) => fm.StatefulBuilder(
+                                builder: (mctx, mset) => fm.AlertDialog(
+                              title: fm.Text('合并映射表',
                                   style: fm.TextStyle(fontSize: 20)),
+                              content: fm.Column(
+                                mainAxisSize: fm.MainAxisSize.min,
+                                crossAxisAlignment:
+                                    fm.CrossAxisAlignment.start,
+                                children: [
+                                  fm.Text('把 "$selected" 与:',
+                                      style: fm.TextStyle(fontSize: 19)),
+                                  fm.DropdownButton<String>(
+                                    isExpanded: true,
+                                    value: others.contains(second) &&
+                                            second.isNotEmpty
+                                        ? second : null,
+                                    hint: fm.Text('选第二张表',
+                                        style: fm.TextStyle(fontSize: 18)),
+                                    items: [
+                                      for (final n in others)
+                                        fm.DropdownMenuItem(
+                                            value: n,
+                                            child: fm.Text(n.split('/').last,
+                                                style: fm.TextStyle(
+                                                    fontSize: 18))),
+                                    ],
+                                    onChanged: (v) =>
+                                        mset(() => second = v ?? ''),
+                                  ),
+                                  fm.Text('合并另存为(可改名):',
+                                      style: fm.TextStyle(fontSize: 19)),
+                                  fm.TextField(
+                                    controller: dstCtrl,
+                                    style: fm.TextStyle(fontSize: 19),
+                                  ),
+                                ],
+                              ),
                               actions: [
                                 fm.TextButton(
                                     onPressed: () =>
@@ -3629,17 +3666,33 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         fm.Navigator.of(mctx).pop(true),
                                     child: fm.Text('合并')),
                               ],
-                            ));
-                        if (ok != true) return;
-                        //  只读合并,不打开表(用户:合并后取消
-                        //  不得打开表)——直接读表执行,流程不挂表
-                        final onlyTable =
-                            await CallerTable.open(selected);
-                        final count = await CallerTable.mergeAndSaveAs(
-                            prefs, onlyTable, src, dst,
-                            sourceRequired: lvIdx > 0);
-                        _mgmtSnackBar(
-                            '已合并另存 $dst(共$count条)');
+                            )));
+                        final dstShort = dstCtrl.text.trim();
+                        dstCtrl.dispose();
+                        if (ok != true || dstShort.isBlank) return;
+                        final dst = dstShort.contains('/')
+                            ? dstShort : '$currentDir/$dstShort';
+                        if (second.isNotEmpty && second != defSrc) {
+                          //  自助两表合并:清理后另存
+                          final r = await CallerTable.mergeTwoTables(
+                              prefs, selected, second, dst);
+                          _mgmtSnackBar('已合并另存 ${dst.split('/').last}'
+                              '(共${r.$1}条,清理重复${r.$2}行)');
+                          //  统揽全部(用户):合并完直接进入打开流程
+                          //  (口令一步),打开即可通览全表审阅,
+                          //  需要时用采表清理工具整理
+                          passwordController.clear();
+                          setState(() { passwordMode = '打开'; });
+                        } else {
+                          //  未改选:维持级别合并老规则
+                          final onlyTable =
+                              await CallerTable.open(selected);
+                          final count = await CallerTable.mergeAndSaveAs(
+                              prefs, onlyTable, defSrc, dst,
+                              sourceRequired: lvIdx > 0);
+                          _mgmtSnackBar(
+                              '已合并另存 ${dst.split('/').last}(共$count条)');
+                        }
                         await _refreshTableNames(prefs, tableNames);
                         setState(() { selected = dst; });
                       }),
@@ -3670,6 +3723,28 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         final added = await t.populateAllCalls();
                         _mgmtSnackBar('补全完成:新增 $added 条,'
                             '共 ${t.rows.length} 条');
+                        setState(() {});
+                      }),
+                      //  PSfix合并(用户:Prefix_Only+Sufix_Only
+                      //  许多条目相同,合并统一省内存;识别只查
+                      //  PSfix_Only+口令表;多归一录入在此表进行)
+                      _tableMgmtButton(ctx, tableNames.any((n) {
+                        final last = n.split('/').last;
+                        return last == 'Prefix_Only' ||
+                            last == 'Sufix_Only';
+                      }), 'PSfix', () async {
+                        final prefs4 =
+                            await SharedPreferences.getInstance();
+                        final r = await CallerTable.mergeOnlyToPSfix(
+                            prefs4, currentDir);
+                        if (r.$1 == 0) {
+                          _mgmtSnackBar(
+                              '没有Prefix_Only/Sufix_Only可合并');
+                          return;
+                        }
+                        await _refreshTableNames(prefs4, tableNames);
+                        _mgmtSnackBar('PSfix_Only已生成:${r.$1}行 '
+                            '(清理重复${r.$2}行)');
                         setState(() {});
                       }),
                     ],
