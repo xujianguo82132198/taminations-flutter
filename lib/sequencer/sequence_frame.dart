@@ -297,8 +297,12 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
   Future<void> _prefixSearchDialog() async {
     final controller = fm.TextEditingController();
     CallerRow? selected;
+    //  可移动(用户:与增加记录画面同款):拖标题移动,
+    //  透明遮罩不遮表格;列表内滚动不受拖动影响
+    var dlgOff = fm.Offset.zero;
     await fm.showDialog(
         context: context,
+        barrierColor: fm.Colors.transparent,
         builder: (ctx) => fm.StatefulBuilder(builder: (ctx, setD) {
               List<CallerRow> matches = [];
               final p = controller.text.trim().toLowerCase();
@@ -315,9 +319,18 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                   }
                 }
               }
-              return fm.AlertDialog(
-                title: fm.Text('标准口令搜索(第三列)',
-                    style: fm.TextStyle(fontSize: 20)),
+              return fm.Transform.translate(
+                offset: dlgOff,
+                child: fm.AlertDialog(
+                shape: fm.RoundedRectangleBorder(
+                    side: fm.BorderSide(color: Color.BLUE, width: 2),
+                    borderRadius: fm.BorderRadius.circular(10)),
+                title: fm.GestureDetector(
+                  onPanUpdate: (d) =>
+                      setD(() { dlgOff += d.delta; }),
+                  child: fm.Text('标准口令搜索(第三列)↕拖动',
+                      style: fm.TextStyle(fontSize: 20)),
+                ),
                 content: fm.SizedBox(
                   width: double.maxFinite,
                   child: fm.Column(
@@ -396,6 +409,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       child: fm.Text('关闭',
                           style: fm.TextStyle(fontSize: 18))),
                 ],
+                ),
               );
             }));
     if (selected != null) flow.selectDictationRow(selected!.seq);
