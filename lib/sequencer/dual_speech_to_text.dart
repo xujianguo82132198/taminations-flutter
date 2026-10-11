@@ -64,6 +64,9 @@ class DualSpeechProvider extends ChangeNotifier {
   ///  采样会话内每个final的本句原文(Input模式按句消费)
   List<String> get sampleFinals =>
       engine == 'vosk' ? vosk.sampleFinals : const <String>[];
+  ///  采样会话进行中(PTT按下~收尾窗口):三表流水线让路标志
+  bool get isSampleSession =>
+      engine == 'vosk' && vosk.isSampleSession;
   ///  各段n-best候选(与segments同序)
   List<List<String>> get segmentAlts =>
       engine == 'vosk' ? vosk.segmentAlts : const <List<String>>[];

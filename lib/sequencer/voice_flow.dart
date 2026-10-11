@@ -790,8 +790,15 @@ class VoiceFlow extends ChangeNotifier {
     debugPrint('INPUT_S: start pressed, isActive=$isActive, phase=$phase');
     if (!isActive) return false;
     if (phase == 'detecting' || phase == 'awaiting') return false;
+    //  上次会话的收尾定时器若未触发,立刻取消——它会在本次
+    //  会话中途拆监听/清旗标(快速重按时曾致final无人消费,
+    //  被三表流水线抢走自动回车)
+    _inputCleanup?.cancel();
+    _inputCleanup = null;
+    //  先摘旧监听再挂新的:快速重按时曾双重注册
+    speech?.removeListener(_onInputResult);
     pttInputActive = true;
-    _inputFinalCount = 0;
+    _inputReleased = false;
     speech?.cancel();
     speech?.setSampleGrammar(_inputGrammar());
     dictationPartial = '';
@@ -800,6 +807,7 @@ class VoiceFlow extends ChangeNotifier {
     inputPending = '';
     _inputSegParts.clear();
     speech?.sample(localeId: 'en_US', partialResults: true);
+    _inputFinalCount = 0;   //  sample()已清sampleFinals,计数同步
     speech?.addListener(_onInputResult);
     debugPrint('INPUT_S: listener attached, released=$_inputReleased');
     Future.microtask(() => _notify());
@@ -913,7 +921,8 @@ class VoiceFlow extends ChangeNotifier {
     //  已回车确认的accumulated不动
     inputPending = display;
     debugPrint('语音Input: "$text" -> "$display" '
-        '(pending="$inputPending", accumulated="$inputAccumulated")');
+        '(psfix=${psfix?.rows.length ?? 'null'}行, '
+        'pending="$inputPending", accumulated="$inputAccumulated")');
     _notify();
   }
 
@@ -999,6 +1008,10 @@ class VoiceFlow extends ChangeNotifier {
     if (s == null || onlyMode) return;
     //  Input圆钮模式:让路给_onInputResult处理(不抢结果)
     if (pttInputActive) return;
+    //  采样会话进行中(含松手收尾窗口):三表流水线一律
+    //  不碰采样结果——旗标被收尾定时器提前清掉的瞬间,
+    //  流水线曾把final抢走自动回车
+    if (s.isSampleSession) return;
     //  新段先处理(增量:段到即查即显示)——命令边界分支
     //  曾抢先return,段从未被处理(前缀一直不亮的原因)
     final segs = s.segments;
