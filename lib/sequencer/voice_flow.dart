@@ -802,11 +802,16 @@ class VoiceFlow extends ChangeNotifier {
   ///  Input模式:抬起→收尾,输入框保留累加结果
   void endInputSample() {
     if (!pttInputActive) return;
-    speech?.removeListener(_onInputResult);
-    speech?.cancel();
-    pttInputActive = false;
-    dictationPartial = '';
+    //  stop→finish→取完整结果(不是cancel丢弃)
+    speech?.stop();
     _notify();
+    //  stop的finish是异步,等结果送出后再清理
+    Timer(const Duration(milliseconds: 500), () {
+      speech?.removeListener(_onInputResult);
+      pttInputActive = false;
+      dictationPartial = '';
+      _notify();
+    });
   }
 
   ///  Input模式语法:当前表+全目录(与喊口令一致)
