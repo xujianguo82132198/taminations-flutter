@@ -1612,11 +1612,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                   offset: dlgOff,
                   child: fm.AlertDialog(
                     title: fm.Text('增加记录(第${row.seq}行)↕拖动',
-                        style: fm.TextStyle(fontSize: 20)),
+                        style: fm.TextStyle(fontSize: 16)),
                     titlePadding:
-                        fm.EdgeInsets.fromLTRB(20, 10, 20, 2),
+                        fm.EdgeInsets.fromLTRB(14, 6, 14, 0),
                     contentPadding:
-                        fm.EdgeInsets.fromLTRB(16, 2, 16, 2),
+                        fm.EdgeInsets.fromLTRB(12, 0, 12, 0),
                     actionsPadding:
                         fm.EdgeInsets.only(right: 10, bottom: 2),
                     content: fm.Column(
@@ -1656,27 +1656,32 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     } catch (_) {}
   }
 
-  ///  增加记录画面选项钮(用户:可操作按钮要立体化,学习
-  /// 系统播放钮——用同款Button:阴影+圆角+渐变面,一眼可按)
+  ///  增加记录画面选项钮(用户:立体化+尽量矮——字比最小字
+  ///  大两级:主字16/提示13,提示与主字同一行不叠放)
   fm.Widget _addRecordOption(void Function() onTap, String title,
       String hint) {
     return fm.Padding(
-      padding: fm.EdgeInsets.symmetric(vertical: 2),
+      padding: fm.EdgeInsets.symmetric(vertical: 1),
       child: fm.SizedBox(
         width: double.infinity,
         child: Button(title,
             onPressed: onTap,
-            child: fm.Column(
+            child: fm.Row(
               mainAxisSize: fm.MainAxisSize.min,
-              crossAxisAlignment: fm.CrossAxisAlignment.start,
               children: [
                 fm.Text(title,
                     style: fm.TextStyle(
-                        fontSize: 19,
+                        fontSize: 16,
                         fontWeight: fm.FontWeight.bold)),
-                fm.Text(hint,
-                    style: fm.TextStyle(
-                        fontSize: 12, color: fm.Colors.black54)),
+                fm.SizedBox(width: 6),
+                fm.Flexible(
+                  child: fm.Text(hint,
+                      maxLines: 1,
+                      overflow: fm.TextOverflow.ellipsis,
+                      style: fm.TextStyle(
+                          fontSize: 13,
+                          color: fm.Colors.black54)),
+                ),
               ],
             )),
       ),
