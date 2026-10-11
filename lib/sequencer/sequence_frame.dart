@@ -36,6 +36,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../common_flutter.dart';
+import '../button.dart';
 import '../pages/calls_page.dart';
 import '../pages/page.dart';
 import 'abbreviations_model.dart';
@@ -1623,20 +1624,21 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                       crossAxisAlignment:
                           fm.CrossAxisAlignment.start,
                       children: [
-                        _addRecordOption('去选择口令', '到 CALL 列表点选',
-                            () => fm.Navigator.of(ctx).pop(true)),
-                        _addRecordOption('键入口令', '键盘手动输入',
-                            () => fm.Navigator.of(ctx).pop('type')),
-                        _addRecordOption('搜索口令', '输入片段筛选,点行选中',
-                            () => fm.Navigator.of(ctx).pop('search')),
+                        _addRecordOption(
+                            () => fm.Navigator.of(ctx).pop(true),
+                            '去选择口令', '到 CALL 列表点选'),
+                        _addRecordOption(
+                            () => fm.Navigator.of(ctx).pop('type'),
+                            '键入口令', '键盘手动输入'),
+                        _addRecordOption(
+                            () => fm.Navigator.of(ctx).pop('search'),
+                            '搜索口令', '输入片段筛选,点行选中'),
                       ],
                     ),
                     actions: [
-                      fm.TextButton(
+                      Button('取消',
                           onPressed: () =>
-                              fm.Navigator.of(ctx).pop(false),
-                          child: fm.Text('取消',
-                              style: fm.TextStyle(fontSize: 18))),
+                              fm.Navigator.of(ctx).pop(false)),
                     ],
                   ),
                 ),
@@ -1661,24 +1663,29 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     } catch (_) {}
   }
 
-  ///  增加记录画面选项行(紧凑:主行+灰色小字提示,行距2)
-  fm.Widget _addRecordOption(String title, String hint,
-      void Function() onTap) {
+  ///  增加记录画面选项钮(用户:可操作按钮要立体化,学习
+  /// 系统播放钮——用同款Button:阴影+圆角+渐变面,一眼可按)
+  fm.Widget _addRecordOption(void Function() onTap, String title,
+      String hint) {
     return fm.Padding(
       padding: fm.EdgeInsets.symmetric(vertical: 2),
-      child: fm.InkWell(
-        onTap: onTap,
-        child: fm.Column(
-          crossAxisAlignment: fm.CrossAxisAlignment.start,
-          children: [
-            fm.Text(title,
-                style: fm.TextStyle(
-                    fontSize: 20, color: Color.BLUE)),
-            fm.Text(hint,
-                style: fm.TextStyle(
-                    fontSize: 13, color: Color.GRAY)),
-          ],
-        ),
+      child: fm.SizedBox(
+        width: double.infinity,
+        child: Button(title,
+            onPressed: onTap,
+            child: fm.Column(
+              mainAxisSize: fm.MainAxisSize.min,
+              crossAxisAlignment: fm.CrossAxisAlignment.start,
+              children: [
+                fm.Text(title,
+                    style: fm.TextStyle(
+                        fontSize: 19,
+                        fontWeight: fm.FontWeight.bold)),
+                fm.Text(hint,
+                    style: fm.TextStyle(
+                        fontSize: 12, color: fm.Colors.black54)),
+              ],
+            )),
       ),
     );
   }
