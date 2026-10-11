@@ -832,8 +832,12 @@ class VoiceFlow extends ChangeNotifier {
   ///  Input模式结果处理
   void _onInputResult() {
     final s = speech;
+    debugPrint('INPUT_R: called, pttInputActive=$pttInputActive, '
+        's=${s != null}, hasResults=${s?.hasResults}');
     if (s == null || !pttInputActive || !s.hasResults) return;
     final result = s.lastResult;
+    debugPrint('INPUT_R: finalResult=${result?.finalResult}, '
+        'words="${result?.recognizedWords}"');
     if (!result!.finalResult) {
       final p = result.recognizedWords.trim();
       if (p != dictationPartial) {
