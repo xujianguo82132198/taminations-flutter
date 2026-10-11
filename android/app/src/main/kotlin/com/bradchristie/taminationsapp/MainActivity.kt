@@ -802,8 +802,8 @@ class MainActivity : FlutterActivity() {
   //  幻觉final守卫:纯静音/噪声期识别器会把噪声解码成"the"
   //  之类(每~2秒一个假final)。本句窗口内最大dB必须超过
   //  会话最小底噪+6dB(且不低于-30dB绝对线)才算真说过话
-  private var maxDbSinceFinal = -100.0
-  private var sessionMinDb = 100.0
+  @Volatile private var maxDbSinceFinal = -100.0
+  @Volatile private var sessionMinDb = 100.0
   //  静音门限状态(采集线程更新,voskStart 重置)
   @Volatile private var vadOpen = false
   @Volatile private var vadSpeechMs = 0L
@@ -954,13 +954,25 @@ class MainActivity : FlutterActivity() {
       val rec = voskRecognizer
       if (rec != null) {
         try {
-          val silence = ByteArray(16000 * 6 / 10)   //  0.6s @16kHz
-          rec.acceptWaveForm(silence, silence.size)
-          json = rec.finalResult
+          //  幻觉守卫:自上个final后无人声=纯静音期,冲刷会把
+          //  残余噪声解码成"the"之类送回,冲掉松手前的正确结果
+          //  (松手前刚说过话的尾句maxDb高,照常通过)
+          val voiceLine = maxOf(sessionMinDb + 6.0, -30.0)
+          val hadVoice = maxDbSinceFinal >= voiceLine
+          if (!hadVoice) {
+            Log.i(TAG, "voskFinal: dropped (no voice since last " +
+                "final, maxDb=${"%.1f".format(maxDbSinceFinal)}, " +
+                "line=${"%.1f".format(voiceLine)})")
+          } else {
+            val silence = ByteArray(16000 * 6 / 10)   //  0.6s @16kHz
+            rec.acceptWaveForm(silence, silence.size)
+            json = rec.finalResult
+          }
         } catch (e: Exception) {
           Log.e(TAG, "vosk: final failed", e)
         }
       }
+      maxDbSinceFinal = -100.0
       voskFeed = false
     }
     stopSpeechCapture()
