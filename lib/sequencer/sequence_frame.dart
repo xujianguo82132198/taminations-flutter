@@ -2529,7 +2529,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       ? Color.GRAY
                       : (flow.phase == 'detecting'
                           ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
-                          : ((speechProvider.isListening && !flow.pttActive)
+                          : ((speechProvider.isListening &&
+                                  !flow.pttActive &&
+                                  !flow.pttInputActive)
                               ? Color.RED : Color.BLACK)),
                   size: 32,
                   )
