@@ -848,6 +848,8 @@ class VoiceFlow extends ChangeNotifier {
     }
     //  每个final都是一个"语句"(实时处理,不等松开)
     _processInputSentence(result);
+    //  处理完立即清结果(防止build重复消费)
+    s.clearResults();
   }
 
   ///  处理一个"语句"(0.3秒断句=一句话)

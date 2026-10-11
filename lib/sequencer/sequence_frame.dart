@@ -2100,11 +2100,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         //  so the user will see another messoage on repeating the same error
         afterDelay(() { _lastError = ''; },Duration(seconds:5));
       }
-      //  Input圆钮模式:跳过三表流水线(不自动回车,
-      //  结果由_onInputResult→inputPending→输入框)
-      if (flow.pttInputActive && speech.hasResults) {
-        speech.clearResults();
-      }
+      //  Input圆钮模式:跳过三表流水线(不自动回车)
+      //  注意:不在此处clearResults——Consumer的重建在
+      //  _onInputResult之前执行,会清掉结果导致Input
+      //  处理器拿不到数据
       //  三表组合口令执行(独立于识别结果状态——流程监听
       //  与界面重建的顺序有竞争,曾致组合口令被丢,不进输入框)
       else if (!flow.onlyMode && flow.assembledCall.isNotBlank) {
