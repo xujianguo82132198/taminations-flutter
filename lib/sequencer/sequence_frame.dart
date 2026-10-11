@@ -529,7 +529,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                     : (flow.dictationText.isNotBlank
                         ? '${flow.dictationText} →'
                         : '🎙 朗读 / 标准口令搜索')))),
-            style: fm.TextStyle(fontSize: 20,
+            style: fm.TextStyle(fontSize: 16,
                 fontWeight: fm.FontWeight.bold))
             : fm.Column(
                 mainAxisSize: fm.MainAxisSize.min,
@@ -539,7 +539,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       flow.dictationText.isNotBlank
                           ? '${flow.dictationText} →'
                           : '🎙 朗读 / 标准口令搜索',
-                      style: fm.TextStyle(fontSize: 20,
+                      style: fm.TextStyle(fontSize: 16,
                           fontWeight: fm.FontWeight.bold)),
                   //  候选条:点一下即选为采表结果。
                   //  条目多时自动滚动(可上下滑动观察),
