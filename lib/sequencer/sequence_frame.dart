@@ -1986,12 +1986,16 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     //  语音Input模式:实时把累加结果显示到输入框
     //  (不冲掉口令员已确认并回车过的内容——那些已在
     //   accumulated里,inputBoxText = accumulated+pending)
-    if (flow.pttInputActive &&
-        flow.inputBoxText.isNotBlank) {
+    if (flow.pttInputActive) {
+      //  Input模式:输入框全程=累加+待替换(空则清零)
+      //  曾仅isNotBlank时写,清零被旧内容盖回
       final t = flow.inputBoxText;
       if (textFieldController.text != t) {
         textFieldController.text = t;
       }
+      //  光标移到末尾,新结果始终可见
+      textFieldController.selection = fm.TextSelection.collapsed(
+          offset: textFieldController.text.length);
     }
     //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
     final selection = flow.callSelection;
@@ -2366,6 +2370,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               fm.Listener(
                 behavior: fm.HitTestBehavior.opaque,
                 onPointerDown: (_) {
+                  debugPrint('INPUT_BTN: pointer down');
                   textFieldController.clear();
                   flow.startInputSample();
                 },

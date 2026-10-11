@@ -784,6 +784,7 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  Input模式:按下→清零输入框,开始PTT采样
   bool startInputSample() {
+    debugPrint('INPUT_S: start pressed, isActive=$isActive, phase=$phase');
     if (!isActive) return false;
     if (phase == 'detecting' || phase == 'awaiting') return false;
     pttInputActive = true;
@@ -795,23 +796,38 @@ class VoiceFlow extends ChangeNotifier {
     _inputSegParts.clear();
     speech?.sample(localeId: 'en_US', partialResults: true);
     speech?.addListener(_onInputResult);
+    debugPrint('INPUT_S: listener attached, released=$_inputReleased');
     Future.microtask(() => _notify());
     return true;
   }
 
   ///  Input模式:抬起→收尾,输入框保留累加结果
+  ///  松钮后监听保留到final到达(最多3秒):vosk的final
+  ///  在说话结束0.5~0.9秒后才送出(端点静音检测),立刻
+  ///  拆监听会漏掉结果——曾VOSK final有日志而INPUT_R零次
+  bool _inputReleased = false;
+  Timer? _inputCleanup;
+
   void endInputSample() {
     if (!pttInputActive) return;
+    _inputReleased = true;
     //  stop→finish→取完整结果(不是cancel丢弃)
     speech?.stop();
     _notify();
-    //  stop的finish是异步,等结果送出后再清理
-    Timer(const Duration(milliseconds: 500), () {
-      speech?.removeListener(_onInputResult);
-      pttInputActive = false;
-      dictationPartial = '';
-      _notify();
-    });
+    _inputCleanup?.cancel();
+    _inputCleanup = Timer(const Duration(milliseconds: 3000),
+        _endInputCleanup);
+  }
+
+  ///  松钮后的收尾:final已处理或3秒超时
+  void _endInputCleanup() {
+    _inputCleanup?.cancel();
+    _inputCleanup = null;
+    speech?.removeListener(_onInputResult);
+    pttInputActive = false;
+    _inputReleased = false;
+    dictationPartial = '';
+    _notify();
   }
 
   ///  Input模式语法:当前表+全目录(与喊口令一致)
@@ -850,6 +866,8 @@ class VoiceFlow extends ChangeNotifier {
     _processInputSentence(result);
     //  处理完立即清结果(防止build重复消费)
     s.clearResults();
+    //  松钮后的final=本次采样收尾(不再等3秒超时)
+    if (_inputReleased) _endInputCleanup();
   }
 
   ///  处理一个"语句"(0.3秒断句=一句话)
