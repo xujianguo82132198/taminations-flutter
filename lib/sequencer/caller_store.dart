@@ -208,8 +208,20 @@ class CallerTable extends ChangeNotifier {
       }
     });
 
-    out.sort((a, b) => a.recognized.toLowerCase()
-        .compareTo(b.recognized.toLowerCase()));
+    //  排序随表类型(用户规则):Only表=口令员接口,按标准
+    //  口令排序便于查找;非Only表=识别接口,按记号排序
+    if (dstName.split('/').last.endsWith('_Only')) {
+      out.sort((a, b) {
+        final c = a.standardCall.toLowerCase()
+            .compareTo(b.standardCall.toLowerCase());
+        if (c != 0) return c;
+        return a.recognized.toLowerCase()
+            .compareTo(b.recognized.toLowerCase());
+      });
+    } else {
+      out.sort((a, b) => a.recognized.toLowerCase()
+          .compareTo(b.recognized.toLowerCase()));
+    }
     for (var i = 0; i < out.length; i++) out[i].seq = i + 1;
     await prefs.setString('$_keyPrefix$dstName',
         jsonEncode({'rows': out.map((r) => r.toJson()).toList()}));
