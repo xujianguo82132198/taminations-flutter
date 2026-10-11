@@ -2334,10 +2334,28 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               ]),
                               style: fm.TextStyle(
                                   fontSize: 15, height: 1.4))
-                          : fm.Text(
+                          : fm.Text.rich(
                               flow.onlyMode
-                                  ? '圆钮按下,读口令,读完抬起'
-                                  : '按下麦克风钮,语音发布口令',
+                                  ? fm.TextSpan(text: '圆钮按下,读口令,读完抬起')
+                                  : fm.TextSpan(children: [
+                                      //  两个输入法都要打开表:
+                                      //  圆钮(record_voice_over) /
+                                      //  麦克风(mic)
+                                      fm.WidgetSpan(
+                                          alignment: fm.PlaceholderAlignment
+                                              .middle,
+                                          child: fm.Icon(
+                                              fm.Icons.record_voice_over,
+                                              size: 18)),
+                                      fm.TextSpan(text: ' / '),
+                                      fm.WidgetSpan(
+                                          alignment: fm.PlaceholderAlignment
+                                              .middle,
+                                          child: fm.Icon(
+                                              fm.Icons.mic, size: 18)),
+                                      fm.TextSpan(
+                                          text: ' 按钮需打开表;语音口令输入'),
+                                    ]),
                               maxLines: 1,
                               overflow: fm.TextOverflow.ellipsis,
                               style: fm.TextStyle(fontSize: 20)),
