@@ -952,6 +952,8 @@ class VoiceFlow extends ChangeNotifier {
   void _onSpeech() {
     final s = speech;
     if (s == null || onlyMode) return;
+    //  Input圆钮模式:让路给_onInputResult处理(不抢结果)
+    if (pttInputActive) return;
     //  新段先处理(增量:段到即查即显示)——命令边界分支
     //  曾抢先return,段从未被处理(前缀一直不亮的原因)
     final segs = s.segments;
