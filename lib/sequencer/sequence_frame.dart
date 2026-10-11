@@ -1586,37 +1586,62 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     if (table == null) return;
     final row = await table.addRow(recognized: '', standardCall: '');
     flow.selectDictationRow(row.seq);
+    //  面板先定位到新空行(用户:要亲眼看到空行落点,怕误冲
+    //  有用记录——新行永远追加在表尾,不覆盖任何已有行)
+    final newIdx = table.rows.indexWhere((r) => r.seq == row.seq);
+    if (newIdx >= 0) {
+      fm.WidgetsBinding.instance.addPostFrameCallback((_) {
+        itemScrollController.jumpTo(index: newIdx, alignment: 0.4);
+      });
+    }
     //  结果类型 Object:按钮返回 true/'type'/'search' 混合类型
-    //  紧凑布局(用户:开头提示取消/清空记号钮取消/取消钮
-    //  放最下/行距减半)
+    //  紧凑布局+可拖动+不遮暗表格(用户:对话框挡住了要看的行,
+    //  拖开即可核对)
+    var dlgOff = fm.Offset.zero;
     final go = await fm.showDialog<Object>(
         context: context,
-        builder: (ctx) => fm.AlertDialog(
-              title: fm.Text('增加记录(第${row.seq}行)',
-                  style: fm.TextStyle(fontSize: 20)),
-              titlePadding: fm.EdgeInsets.fromLTRB(20, 10, 20, 2),
-              contentPadding: fm.EdgeInsets.fromLTRB(16, 2, 16, 2),
-              actionsPadding:
-                  fm.EdgeInsets.only(right: 10, bottom: 2),
-              content: fm.Column(
-                mainAxisSize: fm.MainAxisSize.min,
-                crossAxisAlignment: fm.CrossAxisAlignment.start,
-                children: [
-                  _addRecordOption('去选择口令', '到 CALL 列表点选',
-                      () => fm.Navigator.of(ctx).pop(true)),
-                  _addRecordOption('键入口令', '键盘手动输入',
-                      () => fm.Navigator.of(ctx).pop('type')),
-                  _addRecordOption('搜索口令', '输入片段筛选,点行选中',
-                      () => fm.Navigator.of(ctx).pop('search')),
-                ],
-              ),
-              actions: [
-                fm.TextButton(
-                    onPressed: () => fm.Navigator.of(ctx).pop(false),
-                    child: fm.Text('取消',
-                        style: fm.TextStyle(fontSize: 18))),
-              ],
-            ));
+        barrierColor: fm.Colors.transparent,
+        builder: (ctx) => fm.StatefulBuilder(builder: (ctx, dset) {
+              return fm.GestureDetector(
+                //  整框拖动(框内按钮照常可点)
+                onPanUpdate: (d) => dset(() {
+                  dlgOff += d.delta;
+                }),
+                child: fm.Transform.translate(
+                  offset: dlgOff,
+                  child: fm.AlertDialog(
+                    title: fm.Text('增加记录(第${row.seq}行)↕拖动',
+                        style: fm.TextStyle(fontSize: 20)),
+                    titlePadding:
+                        fm.EdgeInsets.fromLTRB(20, 10, 20, 2),
+                    contentPadding:
+                        fm.EdgeInsets.fromLTRB(16, 2, 16, 2),
+                    actionsPadding:
+                        fm.EdgeInsets.only(right: 10, bottom: 2),
+                    content: fm.Column(
+                      mainAxisSize: fm.MainAxisSize.min,
+                      crossAxisAlignment:
+                          fm.CrossAxisAlignment.start,
+                      children: [
+                        _addRecordOption('去选择口令', '到 CALL 列表点选',
+                            () => fm.Navigator.of(ctx).pop(true)),
+                        _addRecordOption('键入口令', '键盘手动输入',
+                            () => fm.Navigator.of(ctx).pop('type')),
+                        _addRecordOption('搜索口令', '输入片段筛选,点行选中',
+                            () => fm.Navigator.of(ctx).pop('search')),
+                      ],
+                    ),
+                    actions: [
+                      fm.TextButton(
+                          onPressed: () =>
+                              fm.Navigator.of(ctx).pop(false),
+                          child: fm.Text('取消',
+                              style: fm.TextStyle(fontSize: 18))),
+                    ],
+                  ),
+                ),
+              );
+            }));
     if (go == 'type') {
       //  键入:编辑预建空行(取消/空=行保留以后再填)
       await _editStandardCall(row);
