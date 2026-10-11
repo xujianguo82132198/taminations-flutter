@@ -2216,6 +2216,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   focusNode: focusNode,
                   controller: textFieldController,
                   onTapOutside: (event) {
+                    //  圆钮采样中/收尾窗口:保住键盘(按圆钮
+                    // 本身就是"点在框外",曾把刚弹的键盘收走,
+                    // 松手后无法按回车)
+                    if (flow.pttInputActive) return;
                     fm.FocusManager.instance.primaryFocus?.unfocus();
                   },
                   decoration: fm.InputDecoration(
@@ -2384,6 +2388,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 },
                 onPointerUp: (_) {
                   flow.endInputSample();
+                  //  松手=结果已定:确保键盘在场供口令员回车
+                  focusNode.requestFocus();
                 },
                 onPointerCancel: (_) {
                   flow.endInputSample();
@@ -2475,7 +2481,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   onPointerUp: (_) {
                     _hidePttHint();
                     if (flow.onlyMode) flow.endSample();
-                    else flow.endInputSample();
+                    else {
+                      flow.endInputSample();
+                      //  松手=结果已定:确保键盘在场供口令员回车
+                      focusNode.requestFocus();
+                    }
                   },
                   onPointerCancel: (_) {
                     _hidePttHint();
