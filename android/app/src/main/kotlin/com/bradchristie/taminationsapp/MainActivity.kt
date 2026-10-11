@@ -613,57 +613,51 @@ class MainActivity : FlutterActivity() {
                         val hi = bytes[i * 2 + 1].toInt()
                         speechBuffer.add(((hi shl 8) or lo).toShort())
                     }
-                    if (speechBuffer.size > 16000 * 5) {
-                        //  超10秒:停止缓存+只保留最近10秒
-                        Log.w(TAG, "WU: buffer overflow, keep last 10s")
-                        val keep = 16000 * 5
-                        val excess = speechBuffer.size - keep
-                        speechBuffer = ArrayList(speechBuffer.subList(excess, speechBuffer.size))
-                        bufferActive = false
+                    if (speechBuffer.size > 16000 * 10) {
+                        //  超10秒:强制结束(防内存溢出)
+                        Log.w(TAG, "WU: buffer overflow, force end")
                         bufferEndAt = System.currentTimeMillis()
                     }
-                } else if (bufferActive || bufferEndAt > 0L) {
-                    //  闸门关或overflow后:等待静音确认后批量识别
+                } else if (bufferActive) {
+                    //  闸门关:等待静音确认后批量识别
                     if (bufferEndAt == 0L) {
                         bufferEndAt = System.currentTimeMillis()
                     }
                     val silent = System.currentTimeMillis() - bufferEndAt
-                    if (silent >= 2000 && speechBuffer.size > 0) {
+                    if (silent >= 2000) {
                         //  静音满2秒:整段识别
                         bufferActive = false
                         bufferEndAt = 0
                         val total = speechBuffer.size
-                                                if (total > 16000 / 5) {  //  至少0.2秒
-                            Log.i(TAG, "WU: recognizing $total samples (bg)")
+                        if (total > 16000 / 5) {  //  至少0.2秒
+                            Log.i(TAG, "WU: recognizing $total samples")
                             val bufBytes = ByteArray(total * 2)
                             for (i in 0 until total) {
                                 val sv = speechBuffer[i].toInt()
                                 bufBytes[i * 2] = (sv and 0xff).toByte()
                                 bufBytes[i * 2 + 1] = ((sv shr 8) and 0xff).toByte()
                             }
-                            //  后台线程识别(不阻塞采集线程→UI不死)
-                            Thread {
-                                synchronized(voskLock) {
-                                    val rec = voskRecognizer
-                                    if (rec != null) {
-                                        try {
-                                            rec.acceptWaveForm(bufBytes, bufBytes.size)
-                                            val json = rec.finalResult
-                                            if (json != null) {
-                                                mainHandler.post {
-                                                    sendEvent("vosk_final", json)
+                            //  交给识别器整段识别
+                            synchronized(voskLock) {
+                                val rec = voskRecognizer
+                                if (rec != null) {
+                                    try {
+                                        rec.acceptWaveForm(bufBytes, bufBytes.size)
+                                        val json = rec.finalResult
+                                        if (json != null) {
+                                            mainHandler.post {
+                                                sendEvent("vosk_final", json)
                                             }
-                                        } catch (e: Exception) {
-                                            Log.e(TAG, "WU: recognize failed", e)
                                         }
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "WU: recognize failed", e)
                                     }
                                 }
-                            }.start()
+                            }
                         } else {
                             Log.i(TAG, "WU: too short ($total), discard")
                         }
                         speechBuffer.clear()
-                        bufferEndAt = 0L
                     }
                 }
                 //  整段模式:跳过实时喂识别器
@@ -763,7 +757,7 @@ class MainActivity : FlutterActivity() {
   //  ============ 整段识别模式(用户设计:闸门控制边界) ============
   //  闸门开=开始缓存音频,闸门关+静音=结束缓存,
   //  整段一次性交给全新识别器(绕过vosk断句器碎片化)
-  private var speechBuffer = ArrayList<Short>(16000 * 5)   // 最多5秒
+  private var speechBuffer = ArrayList<Short>(16000 * 10)  // 最多10秒
   @Volatile private var bufferActive = false
   @Volatile private var wholeUtteranceMode = false
   private var bufferEndAt = 0L
