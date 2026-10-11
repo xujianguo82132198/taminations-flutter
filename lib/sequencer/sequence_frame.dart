@@ -319,18 +319,19 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                   }
                 }
               }
-              return fm.Transform.translate(
+              return fm.GestureDetector(
+                //  整框可拖(用户:标题拖不动);列表区域内
+                //  滚动优先,标题/输入区拖动画面
+                onPanUpdate: (d) =>
+                    setD(() { dlgOff += d.delta; }),
+                child: fm.Transform.translate(
                 offset: dlgOff,
                 child: fm.AlertDialog(
                 shape: fm.RoundedRectangleBorder(
                     side: fm.BorderSide(color: Color.BLUE, width: 2),
                     borderRadius: fm.BorderRadius.circular(10)),
-                title: fm.GestureDetector(
-                  onPanUpdate: (d) =>
-                      setD(() { dlgOff += d.delta; }),
-                  child: fm.Text('标准口令搜索(第三列)↕拖动',
-                      style: fm.TextStyle(fontSize: 20)),
-                ),
+                title: fm.Text('“标准口令”搜索',
+                    style: fm.TextStyle(fontSize: 17)),
                 content: fm.SizedBox(
                   width: double.maxFinite,
                   child: fm.Column(
@@ -409,6 +410,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       child: fm.Text('关闭',
                           style: fm.TextStyle(fontSize: 18))),
                 ],
+                ),
                 ),
               );
             }));
@@ -1348,6 +1350,29 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                       child: fm.Text('增行',
                           style: fm.TextStyle(
                               fontSize: 14, color: Color.BLUE,
+                              fontWeight: fm.FontWeight.bold)),
+                    ),
+                  ),
+                  //  删行(用户:增行右边;点击给提示——真正的删除
+                  //  在记录行的长按操作框里)
+                  fm.InkWell(
+                    onTap: () {
+                      fm.ScaffoldMessenger.of(context).showSnackBar(
+                          fm.SnackBar(
+                              backgroundColor: Color.BLUE,
+                              content: fm.Text('长按某记录则见「操作框」',
+                                  style: fm.TextStyle(fontSize: 18))));
+                    },
+                    child: fm.Container(
+                      margin: fm.EdgeInsets.only(right: 6),
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: fm.BoxDecoration(
+                          border: fm.Border.all(color: Color.RED),
+                          borderRadius: fm.BorderRadius.circular(6)),
+                      child: fm.Text('删行',
+                          style: fm.TextStyle(
+                              fontSize: 14, color: Color.RED,
                               fontWeight: fm.FontWeight.bold)),
                     ),
                   ),
