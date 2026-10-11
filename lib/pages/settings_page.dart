@@ -94,7 +94,9 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 JoinCallsWithWidget(),
                 SilenceGateWidget(),
                 ConsonantBoostWidget(),
-                //  引擎版权声明(用户:尊重开源版权)
+                //  引擎版权声明(用户:尊重开源版权+遵守画面
+                //  格式"两横线之间是一个内容"——取消下方三条
+                //  横线,只留最上缘一条;标题改写,下面行减一档)
                 fm.Container(
                     width: double.infinity,
                     color: fm.Colors.white,
@@ -102,7 +104,7 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                     child: fm.Column(
                         crossAxisAlignment: fm.CrossAxisAlignment.start,
                         children: [
-                          fm.Text('语音识别引擎',
+                          fm.Text('离线,高精度,语音识别,(免费)',
                               style: fm.TextStyle(
                                   fontSize: 16,
                                   fontWeight: fm.FontWeight.bold)),
@@ -112,20 +114,16 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                               '开源离线语音识别,Apache License 2.0\n'
                               '模型: vosk-model-en-us-0.22-lgraph',
                               style: fm.TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 13,
+                                  color: fm.Colors.black54)),
+                          fm.SizedBox(height: 4),
+                          //  构建版本(用户验证新旧)并入同块
+                          fm.Text(
+                              '构建: ${DualSpeechProvider.buildStamp}',
+                              style: fm.TextStyle(
+                                  fontSize: 13,
                                   color: fm.Colors.black54)),
                         ])),
-                fm.SizedBox(height: 8),
-                //  构建版本(用户验证新旧)
-                fm.Container(
-                    width: double.infinity,
-                    color: fm.Colors.white,
-                    margin: fm.EdgeInsets.only(top: 3),
-                    padding: fm.EdgeInsets.all(12),
-                    child: fm.Text(
-                        '构建: ${DualSpeechProvider.buildStamp}',
-                        style: fm.TextStyle(
-                            fontSize: 14, color: fm.Colors.black54)))
               ]));
         });
   }
