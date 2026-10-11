@@ -92,19 +92,18 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 DancerIdentificationWidget(),
                 GeometrySettingWidget(),
                 JoinCallsWithWidget(),
-                SilenceGateWidget(),
-                ConsonantBoostWidget(),
-                //  引擎版权声明(用户:尊重开源版权+遵守画面
-                //  格式"两横线之间是一个内容"——取消下方三条
-                //  横线,只留最上缘一条;标题改写,下面行减一档)
+                //  语音识别介绍(用户:两个横线之间一个内容——
+                //  独立一块,置于语音设置(静音门限/辅音增强)
+                //  之前;上横线与其他内容隔开)
                 fm.Container(
                     width: double.infinity,
                     color: fm.Colors.white,
+                    margin: fm.EdgeInsets.only(bottom: 3),
                     padding: fm.EdgeInsets.all(12),
                     child: fm.Column(
                         crossAxisAlignment: fm.CrossAxisAlignment.start,
                         children: [
-                          fm.Text('离线,高精度,语音识别,(免费)',
+                          fm.Text('离线,高精度语音识别系统(免费)',
                               style: fm.TextStyle(
                                   fontSize: 16,
                                   fontWeight: fm.FontWeight.bold)),
@@ -116,20 +115,19 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                               style: fm.TextStyle(
                                   fontSize: 13,
                                   color: fm.Colors.black54)),
-                          fm.SizedBox(height: 4),
-                          //  构建版本(用户验证新旧)并入同块
-                          fm.Text(
-                              '构建: ${DualSpeechProvider.buildStamp}',
-                              style: fm.TextStyle(
-                                  fontSize: 13,
-                                  color: fm.Colors.black54)),
                         ])),
-                //  白底延伸(用户:只留最上横线——块底缘这条
-                //  线推出视口,画面底不再见横线)
+                SilenceGateWidget(),
+                ConsonantBoostWidget(),
+                //  构建版本(独立一块,页面最下;用户验证新旧)
                 fm.Container(
                     width: double.infinity,
                     color: fm.Colors.white,
-                    height: 320),
+                    margin: fm.EdgeInsets.only(bottom: 3),
+                    padding: fm.EdgeInsets.all(12),
+                    child: fm.Text(
+                        '构建: ${DualSpeechProvider.buildStamp}',
+                        style: fm.TextStyle(
+                            fontSize: 13, color: fm.Colors.black54))),
               ]));
         });
   }
