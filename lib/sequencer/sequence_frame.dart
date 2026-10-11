@@ -2371,15 +2371,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 behavior: fm.HitTestBehavior.opaque,
                 onPointerDown: (_) {
                   debugPrint('INPUT_BTN: pointer down');
+                  //  Selection输入法同款:清框→焦点→键盘可见
                   textFieldController.clear();
-                  //  模仿人工点击输入框(与InkWell.onTap同款):
-                  //  显示TextField+焦点——否则触屏设备显示的
-                  //  是静态提示,语音结果写了controller也无处
-                  //  显示;口令员随后的回车也需要键盘在场
-                  setState(() {
-                    virtualKeyboard.isVisible = true;
-                  });
                   focusNode.requestFocus();
+                  setState(() {
+                    virtualKeyboardSetVisible(true);
+                  });
                   flow.startInputSample();
                 },
                 onPointerUp: (_) {
@@ -2457,16 +2454,30 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                     //  此按钮只负责"按下朗读,抬起结束"
                     //  打开表由独立的"打开表"按钮负责
                     if (!flow.isActive) return;
-                    if (flow.startSample())
-                      _showPttHint();
+                    if (flow.onlyMode) {
+                      //  Only采表:原样走录表采样
+                      if (flow.startSample()) _showPttHint();
+                    } else {
+                      //  非Only:与输入行圆钮同款Input流程
+                      //  (Selection输入法同款:清框→焦点→键盘)
+                      debugPrint('INPUT_BTN: column PTT down');
+                      textFieldController.clear();
+                      focusNode.requestFocus();
+                      setState(() {
+                        virtualKeyboardSetVisible(true);
+                      });
+                      flow.startInputSample();
+                    }
                   },
                   onPointerUp: (_) {
                     _hidePttHint();
-                    flow.endSample();
+                    if (flow.onlyMode) flow.endSample();
+                    else flow.endInputSample();
                   },
                   onPointerCancel: (_) {
                     _hidePttHint();
-                    flow.endSample();
+                    if (flow.onlyMode) flow.endSample();
+                    else flow.endInputSample();
                   },
                   child: fm.Container(
                     padding: fm.EdgeInsets.all(2),

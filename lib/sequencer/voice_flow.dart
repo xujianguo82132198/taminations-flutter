@@ -850,8 +850,8 @@ class VoiceFlow extends ChangeNotifier {
   int _inputFinalCount = 0;
 
   ///  Input模式结果处理:每个vosk final=一句话(间隔冲刷
-  ///  0.3秒断句),查表后**累加**到pending——不冲已确认的
-  ///  accumulated,也不冲本会话早先的句子
+  ///  0.3秒断句),查表后**替换**pending——同一按住期内
+  ///  重喊=纠正(用户:喊4遍Heads应只剩最后一句)
   void _onInputResult() {
     final s = speech;
     if (s == null || !pttInputActive) return;
@@ -905,10 +905,9 @@ class VoiceFlow extends ChangeNotifier {
     }
     //  查到:用标准口令;查不到:用原始听法(口令员自己改)
     final display = matched ?? text;
-    //  累加到pending尾上(不冲已确认的accumulated,
-    //  也不冲本会话早先的句子——口令员按回车才确认)
-    inputPending =
-        inputPending.isBlank ? display : '$inputPending $display';
+    //  同一按住期内新喊一句=冲掉前一句(重喊纠正),
+    //  已回车确认的accumulated不动
+    inputPending = display;
     debugPrint('语音Input: "$text" -> "$display" '
         '(pending="$inputPending", accumulated="$inputAccumulated")');
     _notify();

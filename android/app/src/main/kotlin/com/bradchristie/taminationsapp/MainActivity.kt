@@ -554,6 +554,10 @@ class MainActivity : FlutterActivity() {
           //  db每chunk必算(语句间隔判定在gate=false的PTT
           //  采样也要工作);gate块只管开/关门逻辑
           val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
+          if (db > -90.0) {
+            if (db < sessionMinDb) sessionMinDb = db
+            if (db > maxDbSinceFinal) maxDbSinceFinal = db
+          }
           if (gate) {
             val chunkMs = n * 1000L / 16000
             //  噪声抑制加强(用户:冰箱空调房间仍出dive thru):
@@ -698,20 +702,30 @@ class MainActivity : FlutterActivity() {
             if (finalJson != null) {
               //  太短的"话音"=噪声误开门,其结果丢弃
               val speechMs = if (vadOpen) vadSpeechMs else vadLastUtteranceMs
-              if (!gate || speechMs >= VAD_MIN_SPEECH_MS)
+              //  幻觉守卫:本句窗口最大dB未过人声线=噪声解码,
+              //  丢弃(PTT静音持有期的"the"假final即此类)
+              val voiceLine = maxOf(sessionMinDb + 6.0, -30.0)
+              val hadVoice = maxDbSinceFinal >= voiceLine
+              if ((!gate || speechMs >= VAD_MIN_SPEECH_MS) && hadVoice)
                 sendEvent("vosk_final", finalJson)
               else
-                Log.i(TAG, "vad: final dropped (speech=${speechMs}ms)")
+                Log.i(TAG, "vad: final dropped (speech=${speechMs}ms, " +
+                    "maxDb=${"%.1f".format(maxDbSinceFinal)}, " +
+                    "line=${"%.1f".format(voiceLine)})")
               pendingUtterance = false
+              maxDbSinceFinal = -100.0
             } else if (partialJson != null && !gateClosed) {
               //  静音期(喂零)的空 partial 不发送
               sendEvent("vosk_partial", partialJson)
             }
             //  0.3秒无话音且有未定稿话音:一句结束,喂静音强制
             //  冲刷出final(会话继续,不等vosk原生端点的0.5~0.9秒)
-            if (finalJson == null && pendingUtterance && lastVoiceAt > 0 &&
+            val gapVoiceLine = maxOf(sessionMinDb + 6.0, -30.0)
+            if (finalJson == null && pendingUtterance &&
+                maxDbSinceFinal >= gapVoiceLine && lastVoiceAt > 0 &&
                 System.currentTimeMillis() - lastVoiceAt >= UTTERANCE_GAP_MS) {
               pendingUtterance = false
+              maxDbSinceFinal = -100.0
               synchronized(voskLock) {
                 val r = voskRecognizer
                 if (r != null) {
@@ -785,6 +799,11 @@ class MainActivity : FlutterActivity() {
   //  语句间隔判定状态(采集线程内部,无需跨线程)
   private var lastVoiceAt = 0L          //  最近一次有声chunk的时刻
   private var pendingUtterance = false  //  识别器有未定稿话音(partial见过字)
+  //  幻觉final守卫:纯静音/噪声期识别器会把噪声解码成"the"
+  //  之类(每~2秒一个假final)。本句窗口内最大dB必须超过
+  //  会话最小底噪+6dB(且不低于-30dB绝对线)才算真说过话
+  private var maxDbSinceFinal = -100.0
+  private var sessionMinDb = 100.0
   //  静音门限状态(采集线程更新,voskStart 重置)
   @Volatile private var vadOpen = false
   @Volatile private var vadSpeechMs = 0L
@@ -906,6 +925,7 @@ class MainActivity : FlutterActivity() {
         noiseSuppressRatio = (call.argument<Double>("noiseSuppress") ?: 0.4)
         vadOpen = false; vadSpeechMs = 0; vadQuietMs = 0; vadLastUtteranceMs = 0
         lastVoiceAt = 0; pendingUtterance = false
+        maxDbSinceFinal = -100.0; sessionMinDb = 100.0
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
         Log.i(TAG, "vosk: gate=${if (gate) "on" else "off"}")
       } catch (e: Exception) {

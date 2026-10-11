@@ -557,6 +557,10 @@ class VoskSpeechToText extends ChangeNotifier {
     } catch (_) {}
     final texts = _textsOf(json);
     if (texts.isNotEmpty) {
+      //  尾句也入sampleFinals:Input模式按句消费此表,
+      //  松钮冲刷的尾巴若不入表就永远无人处理
+      //  (gap冲刷未及触发的最后一句话在这里收)
+      _sampleFinals.add(texts.first);
       _sessionText = _sessionText.isEmpty
           ? texts.first : '$_sessionText ${texts.first}';
       for (final t in texts) {
