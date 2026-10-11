@@ -1611,6 +1611,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                 child: fm.Transform.translate(
                   offset: dlgOff,
                   child: fm.AlertDialog(
+                    shape: fm.RoundedRectangleBorder(
+                        side: fm.BorderSide(
+                            color: Color.BLUE, width: 2),
+                        borderRadius:
+                            fm.BorderRadius.circular(10)),
                     title: fm.Text('增加记录(第${row.seq}行)↕拖动',
                         style: fm.TextStyle(fontSize: 16)),
                     titlePadding:
@@ -1635,7 +1640,12 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                     actions: [
                       Button('取消',
                           onPressed: () =>
-                              fm.Navigator.of(ctx).pop(false)),
+                              fm.Navigator.of(ctx).pop(false),
+                          child: fm.Text('取消',
+                              style: fm.TextStyle(
+                                  fontSize: 16,
+                                  fontWeight:
+                                      fm.FontWeight.bold))),
                     ],
                   ),
                 ),
