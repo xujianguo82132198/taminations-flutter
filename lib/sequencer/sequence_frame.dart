@@ -1287,44 +1287,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
               child: fm.Row(children: [
                 fm.Expanded(
                   child: fm.GestureDetector(
-                    //  Only表:长按=增加记录;非Only表:菜单
-                    //  (增加记录/搜索口令)
-                    onLongPress: () async {
-                      if (flow.onlyMode) {
-                        await _addRecordDialog();
-                        return;
-                      }
-                      final sel = await fm.showDialog<String>(
-                          context: context,
-                          builder: (ctx) => fm.AlertDialog(
-                            title: fm.Text(flow.callerName ?? '',
-                                style: fm.TextStyle(fontSize: 18)),
-                            content: fm.Text('选择操作',
-                                style: fm.TextStyle(fontSize: 16)),
-                            actions: [
-                              fm.TextButton(
-                                  onPressed: () => fm.Navigator.of(
-                                          ctx)
-                                      .pop('add'),
-                                  child: fm.Text('增加记录',
-                                      style: fm.TextStyle(
-                                          fontSize: 18,
-                                          color: Color.BLUE))),
-                              fm.TextButton(
-                                  onPressed: () => fm.Navigator.of(
-                                          ctx)
-                                      .pop('search'),
-                                  child: fm.Text('搜索口令',
-                                      style: fm.TextStyle(
-                                          fontSize: 18))),
-                            ],
-                          ));
-                      if (sel == 'add') {
-                        await _addRecordForAnyTable();
-                      } else if (sel == 'search') {
-                        await _panelSearch();
-                      }
-                    },
                     child: fm.Center(
                       child: fm.Text(
                       '${flow.callerName}(${table.rows.length}条)',
@@ -1346,58 +1308,11 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                                     style: fm.TextStyle(fontSize: 18))));
                         return;
                       }
-                      //  高亮行上方插入全空行,随即进入口令编辑
-                      //  (键入标准口令;取消则留空行以后再填)。
-                      //  无高亮行时:询问操作者插入位置(行号)
-                      CallerRow? row;
-                      if (flow.currentDictationRow != null) {
-                        row = await flow.addReadingRow();
-                      } else {
-                        final t = flow.callerTable;
-                        if (t == null || t.rows.isEmpty) return;
-                        //  询问操作者插入位置(行号)
-                        final posCtl = fm.TextEditingController();
-                        final input = await fm.showDialog<String>(
-                            context: context,
-                            builder: (pctx) => fm.AlertDialog(
-                              title: fm.Text('增行位置',
-                                  style: fm.TextStyle(fontSize: 22)),
-                              content: fm.TextField(
-                                  controller: posCtl,
-                                  autofocus: true,
-                                  keyboardType:
-                                      fm.TextInputType.number,
-                                  style: fm.TextStyle(fontSize: 22),
-                                  decoration: fm.InputDecoration(
-                                      hintText:
-                                          '插到第几行之上?(1-${t.rows.length})',
-                                      hintStyle:
-                                          fm.TextStyle(fontSize: 18))),
-                              actions: [
-                                fm.TextButton(
-                                    onPressed: () =>
-                                        fm.Navigator.of(pctx).pop(),
-                                    child: fm.Text('取消',
-                                        style: fm.TextStyle(
-                                            fontSize: 18))),
-                                fm.TextButton(
-                                    onPressed: () => fm.Navigator.of(pctx)
-                                        .pop(posCtl.text),
-                                    child: fm.Text('确定',
-                                        style: fm.TextStyle(
-                                            fontSize: 18))),
-                              ],
-                            ));
-                        posCtl.dispose();
-                        final n = int.tryParse((input ?? '').trim());
-                        if (n == null || n < 1 || n > t.rows.length) {
-                          return;
-                        }
-                        row = await flow.addReadingRowAt(n);
-                      }
-                      if (row != null && mounted) {
-                        await _editStandardCall(row);
-                      }
+                      //  增行=调"增加记录"画面(去选择口令/键入
+                      //  口令,与原长按表名的增加记录同款)——
+                      //  用户:两功能雷同,统一入口,取消增行原
+                      //  画面(增行位置询问+键盘口令编辑)
+                      await _addRecordDialog();
                     },
                     child: fm.Container(
                       margin: fm.EdgeInsets.only(right: 6),
@@ -1610,95 +1525,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   }
 
   //  非Only表:按第3列口令前缀搜索,点选滚动定位并高亮
-  Future<void> _panelSearch() async {
-    final controller = fm.TextEditingController();
-    await fm.showDialog(
-        context: context,
-        builder: (ctx) => fm.StatefulBuilder(builder: (ctx, setD) {
-              List<CallerRow> matches = [];
-              final p = controller.text.trim().toLowerCase();
-              final t = flow.callerTable;
-              if (p.isNotEmpty && t != null) {
-                for (final r in t.rows) {
-                  if (r.standardCall.toLowerCase().startsWith(p))
-                    matches.add(r);
-                }
-                if (matches.isEmpty) {
-                  for (final r in t.rows) {
-                    if (r.standardCall.toLowerCase().contains(p))
-                      matches.add(r);
-                  }
-                }
-              }
-              return fm.AlertDialog(
-                title: fm.Text('搜索口令(第三列)',
-                    style: fm.TextStyle(fontSize: 20)),
-                content: fm.Column(
-                    mainAxisSize: fm.MainAxisSize.min,
-                    children: [
-                      fm.TextField(
-                        controller: controller,
-                        autofocus: true,
-                        style: fm.TextStyle(fontSize: 24),
-                        decoration: fm.InputDecoration(
-                            hintText: '如: boys',
-                            hintStyle: fm.TextStyle(fontSize: 20)),
-                        onChanged: (_) => setD(() {}),
-                      ),
-                      fm.SizedBox(height: 8),
-                      //  待显示行数提示(多时告知可滚动)
-                      fm.Text(
-                          matches.isEmpty
-                              ? (p.isEmpty ? '请输入字母' : '(无匹配行)')
-                              : '待显示 ${matches.length} 行'
-                                '${matches.length > 8 ? '(可上下滚动)' : ''}',
-                          style: fm.TextStyle(
-                              fontSize: 16, color: Color.GRAY)),
-                      fm.SizedBox(height: 4),
-                      if (matches.isNotEmpty)
-                        fm.SizedBox(
-                          height: 500,
-                          width: double.infinity,
-                          child: fm.ListView.builder(
-                            physics:
-                                fm.AlwaysScrollableScrollPhysics(),
-                            itemCount: matches.length,
-                            itemBuilder: (lctx, i) {
-                              final m = matches[i];
-                              return fm.ListTile(
-                                dense: true,
-                                title: fm.Text(
-                                    '第${m.seq}行  ${m.standardCall}',
-                                    style:
-                                        fm.TextStyle(fontSize: 19)),
-                                onTap: () {
-                                  flow.lastCandidate = m;
-                                  final index =
-                                      t!.rows.indexOf(m);
-                                  if (index >= 0) {
-                                    fm.WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      itemScrollController.jumpTo(
-                                          index: index,
-                                          alignment: 0.3);
-                                    });
-                                  }
-                                  fm.Navigator.of(ctx).pop();
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                    ]),
-                actions: [
-                  fm.TextButton(
-                      onPressed: () => fm.Navigator.of(ctx).pop(),
-                      child: fm.Text('关闭',
-                          style: fm.TextStyle(fontSize: 18))),
-                ],
-              );
-            }));
-  }
 
   //  长按表名(仅Only表):增加记录——经 CALL 口令选择,
   //  防长口令手工输入出错;选完自动加行,再用圆钮采样
@@ -1750,12 +1576,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
           content: fm.Text(
               '已删空行$del行,去重$dup行,剩${t.rows.length}行',
               style: fm.TextStyle(fontSize: 18))));
-  }
-
-  //  非Only表的增加记录:直接增行+键入口令(不走去选择)
-  Future<void> _addRecordForAnyTable() async {
-    final row = await flow.addReadingRow();
-    if (row != null && mounted) await _editStandardCall(row);
   }
 
   Future<void> _addRecordDialog() async {
