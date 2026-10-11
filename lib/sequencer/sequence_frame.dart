@@ -3486,6 +3486,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                       onPressed: picked.isEmpty
                                           ? null
                                           : () async {
+                                              //  逐表读证日志(用户
+                                              //  要求查证:所选文件
+                                              //  是否真的被读取)
+                                              final misses =
+                                                  <String>[];
                                               for (final t
                                                   in picked.toList()) {
                                                 final short = t
@@ -3506,6 +3511,30 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                           '口令员表 $dst',
                                                           raw);
                                                   imported++;
+                                                  var rows = -1;
+                                                  try {
+                                                    final d =
+                                                        jsonDecode(raw);
+                                                    rows = d is Map &&
+                                                            d['rows']
+                                                                is List
+                                                        ? (d['rows']
+                                                                as List)
+                                                            .length
+                                                        : -1;
+                                                  } catch (_) {}
+                                                  debugPrint(
+                                                      'IMPORT: "$t" -> '
+                                                      '"$dst" ($rows行)');
+                                                } else {
+                                                  //  漏读:列表里有
+                                                  //  但存储读不到——
+                                                  //  名单亮出,不再
+                                                  //  静默跳过
+                                                  misses.add(t);
+                                                  debugPrint(
+                                                      'IMPORT MISS: '
+                                                      '"$t" 读取不到!');
                                                 }
                                               }
                                               iset(() {
@@ -3516,9 +3545,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                       context)
                                                   .showSnackBar(fm.SnackBar(
                                                       backgroundColor:
-                                                          Color.BLUE,
+                                                          misses
+                                                                  .isNotEmpty
+                                                              ? Color.RED
+                                                              : Color.BLUE,
                                                       content: fm.Text(
-                                                          '已引入 $imported 张到 $target',
+                                                          misses.isEmpty
+                                                              ? '已引入 $imported 张到 $target'
+                                                              : '引入${imported}张,漏读${misses.length}张:${misses.join('、')}',
                                                           style: fm
                                                               .TextStyle(
                                                                   fontSize:
