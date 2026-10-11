@@ -3237,6 +3237,58 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                   picked.addAll(group);
                                 }
                               }
+                              //  引入动作(引入所选/完成两钮共用):
+                              //  选了表按哪个都执行拷贝——曾只有
+                              //  左钮执行,用户按"完成"关闭,所选
+                              //  全部未拷(零条IMPORT日志证实)
+                              Future<void> doImport() async {
+                                //  逐表读证日志(查证所选文件被读取)
+                                final misses = <String>[];
+                                for (final t in picked.toList()) {
+                                  final short = t.split('/').last;
+                                  final dst = '$target/$short';
+                                  final raw =
+                                      prefs3.getString('口令员表 $t');
+                                  if (raw != null) {
+                                    //  照单全拷(选什么拷什么,
+                                    //  Only表也要,不额外生成)
+                                    await prefs3.setString(
+                                        '口令员表 $dst', raw);
+                                    imported++;
+                                    var rows = -1;
+                                    try {
+                                      final d = jsonDecode(raw);
+                                      rows = d is Map && d['rows'] is List
+                                          ? (d['rows'] as List).length
+                                          : -1;
+                                    } catch (_) {}
+                                    debugPrint('IMPORT: "$t" -> '
+                                        '"$dst" ($rows行)');
+                                  } else {
+                                    //  漏读:列表有但存储读不到,
+                                    //  名单亮出,不静默跳过
+                                    misses.add(t);
+                                    debugPrint(
+                                        'IMPORT MISS: "$t" 读取不到!');
+                                  }
+                                }
+                                iset(() {
+                                  picked.clear();
+                                  srcDir = '';
+                                });
+                                fm.ScaffoldMessenger.of(context)
+                                    .showSnackBar(fm.SnackBar(
+                                        backgroundColor:
+                                            misses.isNotEmpty
+                                                ? Color.RED
+                                                : Color.BLUE,
+                                        content: fm.Text(
+                                            misses.isEmpty
+                                                ? '已引入 $imported 张到 $target'
+                                                : '引入${imported}张,漏读${misses.length}张:${misses.join('、')}',
+                                            style: fm.TextStyle(
+                                                fontSize: 18))));
+                              }
                               return fm.AlertDialog(
                                 title: fm.Text(
                                     srcDir.isBlank
@@ -3492,86 +3544,16 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                 actions: [
                                   if (srcDir.isNotBlank)
                                     fm.TextButton(
-                                      onPressed: picked.isEmpty
-                                          ? null
-                                          : () async {
-                                              //  逐表读证日志(用户
-                                              //  要求查证:所选文件
-                                              //  是否真的被读取)
-                                              final misses =
-                                                  <String>[];
-                                              for (final t
-                                                  in picked.toList()) {
-                                                final short = t
-                                                    .split('/')
-                                                    .last;
-                                                final dst =
-                                                    '$target/$short';
-                                                final raw = prefs3
-                                                    .getString(
-                                                        '口令员表 $t');
-                                                if (raw != null) {
-                                                  //  照单全拷(用户:
-                                                  //  选什么拷什么,
-                                                  //  Only表也要,
-                                                  //  不额外生成)
-                                                  await prefs3
-                                                      .setString(
-                                                          '口令员表 $dst',
-                                                          raw);
-                                                  imported++;
-                                                  var rows = -1;
-                                                  try {
-                                                    final d =
-                                                        jsonDecode(raw);
-                                                    rows = d is Map &&
-                                                            d['rows']
-                                                                is List
-                                                        ? (d['rows']
-                                                                as List)
-                                                            .length
-                                                        : -1;
-                                                  } catch (_) {}
-                                                  debugPrint(
-                                                      'IMPORT: "$t" -> '
-                                                      '"$dst" ($rows行)');
-                                                } else {
-                                                  //  漏读:列表里有
-                                                  //  但存储读不到——
-                                                  //  名单亮出,不再
-                                                  //  静默跳过
-                                                  misses.add(t);
-                                                  debugPrint(
-                                                      'IMPORT MISS: '
-                                                      '"$t" 读取不到!');
-                                                }
-                                              }
-                                              iset(() {
-                                                picked.clear();
-                                                srcDir = '';
-                                              });
-                                              fm.ScaffoldMessenger.of(
-                                                      context)
-                                                  .showSnackBar(fm.SnackBar(
-                                                      backgroundColor:
-                                                          misses
-                                                                  .isNotEmpty
-                                                              ? Color.RED
-                                                              : Color.BLUE,
-                                                      content: fm.Text(
-                                                          misses.isEmpty
-                                                              ? '已引入 $imported 张到 $target'
-                                                              : '引入${imported}张,漏读${misses.length}张:${misses.join('、')}',
-                                                          style: fm
-                                                              .TextStyle(
-                                                                  fontSize:
-                                                                      18))));
-                                            },
+                                      style: fm.TextButton.styleFrom(
+                                        backgroundColor: Color.BLUE,
+                                        foregroundColor: Color.WHITE),
+                                    onPressed: picked.isEmpty
+                                        ? null
+                                        : doImport,
                                       child: fm.Text(
                                           '引入所选(${picked.length})',
                                           style: fm.TextStyle(
-                                              fontSize: 18,
-                                              color: Color.BLUE))),
+                                              fontSize: 18))),
                                   fm.TextButton(
                                       style: (picked.isNotEmpty ||
                                               imported > 0)
@@ -3581,8 +3563,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                               foregroundColor:
                                                   Color.WHITE)
                                           : null,
-                                      onPressed: () =>
-                                          fm.Navigator.of(ictx).pop(),
+                                      onPressed: () async {
+                                        //  完成也引入(用户曾按
+                                        //  完成直接关闭,所选未拷)
+                                        if (srcDir.isNotBlank &&
+                                            picked.isNotEmpty) {
+                                          await doImport();
+                                        }
+                                        fm.Navigator.of(ictx).pop();
+                                      },
                                       child: fm.Text('完成',
                                           style: fm.TextStyle(
                                               fontSize: 18))),
