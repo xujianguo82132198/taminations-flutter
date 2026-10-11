@@ -3288,6 +3288,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                 : '引入${imported}张,漏读${misses.length}张:${misses.join('、')}',
                                             style: fm.TextStyle(
                                                 fontSize: 18))));
+                                //  引入完成自动关闭(用户:删掉完成钮,
+                                //  曾误按它以为已引入)
+                                fm.Navigator.of(ictx).pop();
                               }
                               return fm.AlertDialog(
                                 title: fm.Text(
@@ -3554,27 +3557,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                           '引入所选(${picked.length})',
                                           style: fm.TextStyle(
                                               fontSize: 18))),
-                                  fm.TextButton(
-                                      style: (picked.isNotEmpty ||
-                                              imported > 0)
-                                          ? fm.TextButton.styleFrom(
-                                              backgroundColor:
-                                                  Color.BLUE,
-                                              foregroundColor:
-                                                  Color.WHITE)
-                                          : null,
-                                      onPressed: () async {
-                                        //  完成也引入(用户曾按
-                                        //  完成直接关闭,所选未拷)
-                                        if (srcDir.isNotBlank &&
-                                            picked.isNotEmpty) {
-                                          await doImport();
-                                        }
-                                        fm.Navigator.of(ictx).pop();
-                                      },
-                                      child: fm.Text('完成',
-                                          style: fm.TextStyle(
-                                              fontSize: 18))),
+                                  //  无"完成"钮(用户要求删:
+                                  //  太易误解——退出=点框外或返回键,
+                                  //  引入后自动关闭)
                                 ],
                               );
                             }));
