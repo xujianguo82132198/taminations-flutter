@@ -2501,35 +2501,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 //  麦克风钮:仅打开了非Only映射表才可操作
                 //  (识别在该表内选择,表已含级别)
                 fm.TextButton(
+                  //  麦克风连续识别停用(用户指示:今天只做圆钮
+                  //  语音Input)。点击仅负责关闭遗留的监听,
+                  //  不再开启;长按退表保留。
                   onPressed: flow.callerTable == null || flow.onlyMode
                       ? null : () async {
-                    //  采样中/音乐节拍取样中不响应
-                    if (flow.pttActive) return;
-                    if (flow.phase == 'awaiting' ||
-                        flow.phase == 'detecting')
-                      return;
-                    if (flow.isActive) {
-                      if (speechProvider.isListening) {
-                        //  流式检索中:点击结束——只退出语音识别,
-                        //  表保持打开(再按可重启识别)
-                        flow.stopListening();
-                      } else {
-                        //  表管理模式:点击开始流式检索
-                        //  (只查表执行,面板自动收起);
-                        //  语音输入全程不弹键盘——收起焦点与虚拟键盘,
-                        //  防止每次执行口令后键盘弹出遮挡画面
-                        focusNode.unfocus();
-                        setState(() {
-                          virtualKeyboardSetVisible(false);
-                        });
-                        //  表保持展开:命中行居中+高亮显示
-                        flow.setPanelMinimized(false);
-                        flow.startListening();
-                      }
-                      return;
+                    if (speechProvider.isListening) {
+                      flow.stopListening();
                     }
-                    //  表已开未激活:直接进入流式检索
-                    flow.start();
                   },
                   //  长按麦克风:退出当前表,回到映射表选择
                   //  (可删除/重命名/另存/导入导出/换表)
