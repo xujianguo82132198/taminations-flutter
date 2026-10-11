@@ -774,6 +774,9 @@ class VoiceFlow extends ChangeNotifier {
   int _lastCommandSeq = 0;
   CallerTable? _prefixTable;
   CallerTable? _suffixTable;
+  ///  PSfix合并表(用户设计:前缀+后缀一张表,识别只用
+  ///  PSfix和口令表)。前缀/后缀由段的位置决定(前=前缀,后=后缀)
+  CallerTable? _psfixTable;
 
   ///  目录名(=口令员名):名字 = "口令员/表名",
   ///  如 XuJianguo2/ms_Only -> XuJianguo2。
@@ -782,6 +785,26 @@ class VoiceFlow extends ChangeNotifier {
     final n = callerTable?.callerName ?? callerName;
     final i = n.indexOf('/');
     return i < 0 ? n : n.substring(0, i);
+  }
+
+  ///  加载辅助表:优先PSfix(合并表),没有则回退Prefix/Sufix
+  Future<CallerTable?> _loadPSfix() async {
+    _psfixTable ??= await _loadAuxTable('${_dirOf}PSfix');
+    if (_psfixTable != null && _psfixTable!.rows.isNotEmpty) {
+      return _psfixTable;
+    }
+    //  PSfix不存在:现场合并Prefix+Sufix
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final n = await CallerTable.mergeToPSfix(prefs, _dirOf);
+      if (n > 0) {
+        _psfixTable = await _loadAuxTable('${_dirOf}PSfix');
+        return _psfixTable;
+      }
+    } catch (e) {
+      debugPrint('mergeToPSfix failed: $e');
+    }
+    return null;
   }
 
   Future<CallerTable?> _loadAuxTable(String name) async {
@@ -869,7 +892,7 @@ class VoiceFlow extends ChangeNotifier {
     _lastSegmentAt = now;
     //  未定前缀:整段先试前缀表(含段首剥离,需间隔≥0.7秒)
     if (!_prefixSeen && gapOk) {
-      _prefixTable ??= await _loadAuxTable('${_dirOf}/Prefix');
+      _prefixTable ??= await _loadPSfix();
       final pt = _prefixTable;
       if (pt != null && pt.rows.isNotEmpty) {
         //  进表先置标志(用户:便于确定故障点):
@@ -943,7 +966,7 @@ class VoiceFlow extends ChangeNotifier {
     }
     //  后缀判定:口令已有→本段试后缀表
     if (callResult.isNotBlank && callResult != '…' && gapOk) {
-      _suffixTable ??= await _loadAuxTable('${_dirOf}/Sufix');
+      _suffixTable ??= _prefixTable ?? await _loadPSfix();
       final st = _suffixTable;
       if (st != null && st.rows.isNotEmpty) {
         suffixResult = '…';
@@ -1067,7 +1090,7 @@ class VoiceFlow extends ChangeNotifier {
         final lastSeg = _callParts.removeLast();
         final callSeg2 = _callParts.join(' ');
         final r2 = act.lookupSequential(callSeg2);
-        _suffixTable ??= await _loadAuxTable('${_dirOf}/Sufix');
+        _suffixTable ??= _prefixTable ?? await _loadPSfix();
         final st = _suffixTable;
         String? sufHit;
         if (st != null) {
@@ -1161,7 +1184,7 @@ class VoiceFlow extends ChangeNotifier {
     //  如一拍"heads pass ocean")首段带着前缀词——从Prefix
     //  表的记号/读法里找最长的开头匹配,拆成前缀段+口令段
     {
-      _prefixTable ??= await _loadAuxTable('${_dirOf}/Prefix');
+      _prefixTable ??= await _loadPSfix();
       final table = _prefixTable;
       if (table != null && segs.isNotEmpty && segs[0].isNotEmpty) {
         final t0 = segs[0].toLowerCase();

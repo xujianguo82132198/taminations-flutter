@@ -90,6 +90,72 @@ class CallerTable extends ChangeNotifier {
     return prefs.containsKey('$_keyPrefix$name');
   }
 
+  ///  合并Prefix+Sufix为PSfix表(用户设计:以后识别只用
+  ///  PSfix和口令表两张)。每条记录保证3行(不足补空行)。
+  ///  返回合并后行数
+  static Future<int> mergeToPSfix(SharedPreferences prefs,
+      String caller) async {
+    final prefixRaw = prefs.getString('$_keyPrefix${caller}Prefix');
+    final suffixRaw = prefs.getString('$_keyPrefix${caller}Sufix');
+    if (prefixRaw == null && suffixRaw == null) return 0;
+
+    final rows = <CallerRow>[];
+    //  读Prefix表
+    if (prefixRaw != null) {
+      try {
+        final d = jsonDecode(prefixRaw);
+        if (d is Map && d['rows'] is List) {
+          for (final r in d['rows']) {
+            if (r is Map) rows.add(CallerRow.fromJson(r));
+          }
+        }
+      } on FormatException {}
+    }
+    //  读Sufix表
+    if (suffixRaw != null) {
+      try {
+        final d = jsonDecode(suffixRaw);
+        if (d is Map && d['rows'] is List) {
+          for (final r in d['rows']) {
+            if (r is Map) rows.add(CallerRow.fromJson(r));
+          }
+        }
+      } on FormatException {}
+    }
+
+    //  按标准口令分组,保证每个口令3行
+    final byCall = <String, List<CallerRow>>{};
+    for (final r in rows) {
+      final key = r.standardCall.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      byCall.putIfAbsent(key, () => []).add(r);
+    }
+    final out = <CallerRow>[];
+    byCall.forEach((key, group) {
+      //  保留有记号的行
+      final recorded = group.where((r) => r.recognized.isNotBlank).toList();
+      final needed = 3 - recorded.length;
+      for (final r in recorded) {
+        out.add(CallerRow(seq: 0,
+            recognized: r.recognized, standardCall: r.standardCall));
+      }
+      //  不足3行补空行(用组内第一个的标准口令)
+      final template = group.first.standardCall;
+      for (var i = 0; i < needed; i++) {
+        out.add(CallerRow(seq: 0, recognized: '', standardCall: template));
+      }
+    });
+
+    //  排序+编号+保存为PSfix
+    out.sort((a, b) => a.recognized.toLowerCase()
+        .compareTo(b.recognized.toLowerCase()));
+    for (var i = 0; i < out.length; i++) out[i].seq = i + 1;
+    await prefs.setString('$_keyPrefix${caller}PSfix',
+        jsonEncode({'rows': out.map((r) => r.toJson()).toList()}));
+    debugPrint('mergeToPSfix($caller): ${out.length} rows');
+    return out.length;
+  }
+
   ///  历史修复:把含 "|" 的行拆回多行(合成曾把多归一的
   ///  几行归并成一行,违反"合成不得修改记录"——无损还原:
   ///  按 | 拆开,一行一笔,原样排列)。幂等
