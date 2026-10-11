@@ -3210,6 +3210,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                       .where((n) => n
                                           .startsWith('$srcDir/'))
                                       .toList();
+                              //  引入对账(用户要求查证是否读取所选
+                              //  文件):对话框每帧dump全部存储表及行数
+                              debugPrint('IMPORT 全部表(${all.length}): '
+                                  '${all.join(' | ')}');
+                              if (srcDir.isNotBlank) {
+                                debugPrint('IMPORT 源$srcDir'
+                                    '(${tables.length}): '
+                                    '${tables.join(' | ')}');
+                              }
                               //  组选:点非Only表连带其Only版
                               void toggle(String t) {
                                 final stem = t.endsWith('_Only')
