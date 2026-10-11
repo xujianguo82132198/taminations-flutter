@@ -629,7 +629,1352 @@ class _OnlyButtonRowState extends fm.State<OnlyButtonRow> {
     super.dispose();
   }
   void _on() {
-  
+    //  PTT 活动期间不重建:重建会断掉 InkWell 手势(onTapUp 丢失)
+    if (mounted && !flow.pttActive) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (!flow.onlyMode) return fm.SizedBox.shrink();
+    return fm.Padding(
+      padding: fm.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: fm.Row(children: [
+        
+        fm.Spacer(),
+        fm.InkWell(
+          onTapDown: (_) {
+            debugPrint('PTT down');
+            flow.startSample();
+          },
+          onTapUp: (_) => flow.endSample(),
+          onTapCancel: () => flow.endSample(),
+          child: fm.Container(
+            width: 60, height: 60,
+            alignment: fm.Alignment.center,
+            decoration: fm.BoxDecoration(
+                color: flow.pttActive ? fm.Colors.blue : Color.BLACK,
+                shape: fm.BoxShape.circle),
+            child: fm.Icon(fm.Icons.record_voice_over,
+                color: Color.WHITE, size: 32),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class OnlyDisplayBar extends fm.StatefulWidget {
+  @override
+  _OnlyDisplayBarState createState() => _OnlyDisplayBarState();
+}
+
+class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_onChanged);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_onChanged);
+    super.dispose();
+  }
+  void _onChanged() {
+    if (mounted) setState(() {});
+    //  记号碰撞体检:口令不同而语音识别(第2列)相同的行,
+    //  亮出行号提示重新识别(每次开表提示一次)
+    if (mounted &&
+        flow.tokenCollisionRows.isNotEmpty &&
+        !flow.collisionNoticeShown) {
+      flow.collisionNoticeShown = true;
+      Future.microtask(() => _showCollisionDialog());
+    }
+  }
+
+  //  碰撞行号清单(需重新识别)
+  Future<void> _showCollisionDialog() async {
+    await fm.showDialog(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+              title: fm.Text('记号相同,需重新识别',
+                  style: fm.TextStyle(fontSize: 22, color: Color.RED)),
+              content: fm.SizedBox(
+                width: double.maxFinite,
+                height: 420,
+                child: fm.ListView(children: [
+                  fm.Text(
+                      '以下各行标准口令不同而语音识别(第2列)相同,'
+                      '喊口令时无法区分。请对相关行用圆钮重新采样:',
+                      style: fm.TextStyle(fontSize: 18)),
+                  for (final line in flow.tokenCollisionRows)
+                    fm.Padding(
+                        padding: fm.EdgeInsets.only(top: 6),
+                        child: fm.Text(line,
+                            style: fm.TextStyle(
+                                fontSize: 18, color: Color.RED))),
+                ]),
+              ),
+              actions: [
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(),
+                    child: fm.Text('知道了',
+                        style: fm.TextStyle(fontSize: 18))),
+              ],
+            ));
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (!flow.onlyMode) return fm.SizedBox.shrink();
+    return fm.GestureDetector(
+      onTap: () {
+        if (flow.dictationText.isNotBlank)
+          flow.confirmDictation(flow.dictationText);
+      },
+      onLongPress: () async {
+        final n = await flow.finishOnlyTable();
+        if (n == null && mounted) {
+          final err = flow.lastError ?? '';
+          fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+              backgroundColor: Color.RED,
+              duration: const Duration(seconds: 5),
+              content: fm.Text(
+                  err.startsWith('merge_aborted:')
+                      ? err.replaceFirst('merge_aborted:', '')
+                      : '合并未完成',
+                  style: fm.TextStyle(fontSize: 18))));
+        }
+        if (n != null && mounted)
+          fm.ScaffoldMessenger.of(context).showSnackBar(
+              fm.SnackBar(backgroundColor: Color.BLUE,
+                  content: fm.Text(
+                      '已另存 ${flow.onlyTargetName}(共$n条)',
+                      style: fm.TextStyle(fontSize: 18))));
+      },
+      child: fm.Container(
+        width: double.infinity,
+        color: flow.dictationText.isNotBlank ? Color.YELLOW : Color.WHITE,
+        padding: fm.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+        child: fm.Text(
+            flow.lastError == 'licc_quota'
+                ? '⚠ 今日讯飞额度已用完,明天再试'
+                : (flow.pttActive
+                    ? '● 正在聆听... (松开结束)'
+                    : (flow.dictationText.isNotBlank
+                    ? '识别结果: ${flow.dictationText}  (点=确认)'
+                        : '(按住🎙朗读,抬起出结果)')),
+            style: fm.TextStyle(fontSize: 22,
+                fontWeight: fm.FontWeight.bold)),
+      ),
+    );
+  }
+}
+
+///  Only 采表工具栏:识别确认 / 完成建表
+class OnlyTableToolbar extends fm.StatefulWidget {
+  @override
+  _OnlyTableToolbarState createState() => _OnlyTableToolbarState();
+}
+
+class _OnlyTableToolbarState extends fm.State<OnlyTableToolbar> {
+  final flow = VoiceFlow.instance;
+  final _textController = fm.TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(() { if (mounted) setState(() {}); });
+  }
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    if (!flow.onlyMode) return fm.SizedBox.shrink();
+    return fm.Padding(
+      padding: fm.EdgeInsets.only(top: 2, left: 4, right: 4),
+      child: fm.Row(children: [
+        fm.Expanded(child: Button('识别确认', onPressed: () {
+          //  从序列器输入行取文字
+          if (flow.dictationText.isNotBlank)
+            flow.confirmDictation(flow.dictationText);
+        })),
+        fm.SizedBox(width: 6),
+        fm.Expanded(child: Button('完成建表', onPressed: () async {
+          final n = await flow.finishOnlyTable();
+          if (n == null && mounted) {
+            final err = flow.lastError ?? '';
+            fm.ScaffoldMessenger.of(context).showSnackBar(
+                fm.SnackBar(backgroundColor: Color.RED,
+                    duration: const Duration(seconds: 5),
+                    content: fm.Text(
+                        err.startsWith('merge_aborted:')
+                            ? err.replaceFirst('merge_aborted:', '')
+                            : '合并未完成',
+                        style: fm.TextStyle(fontSize: 18))));
+          }
+          if (n != null && mounted)
+            fm.ScaffoldMessenger.of(context).showSnackBar(
+                fm.SnackBar(backgroundColor: Color.BLUE,
+                    content: fm.Text(
+                        '已另存 ${flow.onlyTargetName}(共$n条)',
+                        style: fm.TextStyle(fontSize: 18))));
+        })),
+      ]),
+    );
+  }
+}
+
+///  当前口令员映射表面板:流程期间全程显示表内全部记录,
+///  四列依次为 序号 / 语音识别结果 / 标准口令 / 口令所属级别,
+///  记录增删时实时刷新(经 VoiceFlow 转发 CallerTable 的变更通知)
+///  三表显示条:前缀/口令/后缀三个显示区。哪张表查到了
+///  就显示得到的值;空=没有进入;口令执行完成后三区清零
+class PipelineResultStrip extends fm.StatefulWidget {
+  @override
+  _PipelineResultStripState createState() => _PipelineResultStripState();
+}
+
+class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
+  final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_on);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_on);
+    super.dispose();
+  }
+  void _on() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    //  喊口令模式常显三个空区(空=未进入该表),查到显值,
+    //  口令执行完成后清零(consumeAssembled)
+    if (flow.onlyMode || !flow.isActive) {
+      return fm.SizedBox.shrink();
+    }
+    fm.Widget part(String tag, String text, fm.Color c) =>
+        fm.Container(
+            padding: fm.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: fm.BoxDecoration(
+                border: fm.Border.all(color: c, width: 1.5),
+                borderRadius: fm.BorderRadius.circular(6)),
+            child: fm.Text(
+                text.isBlank ? '$tag:' : text,
+                style: fm.TextStyle(
+                    fontSize: 16, color: c,
+                    fontWeight: fm.FontWeight.bold)));
+    return fm.Container(
+        width: double.infinity,
+        color: const fm.Color(0xffeef4ff),
+        padding: fm.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: fm.Row(children: [
+          part('前缀', flow.prefixResult, Color.BLUE),
+          fm.SizedBox(width: 6),
+          part('口令', flow.callResult, fm.Colors.green.shade800),
+          fm.SizedBox(width: 6),
+          part('后缀', flow.suffixResult, fm.Colors.orange.shade800),
+          fm.SizedBox(width: 8),
+          //  噪声抑制滑动条(最左=空调干扰,最右=人喊听不到)
+          fm.Expanded(
+            child: fm.SliderTheme(
+              data: fm.SliderThemeData(
+                trackHeight: 4,
+                thumbShape: fm.RoundSliderThumbShape(
+                    enabledThumbRadius: 8),
+              ),
+              child: pp.Consumer<Settings>(
+                builder: (ctx, settings, _) => fm.Slider(
+                  value: Settings.noiseSuppression,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged:
+                      flow.speech?.isListening == true
+                          ? (v2) {
+                              Settings.noiseSuppression = v2;
+                            }
+                          : null,
+                  activeColor: Color.BLUE,
+                  inactiveColor: Color.LIGHTGREY,
+                ),
+              ),
+            ),
+          ),
+          //  拖动时显示+dB值,停止1.5秒后回到"噪"
+          _NoiseSuppressLabel(),
+          //  「存」钮:把麦克风识别文本存入选中行(用户:
+          //  用麦克风产出当指纹,不用圆钮干净版)
+          if (flow.lastMicText.isNotBlank &&
+              flow.nonOnlySelectedSeq != null)
+            fm.Padding(
+              padding: fm.EdgeInsets.only(left: 4),
+              child: fm.InkWell(
+                onTap: () {
+                  flow.saveMicToken();
+                  fm.ScaffoldMessenger.of(context).showSnackBar(
+                      fm.SnackBar(
+                          backgroundColor: Color.BLUE,
+                          duration:
+                              const Duration(seconds: 2),
+                          content: fm.Text(
+                              '已存入第${flow.nonOnlySelectedSeq}行: '
+                              '"${flow.lastMicText}"',
+                              style: fm.TextStyle(
+                                  fontSize: 16))));
+                },
+                child: fm.Container(
+                  padding: fm.EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: fm.BoxDecoration(
+                      color: Color.GREEN,
+                      borderRadius:
+                          fm.BorderRadius.circular(6)),
+                  child: fm.Text('存',
+                      style: fm.TextStyle(
+                          fontSize: 16,
+                          color: Color.WHITE,
+                          fontWeight:
+                              fm.FontWeight.bold)),
+                ),
+              ),
+            ),
+        ]));
+  }
+}
+
+///  噪声抑制标签:拖动时显示+XXdB,停止1.5秒后显示"噪"
+class _NoiseSuppressLabel extends fm.StatefulWidget {
+  @override
+  _NoiseSuppressLabelState createState() => _NoiseSuppressLabelState();
+}
+class _NoiseSuppressLabelState extends fm.State<_NoiseSuppressLabel> {
+  Timer? _resetTimer;
+  bool _dragging = false;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final settings = pp.Provider.of<Settings>(context);
+    //  监听值变化=拖动中
+    settings.addListener(() {
+      if (mounted) {
+        _dragging = true;
+        _resetTimer?.cancel();
+        _resetTimer = Timer(const Duration(milliseconds: 1500), () {
+          if (mounted) setState(() => _dragging = false);
+        });
+        setState(() {});
+      }
+    });
+    final db = 8.0 + Settings.noiseSuppression * 20.0;
+    return fm.Text(
+        _dragging ? '+${db.round()}dB' : '噪',
+        style: fm.TextStyle(
+            fontSize: 14,
+            color: _dragging ? Color.BLUE : Color.GRAY,
+            fontWeight: _dragging ? fm.FontWeight.bold
+                : fm.FontWeight.normal));
+  }
+}
+
+class CallerTablePanel extends fm.StatefulWidget {
+  @override
+  _CallerTablePanelState createState() => _CallerTablePanelState();
+}
+
+class _CallerTablePanelState extends fm.State<CallerTablePanel> {
+
+  final flow = VoiceFlow.instance;
+  final itemScrollController = ItemScrollController();
+
+  CallerRow? _lastScrolledCandidate;
+  CallerRow? _lastScrolledPending;
+  CallerRow? _lastScrolledCursor;
+  //  非Only表的点击选中(纯浏览高亮,不动数据)
+  int? _viewSeq;
+
+  //  显隐状态由 VoiceFlow 持有(检索模式自动收起,表管理模式展开,
+  //  手动切换随时可用,输入行重建不丢)
+  bool get minimized => flow.panelMinimized;
+
+  //  列宽(可拖动调整,持久保存,重开应用不丢):
+  //  序号列宽为像素值;识别结果列占(识别+标准)两列总宽的比例
+  double _recognizedRatio = 0.25;
+  double _seqColW = 36;
+  static const _ratioPrefKey = '映射表识别列宽占比';
+  static const _seqWidPrefKey = '映射表序号列宽';
+  static const double _dragColW = 30;  //  列宽把手列固定宽
+  double _twoColsW = 1;                //  最近一次布局的两列总宽
+
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_onChanged);
+    _loadRatio();
+  }
+
+  Future<void> _loadRatio() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = prefs.getDouble(_ratioPrefKey);
+      if (v != null && v >= 0.12 && v <= 0.88) {
+        setState(() => _recognizedRatio = v);
+      }
+      final s = prefs.getDouble(_seqWidPrefKey);
+      if (s != null && s >= 28 && s <= 140) {
+        setState(() => _seqColW = s);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveRatio() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_ratioPrefKey, _recognizedRatio);
+      await prefs.setDouble(_seqWidPrefKey, _seqColW);
+    } catch (_) {}
+  }
+
+  //  拖动序号列把手:直接按像素增减序号列宽
+  void _onSeqDrag(fm.DragUpdateDetails d) {
+    setState(() {
+      _seqColW = (_seqColW + d.delta.dx).clamp(28.0, 140.0);
+    });
+  }
+
+  //  拖动把手:按位移占两列总宽的比例调整列宽分配
+  void _onDividerDrag(fm.DragUpdateDetails d) {
+    setState(() {
+      _recognizedRatio =
+          (_recognizedRatio + d.delta.dx / _twoColsW).clamp(0.12, 0.88);
+    });
+  }
+
+  @override
+  void dispose() {
+    flow.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (!mounted) return;
+    setState(() {});
+    //  表变化时重置跟踪(新表打开时触发首次滚动)
+    final t = flow.callerTable;
+    if (t != null && !identical(t, _lastTable)) {
+      _lastTable = t;
+      _lastScrolledCursor = null;
+      _lastScrolledPending = null;
+      _lastScrolledCandidate = null;
+    }
+    _scrollToCenterIfNeeded();
+  }
+  CallerTable? _lastTable;
+
+  //  需要居中显示的记录,按优先级:
+  //  1) 录入时新插入的待补全记录(先插入,排序,居中显示,高亮)
+  //  2) 语音查表的候选记录
+  void _scrollToCursor() {
+    final table = flow.callerTable;
+    if (table == null || minimized || !flow.onlyMode) return;
+    final cursor = flow.currentDictationRow;
+    if (cursor == null) return;
+    //  同一光标只定位一次:识别期间每次局部结果都会触发
+    //  _onChanged,若不判重,jumpTo 会在整个说话过程中
+    //  反复执行,面板不断跳动(用户手动滚动也被拉回)
+    if (_scrolledCursorSeq == cursor.seq) return;
+    _scrolledCursorSeq = cursor.seq;
+    final index = table.rows.indexOf(cursor);
+    if (index < 0) return;
+    //  jumpTo 立即定位,不用动画(动画期间行会消失)
+    fm.WidgetsBinding.instance.addPostFrameCallback((_) {
+      itemScrollController.jumpTo(
+          index: index,
+          alignment: 0.15);  //  光标行在显示区约第2行位置
+    });
+  }
+  int? _scrolledCursorSeq;
+
+  void _scrollToCenterIfNeeded() {
+    final table = flow.callerTable;
+    if (table == null || minimized) return;
+    //  Only 模式:光标行强制定位到固定物理位置(第2行)
+    if (flow.onlyMode) {
+      _scrollToCursor();
+      return;
+    }
+    //  非 Only 模式:候选/待补全记录居中
+    CallerRow? target;
+    final pending = flow.pendingRecord;
+    if (pending != null && !identical(pending, _lastScrolledPending)) {
+      _lastScrolledPending = pending;
+      target = pending;
+    }
+    final candidate = flow.lastCandidate;
+    //  按行号判断是否新候选(identical 在表重建后失配)
+    if (target == null && candidate != null &&
+        candidate.seq != (_lastScrolledCandidate?.seq ?? -1)) {
+      _lastScrolledCandidate = candidate;
+      target = candidate;
+    }
+    if (target == null) return;
+    final index = table.rows
+        .indexWhere((r) => r.seq == target!.seq);
+    if (index < 0) return;
+    fm.WidgetsBinding.instance.addPostFrameCallback((_) {
+      //  高亮行定位到第3行可见区(alignment≈0.1,靠上)
+      itemScrollController.scrollTo(
+          index: index, alignment: 0.1, duration: Duration(milliseconds: 300));
+    });
+  }
+
+  //  长按行弹菜单(编辑第3列/删除该行)。
+  //  所有表可用:合并表若混入坏行(如误采样到错误行的记号),
+  //  长按删除即可修复,不必重建整表
+  Future<void> _rowActionMenu(CallerRow row) async {
+    final action = await fm.showDialog<String>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text('第${row.seq}行'),
+          content: fm.Text(
+              '${row.recognized} → ${row.standardCall}',
+              style: fm.TextStyle(fontSize: 18)),
+          actions: [
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop('edit'),
+                child: fm.Text('编辑口令')),
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop('delete'),
+                child: fm.Text('删除',
+                    style: fm.TextStyle(color: Color.RED))),
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop(),
+                child: fm.Text('取消')),
+          ],
+        ));
+    if (action == 'edit') {
+      await _editStandardCall(row);
+    } else if (action == 'delete') {
+      await _deleteRow(row);
+    }
+  }
+
+  //  Only 模式:手动编辑第3列(标准口令)内容。
+  //  返回确认的文本(取消返回 null)——"键入口令"路径
+  //  复用此画面,由调用方做去重等后续处理
+  Future<String?> _editStandardCall(CallerRow row) async {
+    final controller = fm.TextEditingController()
+      ..text = row.standardCall;
+    final confirmed = await fm.showDialog<String>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text('第${row.seq}行 口令编辑'),
+          content: fm.TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 2,
+            style: fm.TextStyle(fontSize: 22),
+            decoration: fm.InputDecoration(
+                labelText: '标准口令',
+                labelStyle: fm.TextStyle(fontSize: 18)),
+          ),
+          actions: [
+            fm.TextButton(
+                onPressed: () => fm.Navigator.of(ctx).pop(),
+                child: fm.Text('取消')),
+            fm.TextButton(
+                onPressed: () =>
+                    fm.Navigator.of(ctx).pop(controller.text),
+                child: fm.Text('确定')),
+          ],
+        ));
+    controller.dispose();
+    if (confirmed != null && confirmed.trim().isNotBlank) {
+      final table = flow.callerTable;
+      if (table != null)
+        await table.updateRow(row.seq,
+            standardCall: confirmed.trim(), sort: false);
+    }
+    return confirmed;
+  }
+
+  //  口令员删除所选记录(带确认)
+  Future<void> _deleteRow(CallerRow row) async {
+    final table = flow.callerTable;
+    if (table == null) return;
+    final confirmed = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+          title: fm.Text('删除记录'),
+          content: fm.Text(
+              '确定删除第${row.seq}条?\n${row.recognized} → '
+              '${row.standardCall.isBlank ? '(待补全)' : row.standardCall}',
+              style: fm.TextStyle(fontSize: 20)),
+          actions: [
+            fm.TextButton(onPressed: () => fm.Navigator.of(ctx).pop(false),
+                child: fm.Text('取消')),
+            fm.TextButton(onPressed: () => fm.Navigator.of(ctx).pop(true),
+                child: fm.Text('删除')),
+          ],
+        ));
+    if (confirmed == true)
+      await table.removeRow(row.seq);
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    final table = flow.callerTable;
+    //  有表即显示(收起条);语音会话是否激活不影响
+    if (table == null)
+      return fm.SizedBox.shrink();
+    //  极小化:只显示标题行
+    if (minimized)
+      return fm.InkWell(
+        onTap: () {
+          flow.setPanelMinimized(false);
+          //  展开后把待补全/候选记录居中
+          _lastScrolledPending = null;
+          _lastScrolledCandidate = null;
+          _scrollToCenterIfNeeded();
+        },
+        child: fm.Container(
+          width: double.infinity,
+          color: Color.FLOOR,
+          padding: fm.EdgeInsets.only(left: 12, top: 3, bottom: 3),
+          child: fm.Row(children: [
+            fm.Icon(fm.Icons.unfold_more, size: 20),
+            fm.SizedBox(width: 6),
+            fm.Text(
+                '${flow.callerName}(${table.rows.length}条) ▸',
+                style: fm.TextStyle(
+                    fontWeight: fm.FontWeight.bold, fontSize: 16)),
+          ]),
+        ),
+      );
+    //  展开时:Only 采表占满剩余空间(表面板最大化);
+    //  其他模式固定高度,不自动扩大,不影响跳舞区域
+    final body = fm.LayoutBuilder(builder: (context, constraints) {
+        //  两列(识别结果/标准口令)总宽 =
+        //  面板宽 - 内边距 - 序号列 - 两个把手槽
+        _twoColsW = constraints.maxWidth -
+            12 - 8 - _seqColW - _dragColW * 2;
+        if (_twoColsW < 100) _twoColsW = 100;
+        final recogW = _twoColsW * _recognizedRatio;
+        return fm.Column(
+          crossAxisAlignment: fm.CrossAxisAlignment.start,
+          children: [
+            //  第一行:表名(口令员名/条数,居中)+ 极小化
+            fm.Container(
+              width: double.infinity,
+              color: Color.FLOOR,
+              padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
+              child: fm.Row(children: [
+                fm.Expanded(
+                  child: fm.GestureDetector(
+                    //  Only表:长按=增加记录;非Only表:菜单
+                    //  (增加记录/搜索口令)
+                    onLongPress: () async {
+                      if (flow.onlyMode) {
+                        await _addRecordDialog();
+                        return;
+                      }
+                      final sel = await fm.showDialog<String>(
+                          context: context,
+                          builder: (ctx) => fm.AlertDialog(
+                            title: fm.Text(flow.callerName ?? '',
+                                style: fm.TextStyle(fontSize: 18)),
+                            content: fm.Text('选择操作',
+                                style: fm.TextStyle(fontSize: 16)),
+                            actions: [
+                              fm.TextButton(
+                                  onPressed: () => fm.Navigator.of(
+                                          ctx)
+                                      .pop('add'),
+                                  child: fm.Text('增加记录',
+                                      style: fm.TextStyle(
+                                          fontSize: 18,
+                                          color: Color.BLUE))),
+                              fm.TextButton(
+                                  onPressed: () => fm.Navigator.of(
+                                          ctx)
+                                      .pop('search'),
+                                  child: fm.Text('搜索口令',
+                                      style: fm.TextStyle(
+                                          fontSize: 18))),
+                            ],
+                          ));
+                      if (sel == 'add') {
+                        await _addRecordForAnyTable();
+                      } else if (sel == 'search') {
+                        await _panelSearch();
+                      }
+                    },
+                    child: fm.Center(
+                      child: fm.Text(
+                      '${flow.callerName}(${table.rows.length}条)',
+                      style: fm.TextStyle(
+                      fontWeight: fm.FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                ),
+                //  Only表:增行(多归一扩容)与清理全表按钮
+                if (flow.onlyMode) ...[
+                  fm.InkWell(
+                    onTap: () async {
+                      if ((flow.speech?.isListening ?? false) ||
+                          flow.pttActive) {
+                        fm.ScaffoldMessenger.of(context).showSnackBar(
+                            fm.SnackBar(
+                                backgroundColor: Color.RED,
+                                content: fm.Text('识别中,禁止编辑',
+                                    style: fm.TextStyle(fontSize: 18))));
+                        return;
+                      }
+                      //  高亮行上方插入全空行,随即进入口令编辑
+                      //  (键入标准口令;取消则留空行以后再填)。
+                      //  无高亮行时:询问操作者插入位置(行号)
+                      CallerRow? row;
+                      if (flow.currentDictationRow != null) {
+                        row = await flow.addReadingRow();
+                      } else {
+                        final t = flow.callerTable;
+                        if (t == null || t.rows.isEmpty) return;
+                        //  询问操作者插入位置(行号)
+                        final posCtl = fm.TextEditingController();
+                        final input = await fm.showDialog<String>(
+                            context: context,
+                            builder: (pctx) => fm.AlertDialog(
+                              title: fm.Text('增行位置',
+                                  style: fm.TextStyle(fontSize: 22)),
+                              content: fm.TextField(
+                                  controller: posCtl,
+                                  autofocus: true,
+                                  keyboardType:
+                                      fm.TextInputType.number,
+                                  style: fm.TextStyle(fontSize: 22),
+                                  decoration: fm.InputDecoration(
+                                      hintText:
+                                          '插到第几行之上?(1-${t.rows.length})',
+                                      hintStyle:
+                                          fm.TextStyle(fontSize: 18))),
+                              actions: [
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(pctx).pop(),
+                                    child: fm.Text('取消',
+                                        style: fm.TextStyle(
+                                            fontSize: 18))),
+                                fm.TextButton(
+                                    onPressed: () => fm.Navigator.of(pctx)
+                                        .pop(posCtl.text),
+                                    child: fm.Text('确定',
+                                        style: fm.TextStyle(
+                                            fontSize: 18))),
+                              ],
+                            ));
+                        posCtl.dispose();
+                        final n = int.tryParse((input ?? '').trim());
+                        if (n == null || n < 1 || n > t.rows.length) {
+                          return;
+                        }
+                        row = await flow.addReadingRowAt(n);
+                      }
+                      if (row != null && mounted) {
+                        await _editStandardCall(row);
+                      }
+                    },
+                    child: fm.Container(
+                      margin: fm.EdgeInsets.only(right: 6),
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: fm.BoxDecoration(
+                          border: fm.Border.all(color: Color.BLUE),
+                          borderRadius:
+                              fm.BorderRadius.circular(6)),
+                      child: fm.Text('增行',
+                          style: fm.TextStyle(
+                              fontSize: 14, color: Color.BLUE,
+                              fontWeight: fm.FontWeight.bold)),
+                    ),
+                  ),
+                  fm.InkWell(
+                    onTap: _cleanupTableDialog,
+                    child: fm.Container(
+                      margin: fm.EdgeInsets.only(right: 6),
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: fm.BoxDecoration(
+                          border: fm.Border.all(color: Color.RED),
+                          borderRadius:
+                              fm.BorderRadius.circular(6)),
+                      child: fm.Text('清理',
+                          style: fm.TextStyle(
+                              fontSize: 14, color: Color.RED,
+                              fontWeight: fm.FontWeight.bold)),
+                    ),
+                  ),
+                ],
+                //  表退出:红底白字大按钮
+                //  (Only 模式移到下方圆钮旁,不占面板行)
+                if (!flow.onlyMode)
+                fm.Container(
+                  decoration: fm.BoxDecoration(
+                      color: Color.RED,
+                      borderRadius: fm.BorderRadius.circular(6)),
+                  margin: fm.EdgeInsets.only(right: 6),
+                  child: fm.InkWell(
+                    onTap: () {
+                      //  退出:完整复位到进入时画面
+                      flow.exitTable();
+                    },
+                    borderRadius: fm.BorderRadius.circular(6),
+                    child: fm.Padding(
+                      padding: fm.EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 5),
+                      child: fm.Row(children: [
+                        fm.Icon(fm.Icons.exit_to_app,
+                            size: 18, color: Color.WHITE),
+                        fm.SizedBox(width: 4),
+                        fm.Text('表退出',
+                            style: fm.TextStyle(fontSize: 16,
+                                fontWeight: fm.FontWeight.bold,
+                                color: Color.WHITE)),
+                      ]),
+                    ),
+                  ),
+                ),
+                //  极小化按钮:关闭显示,后台工作不受影响
+                fm.InkWell(
+                  onTap: () => flow.setPanelMinimized(true),
+                  child: fm.Padding(
+                    padding:
+                        fm.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    child: fm.Icon(fm.Icons.unfold_less, size: 20),
+                  ),
+                ),
+              ]),
+            ),
+            //  第二行:列头(三列标题 + 两个可拖动列宽把手)
+            _headerRow(recogW),
+            fm.Expanded(
+              child: table.rows.isEmpty
+                  ? fm.Container(
+                      alignment: fm.Alignment.center,
+                      child: fm.Text('(空表,语音识别将进入记录初始化)',
+                          style: fm.TextStyle(
+                              fontSize: 18, color: Color.BLACK)))
+                  : ScrollablePositionedList.builder(
+                      itemScrollController: itemScrollController,
+                      padding: fm.EdgeInsets.zero,
+                      itemCount: table.rows.length,
+                      itemBuilder: (context, index) {
+                        final row = table.rows[index];
+                        //  Only 采表:当前目标行(光标)蓝底+箭头标记
+                        final isCursor = flow.onlyMode &&
+                            identical(flow.currentDictationRow, row);
+                        //  待补全的记录(第三列为空)黄色;
+                        //  语音查表的候选记录蓝色边框突出显示
+                        final pending = !flow.onlyMode &&
+                            row.standardCall.isBlank &&
+                            identical(flow.pendingRecord, row);
+                        //  命中候选高亮:按行号比对(identical 在
+                        //  表对象重建后会失配,导致只居中不高亮)
+                        final isCandidate = flow.lastCandidate != null &&
+                            flow.lastCandidate!.seq == row.seq;
+                        final isViewSel =
+                            !flow.onlyMode &&
+                            (row.seq == _viewSeq ||
+                                row.seq == flow.nonOnlySelectedSeq);
+                        return fm.InkWell(
+                          //  Only 模式:点行=选定为采表目标;
+                          //   长按=编辑第3列/删除
+                          //  非Only表:点行=选中高亮(浏览,不动数据)
+                          onTap: () {
+                            if ((flow.speech?.isListening ?? false) ||
+                                flow.pttActive) {
+                              return;
+                            }
+                            if (flow.onlyMode) {
+                              flow.selectDictationRow(row.seq);
+                            } else {
+                              flow.nonOnlySelectedSeq = row.seq;
+                              setState(() {
+                                _viewSeq = row.seq;
+                              });
+                            }
+                          },
+                          onLongPress:
+                              (flow.callerTable != null &&
+                                  !(flow.speech?.isListening ?? false) &&
+                                  !flow.pttActive)
+                              ? () => _rowActionMenu(row)
+                              : null,
+                          child: fm.Container(
+                            color: isCursor
+                                ? Color(0xff87CEEB)
+                                : (pending
+                                    ? Color.YELLOW
+                                    : (isCandidate
+                                        ? Color(0xffe0f0ff)
+                                        : (isViewSel
+                                            ? Color(0xffe0e0ff)
+                                            : null))),
+                            decoration: pending || isCandidate
+                                ? null
+                                : fm.BoxDecoration(
+                                    border: fm.Border(
+                                        bottom: fm.BorderSide(
+                                            width: 1,
+                                            color: Color.LIGHTGREY))),
+                            padding: fm.EdgeInsets.only(
+                                left: 12, right: 8),
+                            child: fm.Row(
+                              crossAxisAlignment:
+                                  fm.CrossAxisAlignment.start,
+                              children: [
+                                fm.SizedBox(
+                                    width: _seqColW,
+                                    child: fm.Text('${row.seq}',
+                                        style: fm.TextStyle(
+                                            fontSize: 16,
+                                            height: 1.3,
+                                            color: Color.BLACK,
+                                            fontWeight: (isCandidate ||
+                                                    isCursor)
+                                                ? fm.FontWeight.bold
+                                                : null))),
+                                //  与列头把手1对齐的占位槽
+                                fm.SizedBox(width: _dragColW),
+                                fm.SizedBox(
+                                    width: recogW,
+                                    child: fm.Text(row.recognized,
+                                        maxLines: 5,
+                                        overflow: fm.TextOverflow.visible,
+                                        style: fm.TextStyle(
+                                            fontSize: 16,
+                                            height: 1.3,
+                                            fontWeight: isCandidate
+                                                ? fm.FontWeight.bold
+                                                : null))),
+                                //  与列头把手2对齐:箭头居中
+                                fm.SizedBox(
+                                  width: _dragColW,
+                                  child: fm.Center(
+                                      child: fm.Text('→',
+                                          style: fm.TextStyle(
+                                              fontSize: 16,
+                                              height: 1.3))),
+                                ),
+                                fm.Expanded(
+                                    child: fm.Text(
+                                        row.standardCall.isBlank
+                                            ? '(待补全)'
+                                            : row.standardCall,
+                                        style: fm.TextStyle(
+                                            fontSize: 16,
+                                            height: 1.3,
+                                            color: Color.BLACK,
+                                            fontWeight:
+                                                fm.FontWeight.bold))),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      });
+    //  Only 采表:面板占满剩余空间;其他模式固定高度 240
+    return flow.onlyMode
+        ? fm.Expanded(
+            child: fm.Container(color: Color.WHITE, child: body))
+        : fm.Container(height: 240, color: Color.WHITE, child: body);
+  }
+
+  //  非Only表:按第3列口令前缀搜索,点选滚动定位并高亮
+  Future<void> _panelSearch() async {
+    final controller = fm.TextEditingController();
+    await fm.showDialog(
+        context: context,
+        builder: (ctx) => fm.StatefulBuilder(builder: (ctx, setD) {
+              List<CallerRow> matches = [];
+              final p = controller.text.trim().toLowerCase();
+              final t = flow.callerTable;
+              if (p.isNotEmpty && t != null) {
+                for (final r in t.rows) {
+                  if (r.standardCall.toLowerCase().startsWith(p))
+                    matches.add(r);
+                }
+                if (matches.isEmpty) {
+                  for (final r in t.rows) {
+                    if (r.standardCall.toLowerCase().contains(p))
+                      matches.add(r);
+                  }
+                }
+              }
+              return fm.AlertDialog(
+                title: fm.Text('搜索口令(第三列)',
+                    style: fm.TextStyle(fontSize: 20)),
+                content: fm.Column(
+                    mainAxisSize: fm.MainAxisSize.min,
+                    children: [
+                      fm.TextField(
+                        controller: controller,
+                        autofocus: true,
+                        style: fm.TextStyle(fontSize: 24),
+                        decoration: fm.InputDecoration(
+                            hintText: '如: boys',
+                            hintStyle: fm.TextStyle(fontSize: 20)),
+                        onChanged: (_) => setD(() {}),
+                      ),
+                      fm.SizedBox(height: 8),
+                      //  待显示行数提示(多时告知可滚动)
+                      fm.Text(
+                          matches.isEmpty
+                              ? (p.isEmpty ? '请输入字母' : '(无匹配行)')
+                              : '待显示 ${matches.length} 行'
+                                '${matches.length > 8 ? '(可上下滚动)' : ''}',
+                          style: fm.TextStyle(
+                              fontSize: 16, color: Color.GRAY)),
+                      fm.SizedBox(height: 4),
+                      if (matches.isNotEmpty)
+                        fm.SizedBox(
+                          height: 500,
+                          width: double.infinity,
+                          child: fm.ListView.builder(
+                            physics:
+                                fm.AlwaysScrollableScrollPhysics(),
+                            itemCount: matches.length,
+                            itemBuilder: (lctx, i) {
+                              final m = matches[i];
+                              return fm.ListTile(
+                                dense: true,
+                                title: fm.Text(
+                                    '第${m.seq}行  ${m.standardCall}',
+                                    style:
+                                        fm.TextStyle(fontSize: 19)),
+                                onTap: () {
+                                  flow.lastCandidate = m;
+                                  final index =
+                                      t!.rows.indexOf(m);
+                                  if (index >= 0) {
+                                    fm.WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                      itemScrollController.jumpTo(
+                                          index: index,
+                                          alignment: 0.3);
+                                    });
+                                  }
+                                  fm.Navigator.of(ctx).pop();
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                    ]),
+                actions: [
+                  fm.TextButton(
+                      onPressed: () => fm.Navigator.of(ctx).pop(),
+                      child: fm.Text('关闭',
+                          style: fm.TextStyle(fontSize: 18))),
+                ],
+              );
+            }));
+  }
+
+  //  长按表名(仅Only表):增加记录——经 CALL 口令选择,
+  //  防长口令手工输入出错;选完自动加行,再用圆钮采样
+  //  清理全表(采录完成后统一做):删空识别行、
+  //  第2,3列完全相同的行只保留1行(带确认)
+  Future<void> _cleanupTableDialog() async {
+    //  所有表可用(合并表也有历史重复行要清);
+    //  麦克风识别中禁止(用户规则)
+    final t = flow.callerTable;
+    if (t == null) return;
+    if ((flow.speech?.isListening ?? false) || flow.pttActive) {
+      fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+          backgroundColor: Color.RED,
+          content: fm.Text('识别中,禁止编辑',
+              style: fm.TextStyle(fontSize: 18))));
+      return;
+    }
+    final empty = t.rows
+        .where((r) => r.recognized.trim().isEmpty)
+        .length;
+    final ok = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+              title: fm.Text('清理全表',
+                  style: fm.TextStyle(fontSize: 22)),
+              content: fm.Text(
+                  '1. 删除空识别行($empty行)\n'
+                  '2. 第2,3列完全相同的行只保留1行\n\n'
+                  '确定清理?',
+                  style: fm.TextStyle(fontSize: 18)),
+              actions: [
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(false),
+                    child: fm.Text('取消',
+                        style: fm.TextStyle(fontSize: 18))),
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(true),
+                    child: fm.Text('确定清理',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.RED))),
+              ],
+            ));
+    if (ok != true || !mounted) return;
+    final (del, dup) = await t.cleanupTable();
+    flow.afterTableCleanup();
+    if (mounted)
+      fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+          backgroundColor: Color.BLUE,
+          content: fm.Text(
+              '已删空行$del行,去重$dup行,剩${t.rows.length}行',
+              style: fm.TextStyle(fontSize: 18))));
+  }
+
+  //  非Only表的增加记录:直接增行+键入口令(不走去选择)
+  Future<void> _addRecordForAnyTable() async {
+    final row = await flow.addReadingRow();
+    if (row != null && mounted) await _editStandardCall(row);
+  }
+
+  Future<void> _addRecordDialog() async {
+    if (!flow.onlyMode) return;
+    //  结果类型 Object:按钮返回 true/'type'/'clear' 混合类型,
+    //  用 showDialog<bool> 会在 pop('type') 时类型断言崩溃,
+    //  对话框关不掉
+    final go = await fm.showDialog<Object>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+              title: fm.Text('增加记录',
+                  style: fm.TextStyle(fontSize: 22)),
+              content: fm.Text(
+                  '点"去选择口令"到 CALL 列表点选;\n'
+                  '或点"键入口令"用键盘手动输入。\n'
+                  '执行正确后存为新记录,再用圆钮采样。',
+                  style: fm.TextStyle(fontSize: 18)),
+              actions: [
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(false),
+                    child: fm.Text('取消',
+                        style: fm.TextStyle(fontSize: 18))),
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop(true),
+                    child: fm.Text('去选择口令',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.BLUE))),
+                //  手动键入:输入行清空,弹键盘等口令员输入
+                fm.TextButton(
+                    onPressed: () => fm.Navigator.of(ctx).pop('type'),
+                    child: fm.Text('键入口令',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.BLUE))),
+                //  换识别体系后整体重录:清空全部记号
+                fm.TextButton(
+                    onPressed: () =>
+                        fm.Navigator.of(ctx).pop('clear'),
+                    child: fm.Text('清空全部记号',
+                        style: fm.TextStyle(
+                            fontSize: 18, color: Color.RED))),
+              ],
+            ));
+    if (go == 'type') {
+      //  键入路径:先插入一条新记录,随即进入该行的"口令编辑"
+      //  画面(专用输入框,回车只存入不执行跳舞——主输入行
+      //  回车会执行跳舞,不能用)。读法等价去重:已有同口令
+      //  行则撤回新行,光标跳到已有行
+      debugPrint('增加记录: 键入口令 被点击');
+      final table = flow.callerTable;
+      if (table == null) return;
+      final row = await table.addRow(recognized: '', standardCall: '');
+      final typed = await _editStandardCall(row);
+      final text = typed?.trim() ?? '';
+      if (text.isEmpty) {
+        //  取消/空:撤回刚插入的空行
+        await table.removeRow(row.seq);
+        return;
+      }
+      //  多对一:同口令就要重复建行——每次键入都是新行,
+      //  各录一笔语音读法,不跳已有行(合并时记号自动归并)
+      flow.selectDictationRow(row.seq);
+      return;
+    }
+    if (go == 'clear') {
+      final ok2 = await fm.showDialog<bool>(
+          context: context,
+          builder: (cctx) => fm.AlertDialog(
+                title: fm.Text('清空全部记号?',
+                    style: fm.TextStyle(fontSize: 22)),
+                content: fm.Text(
+                    '将清空本表全部已录记号(第2列),\n'
+                    '标准口令保留。之后每个口令家族\n'
+                    '重录一条即可自动填满全族。\n'
+                    '确定清空?',
+                    style: fm.TextStyle(fontSize: 18)),
+                actions: [
+                  fm.TextButton(
+                      onPressed: () =>
+                          fm.Navigator.of(cctx).pop(false),
+                      child: fm.Text('取消',
+                          style: fm.TextStyle(fontSize: 18))),
+                  fm.TextButton(
+                      onPressed: () =>
+                          fm.Navigator.of(cctx).pop(true),
+                      child: fm.Text('确定清空',
+                          style: fm.TextStyle(
+                              fontSize: 18, color: Color.RED))),
+                ],
+              ));
+      if (ok2 == true && mounted) {
+        final n = await flow.clearTableTokens();
+        if (mounted)
+          fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
+              backgroundColor: Color.BLUE,
+              content: fm.Text('已清空 $n 行记号,可重录',
+                  style: fm.TextStyle(fontSize: 18))));
+      }
+      return;
+    }
+    if (go != true || !mounted) return;
+    flow.awaitingAddRecord = true;
+    try {
+      pp.Provider.of<TamState>(context, listen: false)
+          .change(detailPage: DetailPage.CALLS);
+    } catch (_) {}
+  }
+
+  //  列头行(表顶端):序号 / 语音识别结果 / 标准口令 标题,
+  //  两个拖动把手:序号|识别列之间、识别|标准列之间(左右拖改列宽)
+  fm.Widget _headerRow(double recogW) {
+    final style = fm.TextStyle(
+        fontSize: 15,
+        height: 1.3,
+        color: Color(0xff444444),
+        fontWeight: fm.FontWeight.bold);
+    fm.Widget handle(void Function(fm.DragUpdateDetails) onDrag) =>
+        fm.SizedBox(
+          width: _dragColW,
+          child: fm.GestureDetector(
+            behavior: fm.HitTestBehavior.opaque,
+            onHorizontalDragUpdate: onDrag,
+            onHorizontalDragEnd: (_) => _saveRatio(),
+            child: fm.Center(
+              child: fm.RotatedBox(
+                quarterTurns: 1,
+                child: fm.Icon(fm.Icons.drag_handle,
+                    size: 24, color: Color(0xff1976d2)),
+              ),
+            ),
+          ),
+        );
+    //  列标题:单行显示,列宽不足时自动缩小字号,绝不换行
+    fm.Widget label(String t) => fm.FittedBox(
+        fit: fm.BoxFit.scaleDown,
+        child: fm.Text(t, maxLines: 1, style: style));
+    return fm.Container(
+      width: double.infinity,
+      color: Color(0xffe8e8e8),
+      padding: fm.EdgeInsets.only(left: 12, right: 8, top: 1, bottom: 1),
+      child: fm.Row(children: [
+        fm.SizedBox(width: _seqColW, child: label('序号')),
+        handle(_onSeqDrag),
+        fm.SizedBox(width: recogW, child: label('识别结果')),
+        handle(_onDividerDrag),
+        fm.Expanded(child: label('标准口令')),
+      ]),
+    );
+  }
+
+}
+
+class SequencerEditLine extends fm.StatefulWidget {
+  @override
+  _SequencerEditLineState createState() => _SequencerEditLineState();
+}
+
+class _SequencerEditLineState extends fm.State<SequencerEditLine>
+    with fm.WidgetsBindingObserver, fm.SingleTickerProviderStateMixin {
+
+  fm.TextEditingController textFieldController = fm.TextEditingController();
+  final focusNode = fm.FocusNode();
+  final ItemScrollController itemScrollController = ItemScrollController();
+  final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
+  late DualSpeechProvider speechProvider;
+  var _lastError = '';
+  var _isVoiceCall = false;
+
+  //  ---- 背景音乐/节拍/语音识别流程 ----
+  //  流程状态(含口令员姓名/映射表)由 VoiceFlow 单例持有
+  //  (输入行会因键盘开合被销毁重建,状态放在 State 里会被打断),
+  //  这里只负责 UI 展示与交互
+  final flow = VoiceFlow.instance;
+  fm.AnimationController? _blinkController;
+  var _blinkOn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    fm.WidgetsBinding.instance.addObserver(this);
+    if (!TamUtils.isTouchDevice)
+      later(() {
+        focusNode.requestFocus();
+      });
+    speechProvider = DualSpeechProvider();
+    flow.attach(speechProvider);
+    flow.addListener(_onFlowChanged);
+    //  供音乐按钮在未登录时触发的"登录并打开映射表"回调
+    flow.loginRequest = _loginAndOpenTable;
+    //  麦克风按钮蓝色闪烁动画:250ms 一个周期,亮/暗各 125ms = 4 次/秒
+    _blinkController = fm.AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 250))
+      ..addListener(() {
+        final on = _blinkController!.value < 0.5;
+        if (on != _blinkOn && mounted)
+          setState(() => _blinkOn = on);
+      });
+  }
+
+  //  PTT"按下圆钮,读右侧口令"提示浮层(按下显示,抬起消失)
+  fm.OverlayEntry? _pttHint;
+
+  void _showPttHint() {
+    _hidePttHint();
+    _pttHint = fm.OverlayEntry(builder: (ctx) => fm.Positioned(
+        bottom: 120, left: 0, right: 0,
+        child: fm.IgnorePointer(
+          child: fm.Center(
+            child: fm.Container(
+              color: Color.BLUE,
+              padding: const fm.EdgeInsets.symmetric(
+                  vertical: 10, horizontal: 24),
+              child: const fm.Text(' ',
+                  style: fm.TextStyle(fontSize: 24, color: Color.WHITE)),
+            ),
+          ),
+        )));
+    fm.Overlay.of(context).insert(_pttHint!);
+  }
+
   void _hidePttHint() {
     _pttHint?.remove();
     _pttHint = null;
@@ -1096,11 +2441,14 @@ class _OnlyButtonRowState extends fm.State<OnlyButtonRow> {
                     //  打开表由独立的"打开表"按钮负责
                     if (!flow.isActive) return;
                     if (flow.startSample())
+                      _showPttHint();
                   },
                   onPointerUp: (_) {
+                    _hidePttHint();
                     flow.endSample();
                   },
                   onPointerCancel: (_) {
+                    _hidePttHint();
                     flow.endSample();
                   },
                   child: fm.Container(
