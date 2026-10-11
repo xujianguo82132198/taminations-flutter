@@ -528,7 +528,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                         : '● 正在聆听…(松开结束)'))
                     : (flow.dictationText.isNotBlank
                         ? '${flow.dictationText} →'
-                        : '🎙 朗读')))),
+                        : '🎙 朗读 / 标准口令搜索')))),
             style: fm.TextStyle(fontSize: 20,
                 fontWeight: fm.FontWeight.bold))
             : fm.Column(
@@ -538,7 +538,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                   fm.Text(
                       flow.dictationText.isNotBlank
                           ? '${flow.dictationText} →'
-                          : '🎙 朗读',
+                          : '🎙 朗读 / 标准口令搜索',
                       style: fm.TextStyle(fontSize: 20,
                           fontWeight: fm.FontWeight.bold)),
                   //  候选条:点一下即选为采表结果。
