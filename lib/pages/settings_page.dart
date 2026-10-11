@@ -124,6 +124,12 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                                   fontSize: 13,
                                   color: fm.Colors.black54)),
                         ])),
+                //  白底延伸(用户:只留最上横线——块底缘这条
+                //  线推出视口,画面底不再见横线)
+                fm.Container(
+                    width: double.infinity,
+                    color: fm.Colors.white,
+                    height: 320),
               ]));
         });
   }
