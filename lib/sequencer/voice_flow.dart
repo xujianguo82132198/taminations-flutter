@@ -840,8 +840,7 @@ class VoiceFlow extends ChangeNotifier {
       }
       return;
     }
-    if (s.isListening) return;  //  仍按住中:等分段final
-    //  松开后取完整结果
+    //  每个final都是一个"语句"(实时处理,不等松开)
     _processInputSentence(result);
   }
 
