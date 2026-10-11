@@ -788,6 +788,7 @@ class VoiceFlow extends ChangeNotifier {
     if (!isActive) return false;
     if (phase == 'detecting' || phase == 'awaiting') return false;
     pttInputActive = true;
+    _inputFinalCount = 0;
     speech?.cancel();
     speech?.setSampleGrammar(_inputGrammar());
     dictationPartial = '';
@@ -845,34 +846,44 @@ class VoiceFlow extends ChangeNotifier {
           .where((t) => t.isNotBlank)
           .join(' ');
 
-  ///  Input模式结果处理
+  ///  Input模式已消费的final句数(按索引增量消费)
+  int _inputFinalCount = 0;
+
+  ///  Input模式结果处理:每个vosk final=一句话(间隔冲刷
+  ///  0.3秒断句),查表后**累加**到pending——不冲已确认的
+  ///  accumulated,也不冲本会话早先的句子
   void _onInputResult() {
     final s = speech;
-    debugPrint('INPUT_R: called, pttInputActive=$pttInputActive, '
-        's=${s != null}, hasResults=${s?.hasResults}');
-    if (s == null || !pttInputActive || !s.hasResults) return;
-    final result = s.lastResult;
-    debugPrint('INPUT_R: finalResult=${result?.finalResult}, '
-        'words="${result?.recognizedWords}"');
-    if (!result!.finalResult) {
-      final p = result.recognizedWords.trim();
-      if (p != dictationPartial) {
-        dictationPartial = p;
-        _notify();
+    if (s == null || !pttInputActive) return;
+    final finals = s.sampleFinals;
+    if (finals.length <= _inputFinalCount) {
+      //  无新句:partial实时显示(不确认)
+      final r = s.lastResult;
+      if (r != null && !r.finalResult) {
+        final p = r.recognizedWords.trim();
+        if (p != dictationPartial) {
+          dictationPartial = p;
+          _notify();
+        }
       }
       return;
     }
-    //  每个final都是一个"语句"(实时处理,不等松开)
-    _processInputSentence(result);
-    //  处理完立即清结果(防止build重复消费)
+    var gotNew = false;
+    while (_inputFinalCount < finals.length) {
+      _processInputSentence(finals[_inputFinalCount]);
+      _inputFinalCount++;
+      gotNew = true;
+    }
+    debugPrint('INPUT_R: consumed $_inputFinalCount finals, '
+        'pending="$inputPending"');
     s.clearResults();
     //  松钮后的final=本次采样收尾(不再等3秒超时)
-    if (_inputReleased) _endInputCleanup();
+    if (gotNew && _inputReleased) _endInputCleanup();
   }
 
-  ///  处理一个"语句"(0.3秒断句=一句话)
-  void _processInputSentence(SpeechRecognitionResult result) {
-    var text = result.recognizedWords.trim();
+  ///  处理一个"语句"(0.3秒断句=一句话,文本为原始听法)
+  void _processInputSentence(String raw) {
+    var text = raw.trim();
     if (text.isEmpty) return;
     //  先查PSfix,再查口令表
     String? matched;
@@ -894,10 +905,12 @@ class VoiceFlow extends ChangeNotifier {
     }
     //  查到:用标准口令;查不到:用原始听法(口令员自己改)
     final display = matched ?? text;
-    //  替换最后一笔(不冲更早的)
-    inputPending = display;
+    //  累加到pending尾上(不冲已确认的accumulated,
+    //  也不冲本会话早先的句子——口令员按回车才确认)
+    inputPending =
+        inputPending.isBlank ? display : '$inputPending $display';
     debugPrint('语音Input: "$text" -> "$display" '
-        '(accumulated="$inputAccumulated")');
+        '(pending="$inputPending", accumulated="$inputAccumulated")');
     _notify();
   }
 

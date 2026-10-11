@@ -82,6 +82,11 @@ class MainActivity : FlutterActivity() {
     private const val VAD_CLOSE_DB = -42.0   //  关门(滞回下限,防止能量抖动反复开关)
     private const val VAD_HANG_MS = 500L     //  低于关门阈值持续此时长才关门(保留自然句尾)
     private const val VAD_MIN_SPEECH_MS = 200L  //  开门累计不足此时长视为噪声,丢弃其结果
+    //  语句间隔判定(用户设定0.3秒):持续监听/采样中0.3秒
+    //  无话音=一句结束。vosk原生端点固定约0.5~0.9秒且
+    //  Recognizer无配置接口(0.3.47已验无setEndpoint*),
+    //  此处在采集线程自行判定并强制冲刷
+    private const val UTTERANCE_GAP_MS = 300L
   }
 
   private var micThread: Thread? = null
@@ -546,9 +551,11 @@ class MainActivity : FlutterActivity() {
           //  静音门限(自适应底噪):静音期跟踪底噪,开门=底噪
           //  +12dB,关门=底噪+5dB——固定-42曾在底噪-40的房间
           //  永远关不上闸门,噪音持续进解码器
+          //  db每chunk必算(语句间隔判定在gate=false的PTT
+          //  采样也要工作);gate块只管开/关门逻辑
+          val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
           if (gate) {
             val chunkMs = n * 1000L / 16000
-            val db = if (sumSq > 0) 20 * log10(sqrt(sumSq / n)) else -100.0
             //  噪声抑制加强(用户:冰箱空调房间仍出dive thru):
             //  开门=底噪+20dB(约为喊口令音量的一半),原+12太松
             val openT0 = noiseFloorDb + 8.0 + noiseSuppressRatio * 20.0
@@ -679,6 +686,15 @@ class MainActivity : FlutterActivity() {
                 voskFeed = false
               }
             }
+            //  语句间隔判定:有声=关门阈值之上(PTT采样用同一
+            //  公式,底噪为默认值);partial见过字=有未定稿话音
+            val voiceT = noiseFloorDb +
+                (8.0 + noiseSuppressRatio * 20.0) * 0.45
+            if (db > voiceT) lastVoiceAt = System.currentTimeMillis()
+            if (partialJson != null &&
+                !partialJson.contains(":\"\"") &&
+                !partialJson.contains(": \"\""))
+              pendingUtterance = true
             if (finalJson != null) {
               //  太短的"话音"=噪声误开门,其结果丢弃
               val speechMs = if (vadOpen) vadSpeechMs else vadLastUtteranceMs
@@ -686,9 +702,32 @@ class MainActivity : FlutterActivity() {
                 sendEvent("vosk_final", finalJson)
               else
                 Log.i(TAG, "vad: final dropped (speech=${speechMs}ms)")
+              pendingUtterance = false
             } else if (partialJson != null && !gateClosed) {
               //  静音期(喂零)的空 partial 不发送
               sendEvent("vosk_partial", partialJson)
+            }
+            //  0.3秒无话音且有未定稿话音:一句结束,喂静音强制
+            //  冲刷出final(会话继续,不等vosk原生端点的0.5~0.9秒)
+            if (finalJson == null && pendingUtterance && lastVoiceAt > 0 &&
+                System.currentTimeMillis() - lastVoiceAt >= UTTERANCE_GAP_MS) {
+              pendingUtterance = false
+              synchronized(voskLock) {
+                val r = voskRecognizer
+                if (r != null) {
+                  try {
+                    val silence = ByteArray(16000 * 6 / 10)  //  0.6s @16kHz
+                    val hit = r.acceptWaveForm(silence, silence.size)
+                    val j = if (hit) r.result else r.finalResult
+                    if (j != null) {
+                      Log.i(TAG, "vosk: gap flush (${UTTERANCE_GAP_MS}ms quiet)")
+                      sendEvent("vosk_final", j)
+                    }
+                  } catch (e: Exception) {
+                    Log.e(TAG, "vosk: gap flush failed", e)
+                  }
+                }
+              }
             }
           } else {
             //  云端引擎:音频推给 Dart 转发
@@ -743,6 +782,9 @@ class MainActivity : FlutterActivity() {
   @Volatile
   private var voskGate = false
 
+  //  语句间隔判定状态(采集线程内部,无需跨线程)
+  private var lastVoiceAt = 0L          //  最近一次有声chunk的时刻
+  private var pendingUtterance = false  //  识别器有未定稿话音(partial见过字)
   //  静音门限状态(采集线程更新,voskStart 重置)
   @Volatile private var vadOpen = false
   @Volatile private var vadSpeechMs = 0L
@@ -863,6 +905,7 @@ class MainActivity : FlutterActivity() {
         wholeUtteranceMode = (call.argument<Boolean>("wholeUtterance") ?: false)
         noiseSuppressRatio = (call.argument<Double>("noiseSuppress") ?: 0.4)
         vadOpen = false; vadSpeechMs = 0; vadQuietMs = 0; vadLastUtteranceMs = 0
+        lastVoiceAt = 0; pendingUtterance = false
         if (grammar != null) Log.i(TAG, "vosk: grammar set (${grammar.length} bytes)")
         Log.i(TAG, "vosk: gate=${if (gate) "on" else "off"}")
       } catch (e: Exception) {

@@ -117,6 +117,11 @@ class VoskSpeechToText extends ChangeNotifier {
   ///  足够容纳最长的口令结构
   final List<String> _segments = [];
   List<String> get segments => List.unmodifiable(_segments);
+  ///  采样会话内每个final的**本句原文**(vosk断句/间隔冲刷
+  ///  各给出独立一句;_lastResult的alternates[0]永远停在
+  ///  第一句,多句采样不能用——Input模式按索引消费此表)
+  final List<String> _sampleFinals = [];
+  List<String> get sampleFinals => List.unmodifiable(_sampleFinals);
   bool _segInSegment = false;
   DateTime? _segLastLoudAt;
   String _segStartKnown = '';
@@ -425,6 +430,7 @@ class VoskSpeechToText extends ChangeNotifier {
       return;
     }
     _log('sample: start (push-to-talk)');
+    _sampleFinals.clear();
     _lastResult = null;
     _lastError = null;
     _lastLevel = 0;
@@ -655,6 +661,7 @@ class VoskSpeechToText extends ChangeNotifier {
             //  不再做前缀段的规范形改写(用户原则:记号是
             //  识别器指纹,录什么存什么,改写交给口令员掌握)
             final seg = texts.first;
+            _sampleFinals.add(seg);
             _sessionText = _sessionText.isEmpty
                 ? seg : '$_sessionText $seg';
             for (final t in texts) {
