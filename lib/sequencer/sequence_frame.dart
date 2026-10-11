@@ -82,7 +82,7 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                  //  表后台查询的结果实时亮出——P_/C_/S_ 各自的
                  //  映射输出 + 进表标志(用户要求:后台运行,
                  //  结果要显示)
-                 PipelineResultStrip(),
+                 fm.SizedBox.shrink(),  //  三显示区暂停显示(用户要求)
                  //  口令输入行(原来的位置:紧跟动画区,始终显示)
                  SequencerEditLine(),
                  //  Only 采表:识别结果大字显示(显示框+圆钮+表退出)
@@ -2100,9 +2100,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         //  so the user will see another messoage on repeating the same error
         afterDelay(() { _lastError = ''; },Duration(seconds:5));
       }
+      //  Input圆钮模式:跳过三表流水线(不自动回车,
+      //  结果由_onInputResult→inputPending→输入框)
+      if (flow.pttInputActive && speech.hasResults) {
+        speech.clearResults();
+      }
       //  三表组合口令执行(独立于识别结果状态——流程监听
       //  与界面重建的顺序有竞争,曾致组合口令被丢,不进输入框)
-      if (!flow.onlyMode && flow.assembledCall.isNotBlank) {
+      else if (!flow.onlyMode && flow.assembledCall.isNotBlank) {
         final call = flow.assembledCall;
         flow.consumeAssembled();
         debugPrint('送输入框+回车: "$call"');
