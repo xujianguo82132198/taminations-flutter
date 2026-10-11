@@ -3548,6 +3548,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             }));
                         if (imported > 0) {
                           await _refreshTableNames(prefs3, tableNames);
+                          //  全盘拷贝保真:引入若覆盖了当前正打开的
+                          //  表,立即从存储重载——否则内存里的旧表
+                          //  在下次编辑保存时会把引入内容整体冲掉
+                          //  (用户:Only表内已录声纹行必须原样到达)
+                          final openName = flow.callerTable?.callerName;
+                          if (openName != null && openName.contains('/')) {
+                            await flow.openCallerTable(openName);
+                          }
                           _mgmtSnackBar('共引入 $imported 张表到 $target');
                         }
                       }),
