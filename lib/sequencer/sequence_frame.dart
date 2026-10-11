@@ -316,7 +316,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                 }
               }
               return fm.AlertDialog(
-                title: fm.Text('搜索口令(第三列)',
+                title: fm.Text('标准口令搜索(第三列)',
                     style: fm.TextStyle(fontSize: 20)),
                 content: fm.SizedBox(
                   width: double.maxFinite,
@@ -328,8 +328,9 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                         autofocus: true,
                         style: fm.TextStyle(fontSize: 24),
                         decoration: fm.InputDecoration(
-                            hintText: '如: cir',
-                            hintStyle: fm.TextStyle(fontSize: 20)),
+                            hintText: '输入标准口令片段,如 boys;'
+                                ' 下方点行=选中该行',
+                            hintStyle: fm.TextStyle(fontSize: 17)),
                         onChanged: (_) => setD(() {}),
                       ),
                       fm.Padding(
@@ -765,7 +766,7 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
                     ? '● 正在聆听... (松开结束)'
                     : (flow.dictationText.isNotBlank
                     ? '识别结果: ${flow.dictationText}  (点=确认)'
-                        : '(按住🎙朗读,抬起出结果)')),
+                        : '(按住🎙朗读,抬起出结果 / 标准口令搜索)')),
             style: fm.TextStyle(fontSize: 22,
                 fontWeight: fm.FontWeight.bold)),
       ),
