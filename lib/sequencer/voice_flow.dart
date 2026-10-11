@@ -782,8 +782,11 @@ class VoiceFlow extends ChangeNotifier {
   ///  当前句子的分段累积
   final List<String> _inputSegParts = [];
 
-  ///  Input模式:按下→清零输入框,开始PTT采样
-  bool startInputSample() {
+  ///  Input模式:按下→框内现有文本成为底稿(跨按住期累加:
+  ///  第一次喊Heads松手,第二次进圆钮喊Pass the Ocean,
+  ///  框内=Heads Pass the Ocean;同按住期内重喊只替换
+  ///  当前句)。开始PTT采样。
+  bool startInputSample({String seedText = ''}) {
     debugPrint('INPUT_S: start pressed, isActive=$isActive, phase=$phase');
     if (!isActive) return false;
     if (phase == 'detecting' || phase == 'awaiting') return false;
@@ -792,7 +795,8 @@ class VoiceFlow extends ChangeNotifier {
     speech?.cancel();
     speech?.setSampleGrammar(_inputGrammar());
     dictationPartial = '';
-    inputAccumulated = '';
+    //  底稿=框内当前文本(上次的pending或手工键入都算)
+    inputAccumulated = seedText.trim();
     inputPending = '';
     _inputSegParts.clear();
     speech?.sample(localeId: 'en_US', partialResults: true);
@@ -913,12 +917,12 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  Input模式:回车确认,把pending并入accumulated
-  void confirmInputPending() {
-    if (inputPending.isNotBlank) {
-      inputAccumulated = inputBoxText;  //  当前全部内容→accumulated
-      inputPending = '';
-    }
+  ///  Input模式:回车执行后清空(X钮/清显示同)——
+  ///  下次按圆钮从空底稿重新累加
+  void inputConsumed() {
+    inputAccumulated = '';
+    inputPending = '';
+    _notify();
   }
 
   ///  Input模式:结果通知→输入框实时更新(通过listener)
@@ -1500,6 +1504,8 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  清零三区+递归(开/关麦克风/X钮/点输入框/命令超时)
   void clearAllDisplays() {
+    inputAccumulated = '';
+    inputPending = '';
     tableFlags = '';
     prefixResult = '';
     callResult = '';

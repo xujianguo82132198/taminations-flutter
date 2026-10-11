@@ -2235,6 +2235,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         if (value.isBlank) return;
                         _isVoiceCall = false;
                         _sendOneLine(model, value);
+                        //  语音Input的底稿已随本行执行完毕,清零
+                        flow.inputConsumed();
                       },
                 ),
               )
@@ -2371,13 +2373,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 behavior: fm.HitTestBehavior.opaque,
                 onPointerDown: (_) {
                   debugPrint('INPUT_BTN: pointer down');
-                  //  Selection输入法同款:清框→焦点→键盘可见
-                  textFieldController.clear();
+                  //  Selection输入法同款:焦点→键盘可见
+                  //  (不清框:框内现有文本成为本次底稿,跨期累加)
                   focusNode.requestFocus();
                   setState(() {
                     virtualKeyboardSetVisible(true);
                   });
-                  flow.startInputSample();
+                  flow.startInputSample(
+                      seedText: textFieldController.text);
                 },
                 onPointerUp: (_) {
                   flow.endInputSample();
@@ -2461,12 +2464,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       //  非Only:与输入行圆钮同款Input流程
                       //  (Selection输入法同款:清框→焦点→键盘)
                       debugPrint('INPUT_BTN: column PTT down');
-                      textFieldController.clear();
                       focusNode.requestFocus();
                       setState(() {
                         virtualKeyboardSetVisible(true);
                       });
-                      flow.startInputSample();
+                      flow.startInputSample(
+                          seedText: textFieldController.text);
                     }
                   },
                   onPointerUp: (_) {
