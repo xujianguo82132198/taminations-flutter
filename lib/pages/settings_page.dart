@@ -124,7 +124,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                     color: fm.Colors.white,
                     padding: fm.EdgeInsets.all(12),
                     child: fm.Text(
-                        '构建: ${DualSpeechProvider.buildStamp}',
+                        '语音识别系统构建: '
+                        '${DualSpeechProvider.buildStamp}',
                         style: fm.TextStyle(
                             fontSize: 13, color: fm.Colors.black54))),
               ]));
