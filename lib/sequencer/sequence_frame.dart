@@ -1582,7 +1582,7 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
   Future<void> _addRecordDialog() async {
     if (!flow.onlyMode) return;
     //  先增加一个空行并选为当前(用户:进入画面即有落点,
-    //  选择/键入/搜索各路径都往此行填)
+    //  选择/键入各路径都往此行填)
     final table = flow.callerTable;
     if (table == null) return;
     final row = await table.addRow(recognized: '', standardCall: '');
@@ -1626,13 +1626,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
                       children: [
                         _addRecordOption(
                             () => fm.Navigator.of(ctx).pop(true),
-                            '去选择口令', '到 CALL 列表点选'),
+                            '选择“标准口令”', '到 CALL 列表点选'),
                         _addRecordOption(
                             () => fm.Navigator.of(ctx).pop('type'),
-                            '键入口令', '键盘手动输入'),
-                        _addRecordOption(
-                            () => fm.Navigator.of(ctx).pop('search'),
-                            '搜索口令', '输入片段筛选,点行选中'),
+                            '键入“标准口令”', '键盘手动输入'),
                       ],
                     ),
                     actions: [
@@ -1647,10 +1644,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     if (go == 'type') {
       //  键入:编辑预建空行(取消/空=行保留以后再填)
       await _editStandardCall(row);
-      return;
-    }
-    if (go == 'search') {
-      await _panelSearchFor(row);
       return;
     }
     if (go != true || !mounted) return;
@@ -1690,97 +1683,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     );
   }
 
-  ///  搜索口令(增加记录画面):输入片段筛选当前表,点行=
-  ///  口令填入预建空行+面板定位(用户:功能很需要,要有提示)
-  Future<void> _panelSearchFor(CallerRow row) async {
-    final controller = fm.TextEditingController();
-    final picked = await fm.showDialog<String>(
-        context: context,
-        builder: (ctx) => fm.StatefulBuilder(builder: (ctx, setD) {
-              List<CallerRow> matches = [];
-              final p = controller.text.trim().toLowerCase();
-              final t = flow.callerTable;
-              if (p.isNotEmpty && t != null) {
-                for (final r in t.rows) {
-                  if (r.standardCall.toLowerCase().startsWith(p))
-                    matches.add(r);
-                }
-                if (matches.isEmpty) {
-                  for (final r in t.rows) {
-                    if (r.standardCall.toLowerCase().contains(p))
-                      matches.add(r);
-                  }
-                }
-              }
-              return fm.AlertDialog(
-                title: fm.Text('搜索口令(第三列)',
-                    style: fm.TextStyle(fontSize: 20)),
-                content: fm.Column(
-                    mainAxisSize: fm.MainAxisSize.min,
-                    children: [
-                      fm.TextField(
-                        controller: controller,
-                        autofocus: true,
-                        style: fm.TextStyle(fontSize: 24),
-                        decoration: fm.InputDecoration(
-                            hintText: '输入口令片段,如 boys;'
-                                ' 下方列表点行=选中',
-                            hintStyle: fm.TextStyle(fontSize: 17)),
-                        onChanged: (_) => setD(() {}),
-                      ),
-                      fm.SizedBox(height: 6),
-                      fm.Text(
-                          matches.isEmpty
-                              ? (p.isEmpty ? '请输入字母' : '(无匹配行)')
-                              : '待显示 ${matches.length} 行'
-                                  '${matches.length > 8 ? '(可上下滚动)' : ''}',
-                          style: fm.TextStyle(
-                              fontSize: 15, color: Color.GRAY)),
-                      fm.SizedBox(height: 3),
-                      if (matches.isNotEmpty)
-                        fm.SizedBox(
-                          height: 420,
-                          width: double.infinity,
-                          child: fm.ListView.builder(
-                            itemCount: matches.length,
-                            itemBuilder: (lctx, i) {
-                              final m = matches[i];
-                              return fm.ListTile(
-                                dense: true,
-                                title: fm.Text(
-                                    '第${m.seq}行  ${m.standardCall}',
-                                    style: fm.TextStyle(fontSize: 18)),
-                                onTap: () => fm.Navigator.of(ctx)
-                                    .pop(m.standardCall),
-                              );
-                            },
-                          ),
-                        ),
-                    ]),
-                actions: [
-                  fm.TextButton(
-                      onPressed: () =>
-                          fm.Navigator.of(ctx).pop(''),
-                      child: fm.Text('关闭',
-                          style: fm.TextStyle(fontSize: 18))),
-                ],
-              );
-            }));
-    controller.dispose();
-    if (picked != null && picked.isNotBlank) {
-      //  点行:口令填入预建空行,面板定位过去
-      await flow.fillRecordRow(row.seq, picked);
-      flow.selectDictationRow(row.seq);
-      final t = flow.callerTable;
-      final idx =
-          t?.rows.indexWhere((r) => r.seq == row.seq) ?? -1;
-      if (idx >= 0) {
-        fm.WidgetsBinding.instance.addPostFrameCallback((_) {
-          itemScrollController.jumpTo(index: idx, alignment: 0.3);
-        });
-      }
-    }
-  }
 
   //  列头行(表顶端):序号 / 语音识别结果 / 标准口令 标题,
   //  两个拖动把手:序号|识别列之间、识别|标准列之间(左右拖改列宽)
