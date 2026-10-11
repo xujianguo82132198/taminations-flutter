@@ -72,7 +72,7 @@ class DualSpeechProvider extends ChangeNotifier {
       engine == 'vosk' ? vosk.segmentAlts : const <List<String>>[];
 
   ///  构建时间戳(每次构建手动更新,用户可验证新旧版本)
-  static const buildStamp = '2026-10-11 21:30';
+  static const buildStamp = '2026-10-12 01:40';
   DualSpeechProvider() {
     debugPrint('BUILD STAMP: $buildStamp');
     _loadSetting();
