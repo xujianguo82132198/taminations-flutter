@@ -320,8 +320,8 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                     style: fm.TextStyle(fontSize: 20)),
                 content: fm.SizedBox(
                   width: double.maxFinite,
-                  height: 560,
                   child: fm.Column(
+                    mainAxisSize: fm.MainAxisSize.min,
                     children: [
                       fm.TextField(
                         controller: controller,
@@ -339,7 +339,8 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                             fm.Text(
                                 matches.isEmpty
                                     ? (p.isEmpty ? '请输入字母' : '(无匹配行)')
-                                    : '待显示 ${matches.length} 行'
+                                    : '待显示 ${matches.length} 行,'
+                                      '点击行进入'
                                       '${matches.length > 14 ? '(可滚动)' : ''}',
                                 style: fm.TextStyle(
                                     fontSize: 16, color: Color.GRAY)),
@@ -363,23 +364,29 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                                           fontSize: 18,
                                           color: Color.BLUE))),
                           ])),
-                      fm.Expanded(
-                          child: fm.ListView.builder(
-                        physics: fm.AlwaysScrollableScrollPhysics(),
-                        itemCount: matches.length,
-                        itemBuilder: (lctx, i) {
-                          final m = matches[i];
-                          return fm.ListTile(
-                            dense: true,
-                            title: fm.Text('第${m.seq}行  ${m.standardCall}',
-                                style: fm.TextStyle(fontSize: 20)),
-                            onTap: () {
-                              selected = m;
-                              fm.Navigator.of(ctx).pop();
-                            },
-                          );
-                        },
-                      )),
+                      //  高度随需要(用户:不要有多高用多高,列表
+                      //  自带滚动):行少贴内容,行多封顶滚动
+                      fm.ConstrainedBox(
+                        constraints: const fm.BoxConstraints(
+                            maxHeight: 420),
+                        child: fm.ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: matches.length,
+                          itemBuilder: (lctx, i) {
+                            final m = matches[i];
+                            return fm.ListTile(
+                              dense: true,
+                              title: fm.Text(
+                                  '第${m.seq}行  ${m.standardCall}',
+                                  style: fm.TextStyle(fontSize: 20)),
+                              onTap: () {
+                                selected = m;
+                                fm.Navigator.of(ctx).pop();
+                              },
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
