@@ -22,6 +22,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'vosk_speech_to_text.dart'
+    show SpeechRecognitionAlternative, SpeechRecognitionResult;
+
 import '../dance_model.dart';
 import '../extensions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -766,6 +769,127 @@ class VoiceFlow extends ChangeNotifier {
   String callResult = '';
   String suffixResult = '';
   ///  组合完成的整条口令(输入行执行后由 consumeAssembled 清)
+  //  ---- 语音Input模式(用户设计:圆钮+输入框) ----
+  //  按下圆钮→清零输入框→说话→0.3秒断句→每句先查PSfix
+  //  再查口令表→结果累加入输入框(替换最后一笔,不冲更早的)
+  //  抬起→等口令员自己按回车
+  ///  Input模式按钮按下中
+  bool pttInputActive = false;
+  ///  已确认的累加文本(不冲掉)
+  String inputAccumulated = '';
+  ///  当前待替换的最后一笔
+  String inputPending = '';
+  ///  当前句子的分段累积
+  final List<String> _inputSegParts = [];
+
+  ///  Input模式:按下→清零输入框,开始PTT采样
+  bool startInputSample() {
+    if (!isActive) return false;
+    if (phase == 'detecting' || phase == 'awaiting') return false;
+    pttInputActive = true;
+    speech?.cancel();
+    speech?.setSampleGrammar(_inputGrammar());
+    dictationPartial = '';
+    inputAccumulated = '';
+    inputPending = '';
+    _inputSegParts.clear();
+    speech?.sample(localeId: 'en_US', partialResults: true);
+    speech?.addListener(_onInputResult);
+    Future.microtask(() => _notify());
+    return true;
+  }
+
+  ///  Input模式:抬起→收尾,输入框保留累加结果
+  void endInputSample() {
+    if (!pttInputActive) return;
+    speech?.stop();
+    _notify();
+    Timer(const Duration(seconds: 8), () {
+      if (pttInputActive) {
+        pttInputActive = false;
+        _notify();
+      }
+    });
+  }
+
+  ///  Input模式语法:当前表+全目录(与喊口令一致)
+  List<String>? _inputGrammar() {
+    final callG = <String>{
+      ...?_onlyTableWords(),
+      ..._allDirWords,
+    };
+    return [...callG, '[unk]'];
+  }
+
+  ///  Input模式:输入框内容 = 累加+待替换
+  String get inputBoxText =>
+      [inputAccumulated, inputPending]
+          .where((t) => t.isNotBlank)
+          .join(' ');
+
+  ///  Input模式结果处理
+  void _onInputResult() {
+    final s = speech;
+    if (s == null || !pttInputActive || !s.hasResults) return;
+    final result = s.lastResult;
+    if (!result!.finalResult) {
+      final p = result.recognizedWords.trim();
+      if (p != dictationPartial) {
+        dictationPartial = p;
+        _notify();
+      }
+      return;
+    }
+    if (s.isListening) return;  //  仍按住中:等分段final
+    //  松开后取完整结果
+    _processInputSentence(result);
+  }
+
+  ///  处理一个"语句"(0.3秒断句=一句话)
+  void _processInputSentence(SpeechRecognitionResult result) {
+    var text = result.recognizedWords.trim();
+    if (text.isEmpty) return;
+    //  先查PSfix,再查口令表
+    String? matched;
+    final psfix = _psfixTable;
+    if (psfix != null && psfix.rows.isNotEmpty) {
+      final r = psfix.lookupSequential(text);
+      if (r.hit != null && r.error <= 0.45) {
+        matched = r.hit!.standardCall;
+      }
+    }
+    if (matched == null) {
+      final act = callerTable;
+      if (act != null) {
+        final r = act.lookupSequential(text);
+        if (r.hit != null && r.error <= 0.45) {
+          matched = r.hit!.standardCall;
+        }
+      }
+    }
+    //  查到:用标准口令;查不到:用原始听法(口令员自己改)
+    final display = matched ?? text;
+    //  替换最后一笔(不冲更早的)
+    inputPending = display;
+    debugPrint('语音Input: "$text" -> "$display" '
+        '(accumulated="$inputAccumulated")');
+    _notify();
+  }
+
+  ///  Input模式:回车确认,把pending并入accumulated
+  void confirmInputPending() {
+    if (inputPending.isNotBlank) {
+      inputAccumulated = inputBoxText;  //  当前全部内容→accumulated
+      inputPending = '';
+    }
+  }
+
+  ///  Input模式:结果通知→输入框实时更新(通过listener)
+  void _pushToInputBox() {
+    //  通知UI更新(输入框的controller由frame管理,
+    //  通过notifyListeners让frame重建时写入)
+  }
+
   ///  最近一次麦克风命令的识别文本(供「存」钮存入表行)
   String lastMicText = '';
   ///  递归识别过程(用户要看到):辅音家族导航的逐步结果

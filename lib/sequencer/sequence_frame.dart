@@ -1983,6 +1983,16 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   //  流程状态变化 → 刷新 UI,并驱动闪烁与动画即时变速
   void _onFlowChanged() {
     if (!mounted) return;
+    //  语音Input模式:实时把累加结果显示到输入框
+    //  (不冲掉口令员已确认并回车过的内容——那些已在
+    //   accumulated里,inputBoxText = accumulated+pending)
+    if (flow.pttInputActive &&
+        flow.inputBoxText.isNotBlank) {
+      final t = flow.inputBoxText;
+      if (textFieldController.text != t) {
+        textFieldController.text = t;
+      }
+    }
     //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
     final selection = flow.callSelection;
     if (selection != null) {
@@ -2336,6 +2346,44 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   )
               ),
 
+            //  语音Input圆钮(非Only模式):按下说话,松开收尾
+            //  结果累加入输入框,口令员自己按回车执行
+            if (flow.callerTable != null && !flow.onlyMode)
+              fm.Listener(
+                behavior: fm.HitTestBehavior.opaque,
+                onPointerDown: (_) {
+                  flow.startInputSample();
+                },
+                onPointerUp: (_) {
+                  flow.endInputSample();
+                },
+                onPointerCancel: (_) {
+                  flow.endInputSample();
+                },
+                child: fm.Container(
+                  width: 44,
+                  height: 44,
+                  margin: fm.EdgeInsets.only(right: 4),
+                  decoration: fm.BoxDecoration(
+                    shape: fm.BoxShape.circle,
+                    color: flow.pttInputActive
+                        ? Color.BLUE
+                        : Color.WHITE,
+                    border: fm.Border.all(
+                        color: flow.pttInputActive
+                            ? Color.BLUE
+                            : Color.BLACK,
+                        width: 2),
+                  ),
+                  child: fm.Icon(
+                    fm.Icons.record_voice_over,
+                    size: 24,
+                    color: flow.pttInputActive
+                        ? Color.WHITE
+                        : Color.BLACK,
+                  ),
+                ),
+              ),
             //  X钮:清空输入框——始终可见,不受键盘显隐影响
             //  (用户:打开表后提示文字盖住了X钮)
             fm.IconButton(
