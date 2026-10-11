@@ -2338,23 +2338,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               flow.onlyMode
                                   ? fm.TextSpan(text: '圆钮按下,读口令,读完抬起')
                                   : fm.TextSpan(children: [
-                                      //  两个输入法都要打开表:
-                                      //  圆钮(record_voice_over) /
-                                      //  麦克风(mic)
-                                      fm.WidgetSpan(
-                                          alignment: fm.PlaceholderAlignment
-                                              .middle,
-                                          child: fm.Icon(
-                                              fm.Icons.record_voice_over,
-                                              size: 18)),
-                                      fm.TextSpan(text: ' / '),
-                                      fm.WidgetSpan(
-                                          alignment: fm.PlaceholderAlignment
-                                              .middle,
-                                          child: fm.Icon(
-                                              fm.Icons.mic, size: 18)),
                                       fm.TextSpan(
-                                          text: ' 按钮需打开表;语音口令输入'),
+                                          text: '按下<圆钮>做语音 '),
+                                      fm.TextSpan(
+                                          text: 'Input',
+                                          style: fm.TextStyle(
+                                              fontWeight:
+                                                  fm.FontWeight.bold)),
+                                      fm.TextSpan(
+                                          text: ';  按下<麦克风>做语音连续 Input'),
                                     ]),
                               maxLines: 1,
                               overflow: fm.TextOverflow.ellipsis,
@@ -2370,6 +2362,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               fm.Listener(
                 behavior: fm.HitTestBehavior.opaque,
                 onPointerDown: (_) {
+                  textFieldController.clear();
                   flow.startInputSample();
                 },
                 onPointerUp: (_) {
