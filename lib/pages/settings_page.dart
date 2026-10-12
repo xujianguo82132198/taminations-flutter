@@ -135,6 +135,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                   value: Settings.psfixThreshold,
                   min: 0.10, max: 0.60, divisions: 25,
                   display: (v) => v.toStringAsFixed(2),
+                  dragRightText: '漏网减少',
+                  dragLeftText: '漏网增加',
                   onChanged: (v) => Settings.psfixThreshold = v,
                 ),
                 _SettingSliderRow(
@@ -143,6 +145,8 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                   value: Settings.callThreshold,
                   min: 0.10, max: 0.60, divisions: 25,
                   display: (v) => v.toStringAsFixed(2),
+                  dragRightText: '漏网减少',
+                  dragLeftText: '漏网增加',
                   onChanged: (v) => Settings.callThreshold = v,
                 ),
                 //  构建版本并入语音块(用户:它是语音识别系统的
@@ -325,6 +329,10 @@ class _SettingSliderRow extends fm.StatefulWidget {
   final int divisions;
   final String Function(double) display;
   final fm.ValueChanged<double> onChanged;
+  ///  拖动方向效果(用户:右滑/左滑动态显示松紧后果,
+  ///  松手恢复数值)
+  final String? dragRightText;
+  final String? dragLeftText;
   _SettingSliderRow({
     required this.label,
     required this.hint,
@@ -333,7 +341,9 @@ class _SettingSliderRow extends fm.StatefulWidget {
     required this.max,
     required this.divisions,
     required this.display,
-    required this.onChanged});
+    required this.onChanged,
+    this.dragRightText,
+    this.dragLeftText});
 
   @override
   __SettingSliderRowState createState() => __SettingSliderRowState();
@@ -341,6 +351,7 @@ class _SettingSliderRow extends fm.StatefulWidget {
 
 class __SettingSliderRowState extends fm.State<_SettingSliderRow> {
   double _v = 0;
+  String? _dragEffect;
   @override
   void initState() {
     super.initState();
@@ -361,9 +372,13 @@ class __SettingSliderRowState extends fm.State<_SettingSliderRow> {
                       fontSize: 16,
                       fontWeight: fm.FontWeight.bold)),
               fm.Spacer(),
-              fm.Text(widget.display(_v),
+              //  拖动中=方向效果(右松左紧),松手恢复数值
+              fm.Text(_dragEffect ?? widget.display(_v),
                   style: fm.TextStyle(
-                      fontSize: 14, color: fm.Colors.black54)),
+                      fontSize: 14,
+                      color: _dragEffect != null
+                          ? fm.Colors.blue
+                          : fm.Colors.black54)),
             ]),
             fm.Slider(
               value: _v.clamp(widget.min, widget.max),
@@ -371,9 +386,16 @@ class __SettingSliderRowState extends fm.State<_SettingSliderRow> {
               max: widget.max,
               divisions: widget.divisions,
               onChanged: (v2) => setState(() {
+                if (v2 > _v) {
+                  _dragEffect = widget.dragRightText;
+                } else if (v2 < _v) {
+                  _dragEffect = widget.dragLeftText;
+                }
                 _v = v2;
                 widget.onChanged(v2);
               }),
+              onChangeEnd: (_) =>
+                  setState(() => _dragEffect = null),
             ),
             fm.Padding(
                 padding: fm.EdgeInsets.only(bottom: 4),
