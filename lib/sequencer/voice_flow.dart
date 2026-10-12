@@ -1067,9 +1067,17 @@ class VoiceFlow extends ChangeNotifier {
 
   Future<CallerTable?> _loadAuxTable(String name) async {
     try {
-      if (!await CallerTable.exists(name)) return null;
-      return await CallerTable.open(name);
-    } catch (_) {
+      if (!await CallerTable.exists(name)) {
+        debugPrint('_loadAuxTable("$name"): 键不存在');
+        return null;
+      }
+      final t = await CallerTable.open(name);
+      debugPrint('_loadAuxTable("$name"): '
+          '${t.rows.length}行 ✓');
+      return t;
+    } catch (e) {
+      //  静默吞异常曾掩盖真相(表明明81行却报缺失)
+      debugPrint('_loadAuxTable("$name") 异常: $e');
       return null;
     }
   }
