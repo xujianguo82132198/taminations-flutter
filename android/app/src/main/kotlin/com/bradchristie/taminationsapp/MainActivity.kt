@@ -558,16 +558,19 @@ class MainActivity : FlutterActivity() {
             if (db < sessionMinDb) sessionMinDb = db
             if (db > maxDbSinceFinal) maxDbSinceFinal = db
           }
-          if (gate) {
-            val chunkMs = n * 1000L / 16000
-            //  噪声抑制加强(用户:冰箱空调房间仍出dive thru):
-            //  开门=底噪+20dB(约为喊口令音量的一半),原+12太松
+          //  底噪自适应(所有模式):安静片段慢速贴合房间实际
+          //  噪声——圆钮PTT模式(gate=false)曾一直用静止默认
+          //  值-45,环境一吵人声线就被冲破("the"重返的原因)
+          run {
             val openT0 = noiseFloorDb + 8.0 + noiseSuppressRatio * 20.0
             if (db < openT0 - 2.0) {
               noiseFloorDb = 0.9 * noiseFloorDb + 0.1 * db
               if (noiseFloorDb < -60.0) noiseFloorDb = -60.0
               if (noiseFloorDb > -25.0) noiseFloorDb = -25.0
             }
+          }
+          if (gate) {
+            val chunkMs = n * 1000L / 16000
             //  看门狗:闸门开着且db悬在滞回带累计1.5秒=底噪
             //  估低,快速上贴(与Dart分段机同款)
             val dzLow = noiseFloorDb + 5.0
@@ -703,8 +706,11 @@ class MainActivity : FlutterActivity() {
               //  太短的"话音"=噪声误开门,其结果丢弃
               val speechMs = if (vadOpen) vadSpeechMs else vadLastUtteranceMs
               //  幻觉守卫:本句窗口最大dB未过人声线=噪声解码,
-              //  丢弃(PTT静音持有期的"the"假final即此类)
-              val voiceLine = maxOf(sessionMinDb + 6.0, -30.0)
+              //  丢弃。人声线=自适应底噪+噪声滑条关门阈值
+              //  (用户滑条直接决定此防线;弃用绝对线-30,
+              //  环境一吵就被冲破——"the"曾重返)
+              val voiceLine = noiseFloorDb +
+                  (8.0 + noiseSuppressRatio * 20.0) * 0.45
               val hadVoice = maxDbSinceFinal >= voiceLine
               if ((!gate || speechMs >= VAD_MIN_SPEECH_MS) && hadVoice)
                 sendEvent("vosk_final", finalJson)
@@ -720,7 +726,8 @@ class MainActivity : FlutterActivity() {
             }
             //  0.3秒无话音且有未定稿话音:一句结束,喂静音强制
             //  冲刷出final(会话继续,不等vosk原生端点的0.5~0.9秒)
-            val gapVoiceLine = maxOf(sessionMinDb + 6.0, -30.0)
+            val gapVoiceLine = noiseFloorDb +
+                (8.0 + noiseSuppressRatio * 20.0) * 0.45
             if (finalJson == null && pendingUtterance &&
                 maxDbSinceFinal >= gapVoiceLine && lastVoiceAt > 0 &&
                 System.currentTimeMillis() - lastVoiceAt >= UTTERANCE_GAP_MS) {
@@ -957,9 +964,18 @@ class MainActivity : FlutterActivity() {
           //  幻觉守卫:自上个final后无人声=纯静音期,冲刷会把
           //  残余噪声解码成"the"之类送回,冲掉松手前的正确结果
           //  (松手前刚说过话的尾句maxDb高,照常通过)
-          val voiceLine = maxOf(sessionMinDb + 6.0, -30.0)
+          val voiceLine = noiseFloorDb +
+              (8.0 + noiseSuppressRatio * 20.0) * 0.45
           val hadVoice = maxDbSinceFinal >= voiceLine
-          if (!hadVoice) {
+          //  兜底:冲刷结果只含填充词(the/a/of...)=噪声,
+          //  无条件丢弃——真口令绝不会只有一个填充词
+          val fillerOnly = json != null && run {
+            val m = Regex("\"text\"\s*:\s*\"([^\"]*)\"")
+                .find(json!!)
+            val t = m?.groupValues?.get(1)?.trim()?.lowercase() ?: ""
+            t in setOf("the", "a", "an", "of", "to", "in", "on", "and")
+          }
+          if (!hadVoice || fillerOnly) {
             Log.i(TAG, "voskFinal: dropped (no voice since last " +
                 "final, maxDb=${"%.1f".format(maxDbSinceFinal)}, " +
                 "line=${"%.1f".format(voiceLine)})")
