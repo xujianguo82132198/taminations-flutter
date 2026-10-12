@@ -173,6 +173,12 @@ class VoiceFlow extends ChangeNotifier {
       speech?.setSampleGrammar([...callG, '[unk]']);
       debugPrint('sample grammar = call grammar '
           '(${callG.length} words)');
+      //  词汇表透视(用户:彻底搞清识别器能拼出哪些词):
+      //  允许词集全量dump——Vosk按音拼词,词在集内即可
+      //  任意组合(trailers+thru即如此),词表内容有据可查
+      final sorted = callG.toList()..sort();
+      debugPrint('GRAMMAR词汇全表(${sorted.length}): '
+          '${sorted.join(' · ')}');
     }
     dictationPartial = '';
     dictationCandidates = [];
