@@ -156,9 +156,11 @@ class CallerTable extends ChangeNotifier {
     return out.length;
   }
 
-  ///  通用两表合并(口令员自助:合并钮选两张表)。
-  ///  清理=同口令归组(跨表相同条目合一)/同记号去重/
-  ///  每条保够3行录音位;返回(总行数,去重行数)
+  ///  通用两表合并(口令员自助:合并钮选两张表/PSfix钮)。
+  ///  纯并集(用户:合并不得修改记录——不删空行/不去重/
+  ///  不补录音位,原样搬运;要不要清理由口令员观察结果后
+  ///  自行决定,用采表的清理工具做)。排序仅重排不改内容:
+  ///  Only表按标准口令(口令员接口),非Only按记号
   static Future<(int, int)> mergeTwoTables(SharedPreferences prefs,
       String tableA, String tableB, String dstName) async {
     final rows = <CallerRow>[];
@@ -176,58 +178,24 @@ class CallerTable extends ChangeNotifier {
     }
     if (rows.isEmpty) return (0, 0);
 
-    final byCall = <String, List<CallerRow>>{};
-    for (final r in rows) {
-      final key = r.standardCall.trim().toLowerCase();
-      if (key.isEmpty) continue;
-      byCall.putIfAbsent(key, () => []).add(r);
-    }
-    final out = <CallerRow>[];
-    var deduped = 0;
-    byCall.forEach((key, group) {
-      final seen = <String>{};
-      final recorded = <CallerRow>[];
-      for (final r in group) {
-        if (r.recognized.isBlank) continue;
-        final tok = r.recognized.trim().toLowerCase();
-        if (seen.contains(tok)) {
-          deduped++;
-          continue;
-        }
-        seen.add(tok);
-        recorded.add(r);
-      }
-      final template = group.first.standardCall;
-      for (final r in recorded) {
-        out.add(CallerRow(seq: 0,
-            recognized: r.recognized, standardCall: template));
-      }
-      //  不足3行补空行(多归一录音位)
-      for (var i = recorded.length; i < 3; i++) {
-        out.add(CallerRow(seq: 0, recognized: '', standardCall: template));
-      }
-    });
-
-    //  排序随表类型(用户规则):Only表=口令员接口,按标准
-    //  口令排序便于查找;非Only表=识别接口,按记号排序
     if (dstName.split('/').last.endsWith('_Only')) {
-      out.sort((a, b) {
-        final c = a.standardCall.toLowerCase()
+      rows.sort((a, b) {
+        final c2 = a.standardCall.toLowerCase()
             .compareTo(b.standardCall.toLowerCase());
-        if (c != 0) return c;
+        if (c2 != 0) return c2;
         return a.recognized.toLowerCase()
             .compareTo(b.recognized.toLowerCase());
       });
     } else {
-      out.sort((a, b) => a.recognized.toLowerCase()
+      rows.sort((a, b) => a.recognized.toLowerCase()
           .compareTo(b.recognized.toLowerCase()));
     }
-    for (var i = 0; i < out.length; i++) out[i].seq = i + 1;
+    for (var i = 0; i < rows.length; i++) rows[i].seq = i + 1;
     await prefs.setString('$_keyPrefix$dstName',
-        jsonEncode({'rows': out.map((r) => r.toJson()).toList()}));
+        jsonEncode({'rows': rows.map((r) => r.toJson()).toList()}));
     debugPrint('mergeTwoTables($tableA+$tableB->$dstName): '
-        '${out.length} rows (deduped $deduped)');
-    return (out.length, deduped);
+        '${rows.length} rows (纯并集,未清理)');
+    return (rows.length, 0);
   }
 
   ///  PSfix_Only一键生成(目录画面PSfix钮):Prefix_Only+

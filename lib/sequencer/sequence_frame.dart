@@ -3575,7 +3575,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           final r = await CallerTable.mergeTwoTables(
                               prefs, selected, second, dst);
                           _mgmtSnackBar('已合并另存 ${dst.split('/').last}'
-                              '(共${r.$1}条,清理重复${r.$2}行)');
+                              '(共${r.$1}条,纯并集未清理——'
+                              '清理由您观察后自定)');
                           //  统揽全部(用户):合并完直接进入打开流程
                           //  (口令一步),打开即可通览全表审阅,
                           //  需要时用采表清理工具整理
@@ -3642,7 +3643,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         }
                         await _refreshTableNames(prefs4, tableNames);
                         _mgmtSnackBar('PSfix_Only已生成:${r.$1}行 '
-                            '(清理重复${r.$2}行)');
+                            '(纯并集未清理——清理由您观察后自定)');
                         setState(() {});
                       }),
                     ],
