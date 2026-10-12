@@ -2323,7 +2323,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             fm.IconButton(
                 icon: fm.Icon(fm.Icons.clear, size: 24),
                 onPressed: () {
-                  textFieldController.clear();
+                  //  先清流程状态再清框(顺序加固:清框后不再有
+                  //  notify把旧文本写回)
+                  flow.clearAllDisplays();
+                  //  IME加固(用户:响应慢):键盘开着时输入法
+                  //  编辑态会抵抗clear,用整值替换并断编辑态
+                  textFieldController.value =
+                      const fm.TextEditingValue(text: '');
                   if (model.errorString.isNotEmpty) {
                     model.errorString = '';
                     model.notifyListeners();
@@ -2331,7 +2337,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   fm.ScaffoldMessenger.of(context)
                       .removeCurrentSnackBar();
                   _isVoiceCall = false;
-                  flow.clearAllDisplays();
+                  flow.inputConsumed();
                 }),
             //  Mic icon for touch devices to do voice input
             //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
