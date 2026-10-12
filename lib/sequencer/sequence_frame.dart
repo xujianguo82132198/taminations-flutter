@@ -398,13 +398,15 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                                           fontSize: 18,
                                           color: Color.BLUE))),
                           ])),
-                      //  高度随需要(用户:不要有多高用多高,列表
-                      //  自带滚动):行少贴内容,行多封顶滚动
-                      fm.ConstrainedBox(
-                        constraints: const fm.BoxConstraints(
-                            maxHeight: 420),
+                      //  高度随需要(用户:不要有多高用多高):
+                      //  行数×行高,封顶380;固定高+总是可滚动
+                      //  (曾shrinkWrap超限时底部两行出表且滚不动)
+                      fm.SizedBox(
+                        height: (matches.length * 56.0 + 8)
+                            .clamp(0.0, 380.0),
                         child: fm.ListView.builder(
-                          shrinkWrap: true,
+                          physics:
+                              const fm.AlwaysScrollableScrollPhysics(),
                           itemCount: matches.length,
                           itemBuilder: (lctx, i) {
                             final m = matches[i];
@@ -425,10 +427,9 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                   ),
                 ),
                 actions: [
-                  fm.TextButton(
-                      onPressed: () => fm.Navigator.of(ctx).pop(),
-                      child: fm.Text('关闭',
-                          style: fm.TextStyle(fontSize: 18))),
+                  //  立体化(用户:平面文字混在行里看不出来)
+                  Button('关闭',
+                      onPressed: () => fm.Navigator.of(ctx).pop()),
                 ],
                 ),
                 ),
