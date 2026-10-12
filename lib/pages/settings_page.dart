@@ -104,7 +104,7 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                         children: [
                           fm.Text('离线,高精度语音识别系统(免费)',
                               style: fm.TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 20,
                                   fontWeight: fm.FontWeight.bold)),
                           fm.SizedBox(height: 4),
                           fm.Text(
@@ -443,7 +443,7 @@ class __SettingCheckboxState extends fm.State<_SettingCheckbox> {
                     });
                   }
               ),
-                fm.Text(widget.name,style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 20))
+                fm.Text(widget.name,style: fm.TextStyle(fontWeight: fm.FontWeight.bold, fontSize: 16))
               ]),
         ));
   }
