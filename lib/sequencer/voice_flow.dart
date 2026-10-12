@@ -19,6 +19,7 @@
 */
 
 import 'dart:async';
+import 'dart:convert' show jsonDecode;
 
 import 'package:flutter/foundation.dart';
 
@@ -1041,17 +1042,25 @@ class VoiceFlow extends ChangeNotifier {
     } catch (e) {
       debugPrint('mergeOnlyToPSfix failed: $e');
     }
-    //  浓诊断(用户排查psfix=null):目录全部表名列出,
-    //  PSfix是否在/叫什么名一目了然
+    //  浓诊断(用户排查psfix=null):全盘扫描——所有目录
+    //  所有表连同行数,录的内容落在哪一目了然
     try {
       final prefs = await SharedPreferences.getInstance();
-      final all = CallerTable.listTableNames(prefs)
-          .where((n) => n.startsWith('$_dirOf/'))
-          .map((n) => n.split('/').last)
-          .toList();
-      debugPrint('PSfix缺失! 目录"$_dirOf"现有表: '
-          '${all.join(' · ')}(找不着 PSfix_Only/PSfix——'
-          '主语词只有PSfix能接,缺位则喊什么都不中)');
+      final all = CallerTable.listTableNames(prefs);
+      final buf = StringBuffer();
+      for (final n in all) {
+        var cnt = -1;
+        try {
+          final d = jsonDecode(
+              prefs.getString('口令员表 $n') ?? '{}');
+          cnt = d is Map && d['rows'] is List
+              ? (d['rows'] as List).length : -1;
+        } catch (_) {}
+        buf.write('$n(${cnt}行) ');
+      }
+      debugPrint('PSfix缺失! 全盘表扫描: $buf');
+      debugPrint('(当前目录"$_dirOf"的PSfix_Only/PSfix为空,'
+          '主语词只有PSfix能接——内容可能录在其他目录)');
     } catch (_) {}
     return null;
   }
