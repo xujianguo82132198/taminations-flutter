@@ -1514,10 +1514,11 @@ class VoiceFlow extends ChangeNotifier {
           : segs.sublist(1, segs.length - 1).join(' ');
       suffixSeg = segs.last;
     }
+    //  前缀/后缀段统一查PSfix(用户:合并完PSfix后,
+    //  识别只查PSfix+口令表,不再直查Prefix/Sufix)
     final stem = _dirOf;
-    //  前缀段 → Prefix 非Only表
     if (prefixSeg != null) {
-      _prefixTable ??= await _loadAuxTable('${stem}Prefix');
+      _prefixTable ??= await _loadPSfix();
       final t = _prefixTable;
       if (t != null && t.rows.isNotEmpty) {
         final r = t.lookupSequential(prefixSeg);
@@ -1546,9 +1547,8 @@ class VoiceFlow extends ChangeNotifier {
         _notify();
       }
     }
-    //  后缀段 → Sufix 非Only表
     if (suffixSeg != null) {
-      _suffixTable ??= await _loadAuxTable('${stem}Sufix');
+      _suffixTable ??= _prefixTable ?? await _loadPSfix();
       final t = _suffixTable;
       if (t != null && t.rows.isNotEmpty) {
         final r = t.lookupSequential(suffixSeg);
