@@ -402,7 +402,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       //  行数×行高,封顶380;固定高+总是可滚动
                       //  (曾shrinkWrap超限时底部两行出表且滚不动)
                       fm.SizedBox(
-                        height: (matches.length * 56.0 + 8)
+                        height: (matches.length * 42.0 + 8)
                             .clamp(0.0, 380.0),
                         child: fm.ListView.builder(
                           physics:
@@ -410,11 +410,18 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                           itemCount: matches.length,
                           itemBuilder: (lctx, i) {
                             final m = matches[i];
+                            //  行高压缩(用户:行高过大表太高):
+                            //  字号16+紧凑密度≈40/行
                             return fm.ListTile(
                               dense: true,
+                              visualDensity:
+                                  fm.VisualDensity.compact,
+                              contentPadding:
+                                  fm.EdgeInsets.symmetric(
+                                      horizontal: 8),
                               title: fm.Text(
                                   '第${m.seq}行  ${m.standardCall}',
-                                  style: fm.TextStyle(fontSize: 20)),
+                                  style: fm.TextStyle(fontSize: 16)),
                               onTap: () {
                                 selected = m;
                                 fm.Navigator.of(ctx).pop();
