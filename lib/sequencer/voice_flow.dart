@@ -904,21 +904,27 @@ class VoiceFlow extends ChangeNotifier {
       }
       return;
     }
-    var gotNew = false;
-    while (_inputFinalCount < finals.length) {
-      _processInputSentence(finals[_inputFinalCount]);
-      _inputFinalCount++;
-      gotNew = true;
-    }
-    debugPrint('INPUT_R: consumed $_inputFinalCount finals, '
-        'pending="$inputPending"');
-    s.clearResults();
-    //  松钮后的final=本次采样收尾(不再等3秒超时)
-    if (gotNew && _inputReleased) _endInputCleanup();
+    //  串行消费(PSfix首载是异步,多句排队不乱序)
+    _inputQueue = _inputQueue.then((_) async {
+      var gotNew = false;
+      while (_inputFinalCount < finals.length) {
+        await _processInputSentence(finals[_inputFinalCount]);
+        _inputFinalCount++;
+        gotNew = true;
+      }
+      debugPrint('INPUT_R: consumed $_inputFinalCount finals, '
+          'pending="$inputPending"');
+      s.clearResults();
+      //  松钮后的final=本次采样收尾(不再等3秒超时)
+      if (gotNew && _inputReleased) _endInputCleanup();
+    });
   }
 
+  ///  Input处理队列(串行:PSfix异步加载期间多句不乱序)
+  Future<void> _inputQueue = Future.value();
+
   ///  处理一个"语句"(0.3秒断句=一句话,文本为原始听法)
-  void _processInputSentence(String raw) {
+  Future<void> _processInputSentence(String raw) async {
     var text = raw.trim();
     if (text.isEmpty) return;
     //  纯填充词闸(喊口令路径同款):单字"the"曾命中Trade
@@ -931,7 +937,9 @@ class VoiceFlow extends ChangeNotifier {
     }
     //  先查PSfix,再查口令表
     String? matched;
-    final psfix = _psfixTable;
+    //  PSfix按需加载(圆钮Input路径曾从不加载→psfix=null,
+    //  主语词全灭;麦克风路径有加载,两路共用_pssfixTable)
+    final psfix = _psfixTable ?? await _loadPSfix();
     if (psfix != null && psfix.rows.isNotEmpty) {
       final r = psfix.lookupSequential(text);
       if (r.hit != null &&
