@@ -181,6 +181,30 @@ class Settings extends fm.ChangeNotifier {
     _instance.notifyListeners();
   }
 
+  ///  前缀/后缀门槛(口令员连续调节,0.10~0.60):查PSfix表
+  ///  的误差上限;默认0.45
+  static double get psfixThreshold =>
+      double.tryParse(
+          _instance.proxy.getString('PSfix Threshold') ?? '') ??
+      0.45;
+  static set psfixThreshold(double value) {
+    _instance.proxy.setString(
+        'PSfix Threshold', value.toStringAsFixed(2));
+    _instance.notifyListeners();
+  }
+
+  ///  口令表门槛(口令员连续调节,0.10~0.60):查口令表的
+  ///  误差上限;默认0.45
+  static double get callThreshold =>
+      double.tryParse(
+          _instance.proxy.getString('Call Threshold') ?? '') ??
+      0.45;
+  static set callThreshold(double value) {
+    _instance.proxy.setString(
+        'Call Threshold', value.toStringAsFixed(2));
+    _instance.notifyListeners();
+  }
+
   ///  辅音助听器(默认开,用户设想):开头辅音赋予更高决策权,
   ///  减少元音确定权——两分频,高频段(辅音)提升约9dB,
   ///  低频段(元音+冰箱嗡嗡)压3dB

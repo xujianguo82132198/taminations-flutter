@@ -31,6 +31,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'caller_store.dart';
 import 'music_monitor.dart';
 import 'dual_speech_to_text.dart';
+import '../settings.dart';
 
 ///  口令员语音呼叫全流程(单例,存活于整个应用期间)
 ///
@@ -902,7 +903,8 @@ class VoiceFlow extends ChangeNotifier {
     final psfix = _psfixTable;
     if (psfix != null && psfix.rows.isNotEmpty) {
       final r = psfix.lookupSequential(text);
-      if (r.hit != null && r.error <= 0.45) {
+      if (r.hit != null &&
+          r.error <= Settings.psfixThreshold) {
         matched = r.hit!.standardCall;
       }
     }
@@ -910,7 +912,8 @@ class VoiceFlow extends ChangeNotifier {
       final act = callerTable;
       if (act != null) {
         final r = act.lookupSequential(text);
-        if (r.hit != null && r.error <= 0.45) {
+        if (r.hit != null &&
+            r.error <= Settings.callThreshold) {
           matched = r.hit!.standardCall;
         }
       }
@@ -1122,7 +1125,7 @@ class VoiceFlow extends ChangeNotifier {
         //  整段模糊查前缀表(记号=指纹,精确比对必失配)
         var r = pt.lookupSequential(text);
         if (r.hit != null &&
-            r.error <= 0.30 &&
+            r.error <= Settings.psfixThreshold * 2 / 3 &&
             _plausiblePrefixHit(
                 text, CallerTable.spokenForm(r.hit!.standardCall))) {
           _prefixSeen = true;
@@ -1141,7 +1144,7 @@ class VoiceFlow extends ChangeNotifier {
           final head = words.sublist(0, k).join(' ');
           final rh = pt.lookupSequential(head);
           if (rh.hit != null &&
-              rh.error <= 0.45 &&
+              rh.error <= Settings.psfixThreshold &&
               _plausiblePrefixHit(
                   head, CallerTable.spokenForm(rh.hit!.standardCall))) {
             _prefixSeen = true;
@@ -1167,7 +1170,7 @@ class VoiceFlow extends ChangeNotifier {
             final head = cw.sublist(0, k).join(' ');
             final ra = pt.lookupSequential(head);
             if (ra.hit != null &&
-                ra.error <= 0.45 &&
+                ra.error <= Settings.psfixThreshold &&
                 _plausiblePrefixHit(
                     head, CallerTable.spokenForm(ra.hit!.standardCall))) {
               _prefixSeen = true;
@@ -1192,7 +1195,8 @@ class VoiceFlow extends ChangeNotifier {
         suffixResult = '…';
         _notify();
         final rs = st.lookupSequential(text);
-        if (rs.hit != null && rs.error <= 0.45) {
+        if (rs.hit != null &&
+            rs.error <= Settings.psfixThreshold) {
           suffixResult = rs.hit!.standardCall;
           tableFlags += tableFlags.isEmpty ? 'S' : '_S';
           _notify();
@@ -1255,10 +1259,11 @@ class VoiceFlow extends ChangeNotifier {
       debugPrint('口令查表: "$callSeg" err=${r.error.toStringAsFixed(2)} '
           '-> ${r.hit?.standardCall}');
       //  逐候选变体(圆钮经验):首选未中,单段替换候选再查
-      if (r.hit == null || r.error > 0.45) {
+      if (r.hit == null || r.error > Settings.callThreshold) {
         for (final varText in _callVariants()) {
           final rv = act.lookupSequential(varText);
-          if (rv.hit != null && rv.error <= 0.45) {
+          if (rv.hit != null &&
+              rv.error <= Settings.callThreshold) {
             debugPrint('候选变体命中: "$varText" -> '
                 '"${rv.hit!.standardCall}" '
                 '(原"$callSeg" err='
@@ -1272,7 +1277,7 @@ class VoiceFlow extends ChangeNotifier {
       //  递归识别法(用户算法定义,在常规查表后追加):
       ///  常规查表未中时,走辅音家族递归导航——日志全程
       ///  可见,命中则采用,家族缺失则提示
-      if (r.hit == null || r.error > 0.45) {
+      if (r.hit == null || r.error > Settings.callThreshold) {
         final candidates = act.rows
             .where((row) => row.recognized.isNotBlank ||
                 row.standardCall.isNotBlank)
@@ -1302,7 +1307,8 @@ class VoiceFlow extends ChangeNotifier {
           return;
         }
       }
-      if (r.hit != null && r.error <= 0.45) {
+      if (r.hit != null &&
+          r.error <= Settings.callThreshold) {
         if (allFiller) {
           debugPrint('命中但纯填充词,拒绝: "$callSeg" -> '
               '${r.hit!.standardCall}');
@@ -1346,7 +1352,9 @@ class VoiceFlow extends ChangeNotifier {
             }
           }
         }
-        if (r2.hit != null && r2.error <= 0.45 && sufHit != null) {
+        if (r2.hit != null &&
+            r2.error <= Settings.callThreshold &&
+            sufHit != null) {
           callResult = r2.hit!.standardCall;
           suffixResult = sufHit;
           tableFlags += '_C_S';
@@ -1456,7 +1464,8 @@ class VoiceFlow extends ChangeNotifier {
     if (act0 != null) {
       final whole = segs.join(' ').trim();
       final rw = act0.lookupSequential(whole);
-      if (rw.hit != null && rw.error <= 0.30) {
+      if (rw.hit != null &&
+          rw.error <= Settings.callThreshold * 2 / 3) {
         callResult = rw.hit!.standardCall;
         lastCandidate = rw.hit;
         lastCandidateError = rw.error;
@@ -1498,7 +1507,8 @@ class VoiceFlow extends ChangeNotifier {
         debugPrint('P-lookup "$prefixSeg" '
             'err=${r.error.toStringAsFixed(2)} '
             '-> ${r.hit?.standardCall}');
-        if (r.hit != null && r.error <= 0.30) {
+        if (r.hit != null &&
+            r.error <= Settings.psfixThreshold * 2 / 3) {
           prefixResult = r.hit!.standardCall;
           tableFlags = 'P';
           _notify();
@@ -1512,7 +1522,8 @@ class VoiceFlow extends ChangeNotifier {
       debugPrint('C-lookup "$callSeg" '
           'err=${r.error.toStringAsFixed(2)} '
           '-> ${r.hit?.standardCall}');
-      if (r.hit != null && r.error <= 0.45) {
+      if (r.hit != null &&
+          r.error <= Settings.callThreshold) {
         callResult = r.hit!.standardCall;
         tableFlags += tableFlags.isEmpty ? 'C' : '_C';
         _notify();
@@ -1527,7 +1538,8 @@ class VoiceFlow extends ChangeNotifier {
         debugPrint('S-lookup "$suffixSeg" '
             'err=${r.error.toStringAsFixed(2)} '
             '-> ${r.hit?.standardCall}');
-        if (r.hit != null && r.error <= 0.45) {
+        if (r.hit != null &&
+            r.error <= Settings.psfixThreshold) {
           suffixResult = r.hit!.standardCall;
           tableFlags += tableFlags.isEmpty ? 'S' : '_S';
         }

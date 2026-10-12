@@ -117,6 +117,34 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                         ])),
                 SilenceGateWidget(),
                 ConsonantBoostWidget(),
+                //  三个口令员调节接口(用户:噪声抑制条移入;
+                //  前缀后缀门槛与口令表门槛连续设条)
+                _SettingSliderRow(
+                  label: '噪声抑制',
+                  hint: '小=空调冰箱干扰,大=人喊也听不到;'
+                      ' 调到环境噪声恰好不再出字',
+                  value: Settings.noiseSuppression,
+                  min: 0.0, max: 1.0, divisions: 20,
+                  display: (v) =>
+                      '+${(8 + v * 20).toStringAsFixed(0)}dB',
+                  onChanged: (v) => Settings.noiseSuppression = v,
+                ),
+                _SettingSliderRow(
+                  label: '前缀/后缀门槛',
+                  hint: '查PSfix表的误差上限:松=易误中,紧=易漏',
+                  value: Settings.psfixThreshold,
+                  min: 0.10, max: 0.60, divisions: 25,
+                  display: (v) => v.toStringAsFixed(2),
+                  onChanged: (v) => Settings.psfixThreshold = v,
+                ),
+                _SettingSliderRow(
+                  label: '口令表门槛',
+                  hint: '查口令表的误差上限:松=易误中,紧=易漏',
+                  value: Settings.callThreshold,
+                  min: 0.10, max: 0.60, divisions: 25,
+                  display: (v) => v.toStringAsFixed(2),
+                  onChanged: (v) => Settings.callThreshold = v,
+                ),
                 //  构建版本并入语音块(用户:它是语音识别系统的
                 //  构建戳,不隔离到线外;无线,页面到此为止)
                 fm.Container(
@@ -286,6 +314,77 @@ class _SettingText extends fm.StatelessWidget {
 
 //  Class for checkbox setting
 typedef _boolChanger = void Function(bool value);
+///  语音块连续调节滑条(口令员接口:噪声抑制/前后缀门槛/
+///  口令表门槛)——标题+实时值+滑条+说明小字,白底并块
+class _SettingSliderRow extends fm.StatefulWidget {
+  final String label;
+  final String hint;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final String Function(double) display;
+  final fm.ValueChanged<double> onChanged;
+  _SettingSliderRow({
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.display,
+    required this.onChanged});
+
+  @override
+  __SettingSliderRowState createState() => __SettingSliderRowState();
+}
+
+class __SettingSliderRowState extends fm.State<_SettingSliderRow> {
+  double _v = 0;
+  @override
+  void initState() {
+    super.initState();
+    _v = widget.value;
+  }
+
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    return fm.Container(
+        color: fm.Colors.white,
+        padding: fm.EdgeInsets.symmetric(horizontal: 12),
+        child: fm.Column(
+          crossAxisAlignment: fm.CrossAxisAlignment.start,
+          children: [
+            fm.Row(children: [
+              fm.Text(widget.label,
+                  style: fm.TextStyle(
+                      fontSize: 16,
+                      fontWeight: fm.FontWeight.bold)),
+              fm.Spacer(),
+              fm.Text(widget.display(_v),
+                  style: fm.TextStyle(
+                      fontSize: 14, color: fm.Colors.black54)),
+            ]),
+            fm.Slider(
+              value: _v.clamp(widget.min, widget.max),
+              min: widget.min,
+              max: widget.max,
+              divisions: widget.divisions,
+              onChanged: (v2) => setState(() {
+                _v = v2;
+                widget.onChanged(v2);
+              }),
+            ),
+            fm.Padding(
+                padding: fm.EdgeInsets.only(bottom: 4),
+                child: fm.Text(widget.hint,
+                    style: fm.TextStyle(
+                        fontSize: 12, color: fm.Colors.black54))),
+          ],
+        ));
+  }
+}
+
 class _SettingCheckbox extends fm.StatefulWidget {
 
   final String name;

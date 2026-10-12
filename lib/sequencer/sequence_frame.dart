@@ -83,7 +83,22 @@ class _SequenceFrameState extends fm.State<SequenceFrame> {
                  //  表后台查询的结果实时亮出——P_/C_/S_ 各自的
                  //  映射输出 + 进表标志(用户要求:后台运行,
                  //  结果要显示)
-                 fm.SizedBox.shrink(),  //  三显示区暂停显示(用户要求)
+                 //  语音输入操作指导(用户要求):三显示区原位置
+                //  改为一行指路——噪声/门槛调节在Settings
+                fm.Container(
+                  width: double.infinity,
+                  padding:
+                      fm.EdgeInsets.only(left: 8, top: 1, bottom: 1),
+                  child: fm.Text(
+                    '语音输入:圆钮=按住读口令·松手回车执行;'
+                    ' 麦克风=连续喊。噪声抑制/前缀后缀门槛/'
+                    '口令表门槛调节:Settings→语音识别',
+                    maxLines: 1,
+                    overflow: fm.TextOverflow.ellipsis,
+                    style: fm.TextStyle(
+                        fontSize: 13, color: Color.GRAY),
+                  ),
+                ),
                  //  口令输入行(原来的位置:紧跟动画区,始终显示)
                  SequencerEditLine(),
                  //  Only 采表:识别结果大字显示(显示框+圆钮+表退出)
@@ -911,33 +926,6 @@ class _PipelineResultStripState extends fm.State<PipelineResultStrip> {
           fm.SizedBox(width: 6),
           part('后缀', flow.suffixResult, fm.Colors.orange.shade800),
           fm.SizedBox(width: 8),
-          //  噪声抑制滑动条(最左=空调干扰,最右=人喊听不到)
-          fm.Expanded(
-            child: fm.SliderTheme(
-              data: fm.SliderThemeData(
-                trackHeight: 4,
-                thumbShape: fm.RoundSliderThumbShape(
-                    enabledThumbRadius: 8),
-              ),
-              child: pp.Consumer<Settings>(
-                builder: (ctx, settings, _) => fm.Slider(
-                  value: Settings.noiseSuppression,
-                  min: 0.0,
-                  max: 1.0,
-                  onChanged:
-                      flow.speech?.isListening == true
-                          ? (v2) {
-                              Settings.noiseSuppression = v2;
-                            }
-                          : null,
-                  activeColor: Color.BLUE,
-                  inactiveColor: Color.LIGHTGREY,
-                ),
-              ),
-            ),
-          ),
-          //  拖动时显示+dB值,停止1.5秒后回到"噪"
-          _NoiseSuppressLabel(),
           //  「存」钮:把麦克风识别文本存入选中行(用户:
           //  用麦克风产出当指纹,不用圆钮干净版)
           if (flow.lastMicText.isNotBlank &&
