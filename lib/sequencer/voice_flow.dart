@@ -949,12 +949,18 @@ class VoiceFlow extends ChangeNotifier {
         }
       }
     }
-    //  查到:用标准口令;查不到:用原始听法(口令员自己改)
-    final display = matched ?? text;
+    //  只收映射表里的口令(用户:回车之前框内一切都出自
+    //  映射表——查表不中的句子不进框,比如误听出的
+    //  "trailers thru"永不出现;没听对就重喊一遍)
+    if (matched == null) {
+      debugPrint('语音Input: "$text" 查表未中,不进框'
+          '(psfix=${psfix?.rows.length ?? 'null'}行)');
+      return;
+    }
     //  同一按住期内新喊一句=冲掉前一句(重喊纠正),
     //  已回车确认的accumulated不动
-    inputPending = display;
-    debugPrint('语音Input: "$text" -> "$display" '
+    inputPending = matched;
+    debugPrint('语音Input: "$text" -> "$matched" '
         '(psfix=${psfix?.rows.length ?? 'null'}行, '
         'pending="$inputPending", accumulated="$inputAccumulated")');
     _notify();
