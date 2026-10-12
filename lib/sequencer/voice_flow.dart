@@ -813,6 +813,8 @@ class VoiceFlow extends ChangeNotifier {
   String inputAccumulated = '';
   ///  当前待替换的最后一笔
   String inputPending = '';
+  ///  直通试验开关(true=取消查表,识别原文直进框)
+  static const bool inputDirectExperiment = true;
   ///  当前句子的分段累积
   final List<String> _inputSegParts = [];
 
@@ -981,6 +983,18 @@ class VoiceFlow extends ChangeNotifier {
     if (text.isNotEmpty && isFiller(text)) {
       debugPrint('语音Input: "$text"为填充词,'
           '逐候选查表${cands.length}个');
+    }
+    //  直通试验(用户指示:取消查表,识别原文直进框——
+    //  试裸识别水平;查表代码保留,开关一翻即恢复)
+    if (inputDirectExperiment) {
+      if (cands.isEmpty) {
+        debugPrint('语音Input(直通): "$text"无可用候选,忽略');
+        return;
+      }
+      inputPending = cands.first;
+      debugPrint('语音Input(直通): "${cands.first}" 直接进框');
+      _notify();
+      return;
     }
     //  逐候选:先PSfix再口令表,第一个查中的算数
     String? matched;
