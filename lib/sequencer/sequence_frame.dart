@@ -2323,13 +2323,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             fm.IconButton(
                 icon: fm.Icon(fm.Icons.clear, size: 24),
                 onPressed: () {
-                  //  先清流程状态再清框(顺序加固:清框后不再有
-                  //  notify把旧文本写回)
+                  //  先清一切回写源再清框(callSelection曾把
+                  //  旧口令写回框=按X不清的元凶)
+                  flow.callSelection = null;
                   flow.clearAllDisplays();
-                  //  IME加固(用户:响应慢):键盘开着时输入法
-                  //  编辑态会抵抗clear,用整值替换并断编辑态
+                  flow.inputConsumed();
+                  //  IME加固:整值替换断编辑态+clear双保险
                   textFieldController.value =
                       const fm.TextEditingValue(text: '');
+                  textFieldController.clear();
                   if (model.errorString.isNotEmpty) {
                     model.errorString = '';
                     model.notifyListeners();
@@ -2337,7 +2339,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   fm.ScaffoldMessenger.of(context)
                       .removeCurrentSnackBar();
                   _isVoiceCall = false;
-                  flow.inputConsumed();
+                  debugPrint('X: 已清,框内='
+                      '"${textFieldController.text}"');
                 }),
             //  Mic icon for touch devices to do voice input
             //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
