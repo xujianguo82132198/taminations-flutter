@@ -131,28 +131,26 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 ),
                 _SettingSliderRow(
                   label: '前缀/后缀门槛',
-                  hint: '右滑=松:误差上限变大,易命中'
-                      '(漏网减少,但易误中);\n'
-                      '左滑=紧:误差上限变小,难命中'
-                      '(漏网增加,但不易误中)',
+                  hint: '右滑=门槛高=紧:难命中(误中少,漏网多);'
+                      '\n左滑=门槛低=松:易命中(误中多,漏网少)',
                   value: Settings.psfixThreshold,
                   min: 0.10, max: 0.60, divisions: 25,
                   display: (v) => v.toStringAsFixed(2),
-                  dragRightText: '漏网减少',
-                  dragLeftText: '漏网增加',
+                  dragRightText: '误中减少,漏网增加',
+                  dragLeftText: '误中增加,漏网减少',
+                  inverted: true,
                   onChanged: (v) => Settings.psfixThreshold = v,
                 ),
                 _SettingSliderRow(
                   label: '口令表门槛',
-                  hint: '右滑=松:误差上限变大,易命中'
-                      '(漏网减少,但易误中);\n'
-                      '左滑=紧:误差上限变小,难命中'
-                      '(漏网增加,但不易误中)',
+                  hint: '右滑=门槛高=紧:难命中(误中少,漏网多);'
+                      '\n左滑=门槛低=松:易命中(误中多,漏网少)',
                   value: Settings.callThreshold,
                   min: 0.10, max: 0.60, divisions: 25,
                   display: (v) => v.toStringAsFixed(2),
-                  dragRightText: '漏网减少',
-                  dragLeftText: '漏网增加',
+                  dragRightText: '误中减少,漏网增加',
+                  dragLeftText: '误中增加,漏网减少',
+                  inverted: true,
                   onChanged: (v) => Settings.callThreshold = v,
                 ),
                 //  构建版本并入语音块(用户:它是语音识别系统的
@@ -339,6 +337,8 @@ class _SettingSliderRow extends fm.StatefulWidget {
   ///  松手恢复数值)
   final String? dragRightText;
   final String? dragLeftText;
+  ///  true=方向反转:右滑=数值小=严(用户直觉"门槛高=不易进")
+  final bool inverted;
   _SettingSliderRow({
     required this.label,
     required this.hint,
@@ -349,7 +349,8 @@ class _SettingSliderRow extends fm.StatefulWidget {
     required this.display,
     required this.onChanged,
     this.dragRightText,
-    this.dragLeftText});
+    this.dragLeftText,
+    this.inverted = false});
 
   @override
   __SettingSliderRowState createState() => __SettingSliderRowState();
@@ -385,18 +386,24 @@ class __SettingSliderRowState extends fm.State<_SettingSliderRow> {
                       fontSize: 14, color: fm.Colors.black54)),
             ]),
             fm.Slider(
-              value: _v.clamp(widget.min, widget.max),
+              value: widget.inverted
+                  ? (widget.min + widget.max) -
+                      _v.clamp(widget.min, widget.max)
+                  : _v.clamp(widget.min, widget.max),
               min: widget.min,
               max: widget.max,
               divisions: widget.divisions,
               onChanged: (v2) => setState(() {
-                if (v2 > _v) {
+                final nv = widget.inverted
+                    ? (widget.min + widget.max) - v2
+                    : v2;
+                if (nv > _v) {
                   _dragEffect = widget.dragRightText;
-                } else if (v2 < _v) {
+                } else if (nv < _v) {
                   _dragEffect = widget.dragLeftText;
                 }
-                _v = v2;
-                widget.onChanged(v2);
+                _v = nv;
+                widget.onChanged(nv);
               }),
               onChangeEnd: (_) =>
                   setState(() => _dragEffect = null),

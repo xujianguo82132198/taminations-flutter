@@ -915,6 +915,14 @@ class VoiceFlow extends ChangeNotifier {
   void _processInputSentence(String raw) {
     var text = raw.trim();
     if (text.isEmpty) return;
+    //  纯填充词闸(喊口令路径同款):单字"the"曾命中Trade
+    const fillers = {'the', 'a', 'an', 'and', 'of', 'to', 'in',
+      'on', 'unk', '[unk]'};
+    if (text.toLowerCase().split(RegExp(r' +'))
+        .every(fillers.contains)) {
+      debugPrint('语音Input: 纯填充词"$text",忽略');
+      return;
+    }
     //  先查PSfix,再查口令表
     String? matched;
     final psfix = _psfixTable;
