@@ -345,8 +345,19 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                 shape: fm.RoundedRectangleBorder(
                     side: fm.BorderSide(color: Color.BLUE, width: 2),
                     borderRadius: fm.BorderRadius.circular(10)),
-                title: fm.Text('“标准口令”搜索',
-                    style: fm.TextStyle(fontSize: 17)),
+                title: fm.Row(children: [
+                  fm.Expanded(
+                      child: fm.Text('“标准口令”搜索',
+                          style: fm.TextStyle(fontSize: 17))),
+                  //  小号立体关闭(用户:右下角钮占了记录显示位,
+                  //  移到标题右侧;底部整行让给记录列表)
+                  Button('关闭',
+                      onPressed: () => fm.Navigator.of(ctx).pop(),
+                      child: fm.Text('关闭',
+                          style: fm.TextStyle(
+                              fontSize: 13,
+                              fontWeight: fm.FontWeight.bold))),
+                ]),
                 content: fm.SizedBox(
                   width: double.maxFinite,
                   child: fm.Column(
@@ -402,7 +413,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                       //  行数×行高,封顶380;固定高+总是可滚动
                       //  (曾shrinkWrap超限时底部两行出表且滚不动)
                       fm.SizedBox(
-                        height: (matches.length * 42.0 + 8)
+                        height: (matches.length * 48.0 + 8)
                             .clamp(0.0, 380.0),
                         child: fm.ListView.builder(
                           physics:
@@ -433,15 +444,7 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                     ],
                   ),
                 ),
-                actions: [
-                  //  立体化但小号(用户:仍在右下角,不要那么大)
-                  Button('关闭',
-                      onPressed: () => fm.Navigator.of(ctx).pop(),
-                      child: fm.Text('关闭',
-                          style: fm.TextStyle(
-                              fontSize: 14,
-                              fontWeight: fm.FontWeight.bold))),
-                ],
+
                 ),
                 ),
               );
