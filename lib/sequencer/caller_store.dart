@@ -1413,9 +1413,8 @@ class CallerTable extends ChangeNotifier {
     //  (+0.15底盘,防s族最小对误吸——sit与step骨架同为st)
     final sk = sentenceError(_skeleton(a), _skeleton(b));
     if (sk + 0.15 < err) {
-      debugPrint('骨架命中: "${_skeleton(a)}"≈"${_skeleton(b)}" '
-          'sk=${sk.toStringAsFixed(2)} -> err=${(sk + 0.15).toStringAsFixed(2)}'
-          ' (原err=${err.toStringAsFixed(2)})');
+      //  逐条日志已删(每次查表百余条曾拖垮UI线程);
+      //  命中效果在查表漂移汇总日志可见
       err = sk + 0.15;
     }
     if (la != lb) err += 0.10;   //  左右不一致(无Left=Right)
