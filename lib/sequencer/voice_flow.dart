@@ -957,47 +957,59 @@ class VoiceFlow extends ChangeNotifier {
       {List<String> alts = const []}) async {
     var text = raw.trim();
     if (text.isEmpty) return;
-    //  纯填充词闸(喊口令路径同款):单字"the"曾命中Trade
+    //  纯填充词闸+逐候选查表(用户洞察:宽语法解码跑偏,
+    //  正解常藏在n-best里——喊Boys时首选the,第3位才是
+    //  boys;逐个候选查表,第一个查中的算数)
     const fillers = {'the', 'a', 'an', 'and', 'of', 'to', 'in',
       'on', 'unk', '[unk]'};
-    if (text.toLowerCase().split(RegExp(r' +'))
-        .every(fillers.contains)) {
-      //  填充词候选救援(用户洞察:窄语法录音完美/宽语法
-      //  解码跑偏——heads被吞成the;候选里常藏着正解)
-      final rescue = alts.firstWhere(
-          (a) => !a.toLowerCase().split(' ')
-              .every(fillers.contains),
-          orElse: () => '');
-      if (rescue.isBlank) {
-        debugPrint('语音Input: 纯填充词"$text",忽略');
-        return;
-      }
-      debugPrint('语音Input: "$text"为填充词,候选救援'
-          '改用"$rescue"');
-      text = rescue.trim();
+    bool isFiller(String s) => s.toLowerCase()
+        .split(RegExp(r' +'))
+        .every(fillers.contains);
+    //  候选序列:首选(非填充)打头,其余非填充候选跟上
+    final candidates = <String>[
+      if (!isFiller(text)) text,
+      for (final a in alts)
+        if (!isFiller(a) && a.trim().isNotEmpty)
+          a.trim(),
+    ];
+    //  去重
+    final seen = <String>{};
+    final cands = <String>[];
+    for (final c in candidates) {
+      if (c.isNotEmpty && seen.add(c.toLowerCase())) cands.add(c);
     }
-    //  先查PSfix,再查口令表
+    if (text.isNotEmpty && isFiller(text)) {
+      debugPrint('语音Input: "$text"为填充词,'
+          '逐候选查表${cands.length}个');
+    }
+    //  逐候选:先PSfix再口令表,第一个查中的算数
     String? matched;
+    String? hitCand;
     //  PSfix按需加载(圆钮Input路径曾从不加载→psfix=null,
-    //  主语词全灭;麦克风路径有加载,两路共用_pssfixTable)
+    //  主语词全灭;麦克风路径有加载,两路共用_psfixTable)
     final psfix = _psfixTable ?? await _loadPSfix();
-    if (psfix != null && psfix.rows.isNotEmpty) {
-      final r = psfix.lookupSequential(text);
-      if (r.hit != null &&
-          r.error <= Settings.psfixThreshold) {
-        matched = r.hit!.standardCall;
+    for (final cand in cands) {
+      if (psfix != null && psfix.rows.isNotEmpty) {
+        final r = psfix.lookupSequential(cand);
+        if (r.hit != null &&
+            r.error <= Settings.psfixThreshold) {
+          matched = r.hit!.standardCall;
+          hitCand = cand;
+          break;
+        }
       }
-    }
-    if (matched == null) {
       final act = callerTable;
       if (act != null) {
-        final r = act.lookupSequential(text);
+        final r = act.lookupSequential(cand);
         if (r.hit != null &&
             r.error <= Settings.callThreshold) {
           matched = r.hit!.standardCall;
+          hitCand = cand;
+          break;
         }
       }
     }
+    text = hitCand ?? text;
     //  只收映射表里的口令(用户:回车之前框内一切都出自
     //  映射表——查表不中的句子不进框,比如误听出的
     //  "trailers thru"永不出现;没听对就重喊一遍)
