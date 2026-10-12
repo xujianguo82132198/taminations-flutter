@@ -120,6 +120,11 @@ class VoskSpeechToText extends ChangeNotifier {
   ///  第一句,多句采样不能用——Input模式按索引消费此表)
   final List<String> _sampleFinals = [];
   List<String> get sampleFinals => List.unmodifiable(_sampleFinals);
+  ///  各final的n-best候选(与sampleFinals同序——Input
+  ///  逐候选查表用:第一候选"the"死时试候选里的"heads")
+  final List<List<String>> _sampleFinalsAlts = [];
+  List<List<String>> get sampleFinalsAlts =>
+      List.unmodifiable(_sampleFinalsAlts);
   bool _segInSegment = false;
   DateTime? _segLastLoudAt;
   String _segStartKnown = '';
@@ -429,6 +434,7 @@ class VoskSpeechToText extends ChangeNotifier {
     }
     _log('sample: start (push-to-talk)');
     _sampleFinals.clear();
+    _sampleFinalsAlts.clear();
     _lastResult = null;
     _lastError = null;
     _lastLevel = 0;
@@ -558,6 +564,7 @@ class VoskSpeechToText extends ChangeNotifier {
       //  松钮冲刷的尾巴若不入表就永远无人处理
       //  (gap冲刷未及触发的最后一句话在这里收)
       _sampleFinals.add(texts.first);
+      _sampleFinalsAlts.add(texts);
       _sessionText = _sessionText.isEmpty
           ? texts.first : '$_sessionText ${texts.first}';
       for (final t in texts) {
@@ -663,6 +670,7 @@ class VoskSpeechToText extends ChangeNotifier {
             //  识别器指纹,录什么存什么,改写交给口令员掌握)
             final seg = texts.first;
             _sampleFinals.add(seg);
+            _sampleFinalsAlts.add(texts);
             _sessionText = _sessionText.isEmpty
                 ? seg : '$_sessionText $seg';
             for (final t in texts) {

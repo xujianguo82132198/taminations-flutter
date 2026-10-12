@@ -924,8 +924,13 @@ class VoiceFlow extends ChangeNotifier {
     //  串行消费(PSfix首载是异步,多句排队不乱序)
     _inputQueue = _inputQueue.then((_) async {
       var gotNew = false;
+      final altsAll = s.sampleFinalsAlts;
       while (_inputFinalCount < finals.length) {
-        await _processInputSentence(finals[_inputFinalCount]);
+        final alts = _inputFinalCount < altsAll.length
+            ? altsAll[_inputFinalCount]
+            : const <String>[];
+        await _processInputSentence(finals[_inputFinalCount],
+            alts: alts);
         _inputFinalCount++;
         gotNew = true;
       }
@@ -941,7 +946,8 @@ class VoiceFlow extends ChangeNotifier {
   Future<void> _inputQueue = Future.value();
 
   ///  处理一个"语句"(0.3秒断句=一句话,文本为原始听法)
-  Future<void> _processInputSentence(String raw) async {
+  Future<void> _processInputSentence(String raw,
+      {List<String> alts = const []}) async {
     var text = raw.trim();
     if (text.isEmpty) return;
     //  纯填充词闸(喊口令路径同款):单字"the"曾命中Trade
@@ -949,8 +955,19 @@ class VoiceFlow extends ChangeNotifier {
       'on', 'unk', '[unk]'};
     if (text.toLowerCase().split(RegExp(r' +'))
         .every(fillers.contains)) {
-      debugPrint('语音Input: 纯填充词"$text",忽略');
-      return;
+      //  填充词候选救援(用户洞察:窄语法录音完美/宽语法
+      //  解码跑偏——heads被吞成the;候选里常藏着正解)
+      final rescue = alts.firstWhere(
+          (a) => !a.toLowerCase().split(' ')
+              .every(fillers.contains),
+          orElse: () => '');
+      if (rescue.isBlank) {
+        debugPrint('语音Input: 纯填充词"$text",忽略');
+        return;
+      }
+      debugPrint('语音Input: "$text"为填充词,候选救援'
+          '改用"$rescue"');
+      text = rescue.trim();
     }
     //  先查PSfix,再查口令表
     String? matched;

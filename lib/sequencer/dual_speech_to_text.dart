@@ -64,6 +64,9 @@ class DualSpeechProvider extends ChangeNotifier {
   ///  采样会话内每个final的本句原文(Input模式按句消费)
   List<String> get sampleFinals =>
       engine == 'vosk' ? vosk.sampleFinals : const <String>[];
+  List<List<String>> get sampleFinalsAlts =>
+      engine == 'vosk' ? vosk.sampleFinalsAlts
+          : const <List<String>>[];
   ///  采样会话进行中(PTT按下~收尾窗口):三表流水线让路标志
   bool get isSampleSession =>
       engine == 'vosk' && vosk.isSampleSession;
@@ -72,7 +75,7 @@ class DualSpeechProvider extends ChangeNotifier {
       engine == 'vosk' ? vosk.segmentAlts : const <List<String>>[];
 
   ///  构建时间戳(每次构建手动更新,用户可验证新旧版本)
-  static const buildStamp = '2026-10-12 17:40';
+  static const buildStamp = '2026-10-12 18:20';
   DualSpeechProvider() {
     debugPrint('BUILD STAMP: $buildStamp');
     _loadSetting();
