@@ -95,8 +95,9 @@ class CallerTable extends ChangeNotifier {
   ///  返回合并后行数
   static Future<int> mergeToPSfix(SharedPreferences prefs,
       String caller) async {
-    final prefixRaw = prefs.getString('$_keyPrefix${caller}Prefix');
-    final suffixRaw = prefs.getString('$_keyPrefix${caller}Sufix');
+    final c = caller.endsWith('/') ? caller : '$caller/';
+    final prefixRaw = prefs.getString('$_keyPrefix${c}Prefix');
+    final suffixRaw = prefs.getString('$_keyPrefix${c}Sufix');
     if (prefixRaw == null && suffixRaw == null) return 0;
 
     final rows = <CallerRow>[];
@@ -203,8 +204,11 @@ class CallerTable extends ChangeNotifier {
   ///  省内存;识别只查PSfix_Only+口令表,多归一录入在此表)
   static Future<(int, int)> mergeOnlyToPSfix(
       SharedPreferences prefs, String caller) async {
-    return mergeTwoTables(prefs, '${caller}Prefix_Only',
-        '${caller}Sufix_Only', '${caller}PSfix_Only');
+    //  键名规范化(曾漏斜杠:目录+表名拼成 XuJianguo2_2PSfix_Only,
+    //  源表永远读不到,PSfix钮合并恒返回0)
+    final c = caller.endsWith('/') ? caller : '$caller/';
+    return mergeTwoTables(prefs, '${c}Prefix_Only',
+        '${c}Sufix_Only', '${c}PSfix_Only');
   }
 
   ///  历史修复:把含 "|" 的行拆回多行(合成曾把多归一的
