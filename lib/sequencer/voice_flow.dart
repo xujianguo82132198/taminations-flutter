@@ -23,8 +23,6 @@ import 'dart:convert' show jsonDecode;
 
 import 'package:flutter/foundation.dart';
 
-import 'vosk_speech_to_text.dart'
-    show SpeechRecognitionAlternative, SpeechRecognitionResult;
 
 import '../dance_model.dart';
 import '../extensions.dart';
@@ -319,7 +317,6 @@ class VoiceFlow extends ChangeNotifier {
       //  先找主语也一致(head≡heads)的候选;没有再接受
       //  主语不同但核心/左右/后缀一致的(跟哪个主语接近
       //  就采用哪个——人类就是这样做的)
-      CallerRow? bestRow2;
       for (final pass in [0, 1]) {
         for (final c in candidates) {
           final cl = c.toLowerCase();
@@ -668,6 +665,7 @@ class VoiceFlow extends ChangeNotifier {
         final isWordsTable =
             lastSeg == 'Words_Only' || lastSeg == 'Words';
         final t = n == name ? table : await CallerTable.open(n);
+        final before = _allDirWords.length;
         for (final r in t.rows) {
           final spokenWs = CallerTable.spokenForm(r.standardCall)
               .split(RegExp(r' +'))
@@ -685,6 +683,9 @@ class VoiceFlow extends ChangeNotifier {
             _dirWords.addAll(tokenWs);
           }
         }
+        debugPrint('词池·表 $lastSeg: ${t.rows.length}行 '
+            '累计${_allDirWords.length}词'
+            '(新增${_allDirWords.length - before})');
       }
       debugPrint('词池: 行级=${_dirWords.length} '
           '喊口令=${_allDirWords.length}');
@@ -998,11 +999,6 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  Input模式:结果通知→输入框实时更新(通过listener)
-  void _pushToInputBox() {
-    //  通知UI更新(输入框的controller由frame管理,
-    //  通过notifyListeners让frame重建时写入)
-  }
 
   ///  最近一次麦克风命令的识别文本(供「存」钮存入表行)
   String lastMicText = '';
@@ -1493,142 +1489,6 @@ class VoiceFlow extends ChangeNotifier {
     });
   }
 
-  ///  命令分段分析+三表检索+组合。
-  ///  分段规则(用户定义):三段=前缀/口令/后缀;两段=最长段
-  ///  是口令,另一段按位置定前后缀(在前=前缀,在后=后缀);
-  ///  一段=只有口令
-  Future<void> _processCommand(List<String> segsIn) async {
-    var segs = segsIn;
-    //  显示块已在 _onSpeech 清过;这里逐表检索,每进一表
-    //  立即刷新显示(口令员看得见 P→P_C→P_C_S 的递加过程)
-    if (segs.isEmpty) return;
-    //  段首前缀剥离:整拍念出的口令(停顿短于识别器断句,
-    //  如一拍"heads pass ocean")首段带着前缀词——从Prefix
-    //  表的记号/读法里找最长的开头匹配,拆成前缀段+口令段
-    {
-      _prefixTable ??= await _loadPSfix();
-      final table = _prefixTable;
-      if (table != null && segs.isNotEmpty && segs[0].isNotEmpty) {
-        final t0 = segs[0].toLowerCase();
-        String? best;
-        for (final r in table.rows) {
-          final cands = <String>[
-            ...r.recognized.split('|').map((t) => t.trim().toLowerCase()),
-            CallerTable.spokenForm(r.standardCall),
-          ];
-          for (final c in cands) {
-            if (c.isNotEmpty && t0.startsWith('$c ') && c.length > 1) {
-              if (best == null || c.length > best.length) best = c;
-            }
-          }
-        }
-        if (best != null) {
-          final rest = segs[0].substring(best.length + 1);
-          segs = [rest, ...segs.sublist(1)];
-          debugPrint('段首前缀剥离: "$best" + "$rest"');
-        }
-      }
-    }
-    //  整句优先:整条口令文本先直接查一次表——多拍记号
-    //  (如 dosado 的 "do so do"分三拍念出)整条命中即单一
-    //  口令,不再拆前缀/口令/后缀(录音怎么存,喊就怎么中)
-    final act0 = callerTable;
-    if (act0 != null) {
-      final whole = segs.join(' ').trim();
-      final rw = act0.lookupSequential(whole);
-      if (rw.hit != null &&
-          rw.error <= Settings.callThreshold * 2 / 3) {
-        callResult = rw.hit!.standardCall;
-        lastCandidate = rw.hit;
-        lastCandidateError = rw.error;
-        tableFlags = 'C';
-        assembledCall = callResult;
-        debugPrint('whole-command hit: "$whole" -> "$callResult" '
-            '(err=${rw.error.toStringAsFixed(2)})');
-        _notify();
-        return;
-      }
-    }
-    String callSeg;
-    String? prefixSeg;
-    String? suffixSeg;
-    if (segs.length == 1) {
-      callSeg = segs[0];
-    } else if (segs.length == 2) {
-      callSeg = segs[0].length >= segs[1].length ? segs[0] : segs[1];
-      final other = callSeg == segs[0] ? segs[1] : segs[0];
-      if (callSeg == segs[0]) {
-        suffixSeg = other;
-      } else {
-        prefixSeg = other;
-      }
-    } else {
-      prefixSeg = segs[0];
-      callSeg = segs.length == 3
-          ? segs[1]
-          : segs.sublist(1, segs.length - 1).join(' ');
-      suffixSeg = segs.last;
-    }
-    //  前缀/后缀段统一查PSfix(用户:合并完PSfix后,
-    //  识别只查PSfix+口令表,不再直查Prefix/Sufix)
-    final stem = _dirOf;
-    if (prefixSeg != null) {
-      _prefixTable ??= await _loadPSfix();
-      final t = _prefixTable;
-      if (t != null && t.rows.isNotEmpty) {
-        final r = t.lookupSequential(prefixSeg);
-        debugPrint('P-lookup "$prefixSeg" '
-            'err=${r.error.toStringAsFixed(2)} '
-            '-> ${r.hit?.standardCall}');
-        if (r.hit != null &&
-            r.error <= Settings.psfixThreshold * 2 / 3) {
-          prefixResult = r.hit!.standardCall;
-          tableFlags = 'P';
-          _notify();
-        }
-      }
-    }
-    //  口令段 → 当前合并表
-    final act = callerTable;
-    if (act != null && callSeg.isNotBlank) {
-      final r = act.lookupSequential(callSeg);
-      debugPrint('C-lookup "$callSeg" '
-          'err=${r.error.toStringAsFixed(2)} '
-          '-> ${r.hit?.standardCall}');
-      if (r.hit != null &&
-          r.error <= Settings.callThreshold) {
-        callResult = r.hit!.standardCall;
-        tableFlags += tableFlags.isEmpty ? 'C' : '_C';
-        _notify();
-      }
-    }
-    if (suffixSeg != null) {
-      _suffixTable ??= _prefixTable ?? await _loadPSfix();
-      final t = _suffixTable;
-      if (t != null && t.rows.isNotEmpty) {
-        final r = t.lookupSequential(suffixSeg);
-        debugPrint('S-lookup "$suffixSeg" '
-            'err=${r.error.toStringAsFixed(2)} '
-            '-> ${r.hit?.standardCall}');
-        if (r.hit != null &&
-            r.error <= Settings.psfixThreshold) {
-          suffixResult = r.hit!.standardCall;
-          tableFlags += tableFlags.isEmpty ? 'S' : '_S';
-        }
-      }
-    }
-    //  组合为整条口令(三个结果分别存储,最后组合)
-    if (callResult.isNotBlank) {
-      assembledCall = [prefixResult, callResult, suffixResult]
-          .where((s) => s.isNotBlank)
-          .join(' ');
-      debugPrint('assembled "$assembledCall" [$tableFlags]');
-    } else {
-      debugPrint('pipeline miss: call lookup failed '
-          'for "$callSeg" [flags=$tableFlags]');
-    }
-    _notify();
-  }
 
   ///  口令已被输入行执行。三个显示区**保留**到下一条口令
   /// 开始时清零(用户:显示不能一闪而过,要看得见)
@@ -1943,39 +1803,6 @@ class VoiceFlow extends ChangeNotifier {
     return true;
   }
 
-  ///  家族变体传播(人类学习法):录好一条口令后,同族
-  ///  未录行(前缀/Left/数字/分数/后缀口令不同,口令核心
-  ///  相同的行)自动推算记号——保留听到的口令核心,按变体
-  ///  行的前缀/左右/后缀重组。例:录了 "Square Thru 4"
-  ///  (听到 "square thru"),"Square Thru 3" 得
-  ///  "square thru three","Left Square Thru 4" 得
-  ///  "left square thru four"
-  Future<int> _propagateToVariants(
-      CallerTable t, CallerRow row, String token) async {
-    final rowCore =
-        CallerTable.decomposeCall(row.standardCall).$3.join(' ');
-    if (rowCore.isEmpty) return 0;
-    final tokCore = CallerTable.decomposeCall(token).$3;
-    if (tokCore.isEmpty) return 0;
-    var filled = 0;
-    for (final r2 in t.rows) {
-      if (r2.seq == row.seq || r2.recognized.isNotBlank) continue;
-      final p2 = CallerTable.decomposeCall(r2.standardCall);
-      //  口令核心必须相同(核心不同的行不传播)
-      if (p2.$3.join(' ') != rowCore) continue;
-      final words = [
-        ...p2.$1,          //  变体行的前缀(heads/boys...)
-        if (p2.$2) 'left', //  变体行的左右
-        ...tokCore,        //  听到的口令核心(用户发音)
-        ...p2.$4,          //  变体行的后缀(four/quarter/roll)
-      ];
-      final newTok = words.join(' ').trim();
-      if (newTok.isEmpty) continue;
-      await t.updateRow(r2.seq, recognized: newTok, sort: false);
-      filled++;
-    }
-    return filled;
-  }
 
 
   ///  完整口令结构的变体词表:前缀(heads/sides/boys/
@@ -1991,37 +1818,6 @@ class VoiceFlow extends ChangeNotifier {
     'quarter', 'half', 'and', 'a',
     'roll', 'spread',
   };
-
-  List<(int, List<String>)>? _findInsertions(
-      List<String> a, List<String> b) {
-    if (b.length <= a.length) return null;
-    //  找公共前缀
-    var pre = 0;
-    while (pre < a.length && pre < b.length && a[pre] == b[pre])
-      pre++;
-    //  找公共后缀
-    final result = <(int, List<String>)>[];
-    var ai = 0;
-    var extra = <String>[];
-    var extraAt = 0;
-    for (var bi = 0; bi < b.length; bi++) {
-      if (ai < a.length && a[ai] == b[bi]) {
-        if (extra.isNotEmpty) {
-          result.add((extraAt, extra));
-          extra = [];
-        }
-        ai++;
-      } else if (_variantWords.contains(b[bi])) {
-        if (extra.isEmpty) extraAt = ai;
-        extra.add(b[bi]);
-      } else {
-        return null;   //  非变体词差异
-      }
-    }
-    if (extra.isNotEmpty) result.add((extraAt, extra));
-    if (ai != a.length) return null;   //  a 的词未全部对上
-    return result.isEmpty ? null : result;
-  }
 
   ///  完成建表:与源表合并、总体排序、另存(去掉 Only)
   Future<int?> finishOnlyTable() async {

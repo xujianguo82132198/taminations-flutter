@@ -1038,7 +1038,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
 
   CallerRow? _lastScrolledCandidate;
   CallerRow? _lastScrolledPending;
-  CallerRow? _lastScrolledCursor;
   //  非Only表的点击选中(纯浏览高亮,不动数据)
   int? _viewSeq;
 
@@ -1112,7 +1111,6 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
     final t = flow.callerTable;
     if (t != null && !identical(t, _lastTable)) {
       _lastTable = t;
-      _lastScrolledCursor = null;
       _lastScrolledPending = null;
       _lastScrolledCandidate = null;
     }

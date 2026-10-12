@@ -37,7 +37,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../settings.dart';
-import 'caller_store.dart';
 import 'music_monitor.dart';
 //  识别结果类型(原从讯飞引擎import,云端删除后内联)
 class SpeechRecognitionAlternative {
@@ -81,7 +80,6 @@ class VoskSpeechToText extends ChangeNotifier {
   //  前缀单独缓存,不与后续口令段连成乱串——下一段到来
   //  时作为前缀拼在前面(如 "home"段 + "circulate"段 →
   //  "ends circulate")
-  String _segmentPrefix = '';
 
   //  本会话见过的全部候选文本(分段事件+收尾并集,去重):
   //  收尾 flush 只带最后一段的候选,不能覆盖中间的完整列表
@@ -520,7 +518,6 @@ class VoskSpeechToText extends ChangeNotifier {
   Future<void> _startSession() async {
     try {
       _sessionText = '';
-      _segmentPrefix = '';
       _sessionAlts.clear();
       _sub?.cancel();
       _sub = musicMonitor.events.listen(_onEvent);
