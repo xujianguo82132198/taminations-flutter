@@ -628,6 +628,15 @@ class VoiceFlow extends ChangeNotifier {
     collisionNoticeShown = false;
     if (tokenCollisionRows.isNotEmpty)
       debugPrint('token collisions: ${tokenCollisionRows.length}');
+    //  漂移体检(重录优先级:失真最大的几条)
+    final drifts = table.driftReport();
+    if (drifts.isNotEmpty) {
+      debugPrint('DRIFT体检 top${drifts.length}:');
+      for (final d in drifts) {
+        debugPrint('DRIFT ${d.$1.toString().padLeft(3)}行 '
+            '"${d.$2}" 记号"${d.$3}" 漂移${d.$4.toStringAsFixed(2)}');
+      }
+    }
     //  诊断:全表转储(排查记号与所闻差异)。
     //  记号必须是识别器原始输出;此转储用于比对"存的记号"
     //  与"麦克风实际听到"是否同一形态

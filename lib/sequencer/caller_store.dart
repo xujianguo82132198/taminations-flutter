@@ -1546,6 +1546,32 @@ class CallerTable extends ChangeNotifier {
     return (hit: best, candidate: best, error: bestErr);
   }
 
+  ///  漂移体检(误差×误差防线配套):逐行计算指纹与标准
+  ///  口令读法的漂移,返回最差的N条(行号,口令,记号,漂移)
+  ///  ——重录时优先补失真最大的,行得越宽
+  List<(int, String, String, double)> driftReport({int top = 5}) {
+    final list = <(int, String, String, double)>[];
+    for (final row in rows) {
+      final spoken = spokenForm(row.standardCall);
+      var drift = double.infinity;
+      var tok = '';
+      for (final token in row.recognized.split('|')) {
+        final t = token.trim();
+        if (t.isEmpty) continue;
+        final d1 = structuredError(t, spoken);
+        final d2 = sentenceError(t, spoken);
+        final d = d1 < d2 ? d1 : d2;
+        if (d < drift) {
+          drift = d;
+          tok = t;
+        }
+      }
+      if (drift.isFinite) list.add((row.seq, row.standardCall, tok, drift));
+    }
+    list.sort((a, b) => b.$4.compareTo(a.$4));
+    return list.take(top).toList();
+  }
+
   ///  记号碰撞体检:口令不同而记号相同/雷同的行对——
   ///  喊口令时查表无法区分,需重新识别。
   ///  返回(行A序号,行A口令,行B序号,行B口令,雷同记号)
