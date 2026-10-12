@@ -434,9 +434,13 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                   ),
                 ),
                 actions: [
-                  //  立体化(用户:平面文字混在行里看不出来)
+                  //  立体化但小号(用户:仍在右下角,不要那么大)
                   Button('关闭',
-                      onPressed: () => fm.Navigator.of(ctx).pop()),
+                      onPressed: () => fm.Navigator.of(ctx).pop(),
+                      child: fm.Text('关闭',
+                          style: fm.TextStyle(
+                              fontSize: 14,
+                              fontWeight: fm.FontWeight.bold))),
                 ],
                 ),
                 ),
