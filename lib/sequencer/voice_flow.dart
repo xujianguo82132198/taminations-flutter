@@ -814,7 +814,7 @@ class VoiceFlow extends ChangeNotifier {
   ///  当前待替换的最后一笔
   String inputPending = '';
   ///  直通试验开关(true=取消查表,识别原文直进框)
-  static const bool inputDirectExperiment = true;
+  static const bool inputDirectExperiment = false;
   ///  当前句子的分段累积
   final List<String> _inputSegParts = [];
 
