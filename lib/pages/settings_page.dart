@@ -131,7 +131,10 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 ),
                 _SettingSliderRow(
                   label: '前缀/后缀门槛',
-                  hint: '查PSfix表的误差上限:松=易误中,紧=易漏',
+                  hint: '右滑=松:误差上限变大,易命中'
+                      '(漏网减少,但易误中);\n'
+                      '左滑=紧:误差上限变小,难命中'
+                      '(漏网增加,但不易误中)',
                   value: Settings.psfixThreshold,
                   min: 0.10, max: 0.60, divisions: 25,
                   display: (v) => v.toStringAsFixed(2),
@@ -141,7 +144,10 @@ class SequencerSettingsFrame extends fm.StatelessWidget {
                 ),
                 _SettingSliderRow(
                   label: '口令表门槛',
-                  hint: '查口令表的误差上限:松=易误中,紧=易漏',
+                  hint: '右滑=松:误差上限变大,易命中'
+                      '(漏网减少,但易误中);\n'
+                      '左滑=紧:误差上限变小,难命中'
+                      '(漏网增加,但不易误中)',
                   value: Settings.callThreshold,
                   min: 0.10, max: 0.60, divisions: 25,
                   display: (v) => v.toStringAsFixed(2),
