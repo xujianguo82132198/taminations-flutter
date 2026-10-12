@@ -970,7 +970,7 @@ class MainActivity : FlutterActivity() {
           //  兜底:冲刷结果只含填充词(the/a/of...)=噪声,
           //  无条件丢弃——真口令绝不会只有一个填充词
           val fillerOnly = json != null && run {
-            val m = Regex("\"text\"\s*:\s*\"([^\"]*)\"")
+            val m = Regex("""\"text\"\s*:\s*\"([^\"]*)\"""")
                 .find(json!!)
             val t = m?.groupValues?.get(1)?.trim()?.lowercase() ?: ""
             t in setOf("the", "a", "an", "of", "to", "in", "on", "and")
