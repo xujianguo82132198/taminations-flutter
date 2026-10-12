@@ -1013,7 +1013,32 @@ class VoiceFlow extends ChangeNotifier {
   Timer? _assembleTimer;
   int _lastSegLen = 0;
   final List<String> _callParts = [];
+  ///  各段的n-best候选(与_callParts同序——逐候选查表用)
+  final List<List<String>> _callPartsAlts = [];
   bool _prefixSeen = false;
+
+  ///  段与候选一并清(两表必须同步)
+  void _clearParts() {
+    _clearParts();
+    _callPartsAlts.clear();
+  }
+
+  ///  逐候选变体(圆钮经验移植):各段用其n-best候选做单段
+  ///  替换再拼——有界≤10个变体("pass the ocean"曾藏在第3
+  ///  候选而首选"pass ocean"误差过大)
+  List<String> _callVariants() {
+    final out = <String>[];
+    for (var i = 0; i < _callParts.length && out.length < 10; i++) {
+      for (final alt in _callPartsAlts[i]) {
+        if (out.length >= 10) break;
+        final parts = List.of(_callParts);
+        parts[i] = alt;
+        final s = parts.join(' ').trim();
+        if (s.isNotEmpty && !out.contains(s)) out.add(s);
+      }
+    }
+    return out;
+  }
   DateTime? _lastSegmentAt;
   ///  前后缀最小间隔(用户:0.7秒)
   static const _prefixSuffixGap = Duration(milliseconds: 1500);
@@ -1186,6 +1211,11 @@ class VoiceFlow extends ChangeNotifier {
       _notify();
     }
     _callParts.add(text);
+    //  记录本段候选(去首选/空/unk)——逐候选查表备用
+    _callPartsAlts.add(alts
+        .where((a) =>
+            a != text && a.isNotBlank && !a.contains('unk'))
+        .toList());
     _assembleTimer?.cancel();
     _assembleTimer = null;
     _armAssemblyTimer(const Duration(milliseconds: 900));
@@ -1209,7 +1239,7 @@ class VoiceFlow extends ChangeNotifier {
       _resetAssembly();
       return;
     }
-    final callSeg = _callParts.join(' ');
+    var callSeg = _callParts.join(' ');
     if (callSeg.isNotBlank && !callSeg.contains('unk')) lastMicText = callSeg;
     //  纯填充词判定(碎片曾"the the"命中Flutterwheel):
     //  闸门装在查表**之后**——先扫描(进表标志…),命中若为
@@ -1221,9 +1251,24 @@ class VoiceFlow extends ChangeNotifier {
         .every(fillers.contains);
     final act = callerTable;
     if (act != null) {
-      final r = act.lookupSequential(callSeg);
+      var r = act.lookupSequential(callSeg);
       debugPrint('口令查表: "$callSeg" err=${r.error.toStringAsFixed(2)} '
           '-> ${r.hit?.standardCall}');
+      //  逐候选变体(圆钮经验):首选未中,单段替换候选再查
+      if (r.hit == null || r.error > 0.45) {
+        for (final varText in _callVariants()) {
+          final rv = act.lookupSequential(varText);
+          if (rv.hit != null && rv.error <= 0.45) {
+            debugPrint('候选变体命中: "$varText" -> '
+                '"${rv.hit!.standardCall}" '
+                '(原"$callSeg" err='
+                '${r.error.toStringAsFixed(2)})');
+            r = rv;
+            callSeg = varText;
+            break;
+          }
+        }
+      }
       //  递归识别法(用户算法定义,在常规查表后追加):
       ///  常规查表未中时,走辅音家族递归导航——日志全程
       ///  可见,命中则采用,家族缺失则提示
@@ -1253,7 +1298,7 @@ class VoiceFlow extends ChangeNotifier {
           }
           _notify();
           _armAssemblyTimer(const Duration(milliseconds: 900));
-          _callParts.clear();
+          _clearParts();
           return;
         }
       }
@@ -1261,7 +1306,7 @@ class VoiceFlow extends ChangeNotifier {
         if (allFiller) {
           debugPrint('命中但纯填充词,拒绝: "$callSeg" -> '
               '${r.hit!.standardCall}');
-          _callParts.clear();
+          _clearParts();
           if (callResult != '✗') callResult = '✗';
           _notify();
           _resetAssembly();
@@ -1277,12 +1322,13 @@ class VoiceFlow extends ChangeNotifier {
         _notify();
         //  等后缀0.9秒,无则执行
         _armAssemblyTimer(const Duration(milliseconds: 900));
-        _callParts.clear();
+        _clearParts();
         return;
       }
       //  拼接未中:最后一段试后缀,其余再查口令
       if (_callParts.length >= 2) {
         final lastSeg = _callParts.removeLast();
+        final lastAlts = _callPartsAlts.removeLast();
         final callSeg2 = _callParts.join(' ');
         final r2 = act.lookupSequential(callSeg2);
         _suffixTable ??= _prefixTable ?? await _loadPSfix();
@@ -1305,14 +1351,15 @@ class VoiceFlow extends ChangeNotifier {
           suffixResult = sufHit;
           tableFlags += '_C_S';
           _notify();
-          _callParts.clear();
+          _clearParts();
           _executeAssembled();
           return;
         }
         _callParts.add(lastSeg);
+        _callPartsAlts.add(lastAlts);
       }
     }
-    _callParts.clear();
+    _clearParts();
     if (_isRealValue(callResult)) {
       _executeAssembled();
     } else {
@@ -1357,7 +1404,7 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   void _resetAssembly() {
-    _callParts.clear();
+    _clearParts();
     _prefixSeen = false;
     _lastSegLen = 0;
     _segIdx = 0;
@@ -1540,7 +1587,7 @@ class VoiceFlow extends ChangeNotifier {
     suffixResult = '';
     recursiveSteps = [];
     assembledCall = '';
-    _callParts.clear();
+    _clearParts();
     _prefixSeen = false;
     _lastSegLen = 0;
     _segIdx = 0;
