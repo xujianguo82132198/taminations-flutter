@@ -162,7 +162,14 @@ class VoiceFlow extends ChangeNotifier {
         debugPrint('word grammar for "$w" '
             '(+${_dirWords.length} calibrated)');
       } else {
-        speech?.setSampleGrammar(_onlyTableWords());
+        //  铁律落实(用户:录音语法=喊口令语法,识别方法必须
+        //  一致——窄语法录出"spin the top"的完美指纹,喊时
+        //  宽语法永远只听成"two pin top",永远对不上;
+        //  宽语法录音让指纹=真实听法,喊时同听法即精确命中)
+        speech?.setSampleGrammar(<String>{
+          ...?_onlyTableWords(),
+          ..._allDirWords,
+        }.followedBy(['[unk]']).toList());
       }
     } else {
       final callG = <String>{
