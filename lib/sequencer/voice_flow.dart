@@ -563,6 +563,7 @@ class VoiceFlow extends ChangeNotifier {
     _lastCommandSeq = 0;
     _prefixTable = null;
     _suffixTable = null;
+    _psfixTable = null;   //  缓存随表会话(曾跨会话粘连空表)
     callerTable?.removeListener(_onTableChanged);
     callerTable = null;
     tableMode = false;
@@ -1012,38 +1013,21 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  加载辅助表:优先PSfix(合并表),没有则回退Prefix/Sufix
   Future<CallerTable?> _loadPSfix() async {
-    //  优先PSfix_Only(用户:合并统一的工作表,直接录音,
-    //  识别只查它+口令表)
-    _psfixTable ??= await _loadAuxTable('${_dirOf}PSfix_Only');
-    _psfixTable ??= await _loadAuxTable('${_dirOf}PSfix');
-    if (_psfixTable != null && _psfixTable!.rows.isNotEmpty) {
-      return _psfixTable;
+    //  只读加载(用户原则:表是口令员建的,系统调表只管取用
+    //  ——不做任何判决/自动合并/改写。曾有的自动合并兜底
+    //  会在加载失败时改写PSfix/PSfix_Only,问题无人知晓)
+    final t1 = await _loadAuxTable('${_dirOf}PSfix_Only');
+    if (t1 != null && t1.rows.isNotEmpty) {
+      _psfixTable = t1;
+      return t1;
     }
-    //  兜底1:Prefix+Sufix合并成PSfix
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final n = await CallerTable.mergeToPSfix(prefs, _dirOf);
-      if (n > 0) {
-        _psfixTable = await _loadAuxTable('${_dirOf}PSfix');
-        return _psfixTable;
-      }
-    } catch (e) {
-      debugPrint('mergeToPSfix failed: $e');
+    final t2 = await _loadAuxTable('${_dirOf}PSfix');
+    if (t2 != null && t2.rows.isNotEmpty) {
+      _psfixTable = t2;
+      return t2;
     }
-    //  兜底2:2张Only表(Prefix_Only+Sufix_Only)合并清理
-    //  成PSfix_Only(含已录声纹,多归一录音位保够3行)
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final r = await CallerTable.mergeOnlyToPSfix(prefs, _dirOf);
-      if (r.$1 > 0) {
-        _psfixTable = await _loadAuxTable('${_dirOf}PSfix_Only');
-        return _psfixTable;
-      }
-    } catch (e) {
-      debugPrint('mergeOnlyToPSfix failed: $e');
-    }
-    //  浓诊断(用户排查psfix=null):全盘扫描——所有目录
-    //  所有表连同行数,录的内容落在哪一目了然
+    _psfixTable = null;
+    //  只读诊断(全盘扫描,不改任何数据)
     try {
       final prefs = await SharedPreferences.getInstance();
       final all = CallerTable.listTableNames(prefs);
@@ -1058,9 +1042,7 @@ class VoiceFlow extends ChangeNotifier {
         } catch (_) {}
         buf.write('$n(${cnt}行) ');
       }
-      debugPrint('PSfix缺失! 全盘表扫描: $buf');
-      debugPrint('(当前目录"$_dirOf"的PSfix_Only/PSfix为空,'
-          '主语词只有PSfix能接——内容可能录在其他目录)');
+      debugPrint('PSfix未取到(只读诊断): $buf');
     } catch (_) {}
     return null;
   }
