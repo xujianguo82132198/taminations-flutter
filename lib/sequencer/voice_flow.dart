@@ -1140,7 +1140,7 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  段与候选一并清(两表必须同步)
   void _clearParts() {
-    _clearParts();
+    _callParts.clear();
     _callPartsAlts.clear();
   }
 
