@@ -728,6 +728,14 @@ class VoiceFlow extends ChangeNotifier {
   ///  一个全空行(两列皆空,标准口令列留给口令员键入),
   ///  光标跳到新行——位置就在眼前,不用滚动寻找。
   ///  无高亮行时插到表首。返回新行(供口令编辑画面)
+  ///  插行锚点:无当前行时取表尾行seq(insertRowAbove
+  ///  对不存在的seq会落到表尾)
+  int lastInsertAnchor() {
+    final t = callerTable;
+    if (t == null || t.rows.isEmpty) return -1;
+    return t.rows.last.seq;
+  }
+
   Future<CallerRow?> addReadingRow() async {
     final t = callerTable;
     if (t == null || !onlyMode) return null;
@@ -2027,7 +2035,11 @@ class VoiceFlow extends ChangeNotifier {
     if (table == null) return null;
     //  初始化期间暂停语音识别,避免后续识别句打断录入
     speech?.pause();
-    pendingRecord = await table.addRow(recognized: sentence);
+    //  新行插当前行上方(用户:不要插到第一行找不到;无当前
+    //  行则表尾),不排序——排序只在合并时发生
+    final curSeq = currentDictationRow?.seq ?? lastInsertAnchor();
+    pendingRecord = await table.insertRowAbove(curSeq,
+        recognized: sentence);
     _notify();
     return pendingRecord;
   }
@@ -2047,7 +2059,9 @@ class VoiceFlow extends ChangeNotifier {
     final table = callerTable;
     final row = pendingRecord;
     if (table == null || row == null) return false;
-    await table.updateRow(row.seq, standardCall: wholeCall);
+    //  识别后不自动排序(用户:要观察比较,排序只在合并时发生)
+    await table.updateRow(row.seq,
+        standardCall: wholeCall, sort: false);
     pendingRecord = null;
     //  恢复语音识别
     speech?.resume();

@@ -379,10 +379,15 @@ class _OnlyDictationBoxState extends fm.State<_OnlyDictationBox> {
                                   onPressed: () async {
                                     final tb = flow.callerTable;
                                     if (tb == null) return;
-                                    final row = await tb.addRow(
-                                        recognized: '',
-                                        standardCall:
-                                            controller.text.trim());
+                                    final anchor2 = flow
+                                            .currentDictationRow?.seq ??
+                                        (tb.rows.isEmpty
+                                            ? -1
+                                            : tb.rows.last.seq);
+                                    final row =
+                                        await tb.insertRowAbove(anchor2,
+                                            standardCall:
+                                                controller.text.trim());
                                     selected = row;
                                     fm.Navigator.of(ctx).pop();
                                   },
@@ -1616,11 +1621,14 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
 
   Future<void> _addRecordDialog() async {
     if (!flow.onlyMode) return;
-    //  先增加一个空行并选为当前(用户:进入画面即有落点,
-    //  选择/键入各路径都往此行填)
+    //  先增加一个空行并选为当前(用户:插当前行上方——不要
+    //  插到第一行找不到;无当前行则表尾;不排序,排序只在
+    //  合并时发生;选择/键入各路径都往此行填)
     final table = flow.callerTable;
     if (table == null) return;
-    final row = await table.addRow(recognized: '', standardCall: '');
+    final anchor = flow.currentDictationRow?.seq ??
+        (table.rows.isEmpty ? -1 : table.rows.last.seq);
+    final row = await table.insertRowAbove(anchor);
     flow.selectDictationRow(row.seq);
     //  面板先定位到新空行(用户:要亲眼看到空行落点,怕误冲
     //  有用记录——新行永远追加在表尾,不覆盖任何已有行)
