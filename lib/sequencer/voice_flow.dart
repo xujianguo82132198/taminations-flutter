@@ -1033,6 +1033,18 @@ class VoiceFlow extends ChangeNotifier {
     } catch (e) {
       debugPrint('mergeOnlyToPSfix failed: $e');
     }
+    //  浓诊断(用户排查psfix=null):目录全部表名列出,
+    //  PSfix是否在/叫什么名一目了然
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final all = CallerTable.listTableNames(prefs)
+          .where((n) => n.startsWith('$_dirOf/'))
+          .map((n) => n.split('/').last)
+          .toList();
+      debugPrint('PSfix缺失! 目录"$_dirOf"现有表: '
+          '${all.join(' · ')}(找不着 PSfix_Only/PSfix——'
+          '主语词只有PSfix能接,缺位则喊什么都不中)');
+    } catch (_) {}
     return null;
   }
 
