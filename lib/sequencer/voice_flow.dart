@@ -869,12 +869,26 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
+  ///  Input语法是否已dump过(每次会话一次,防刷屏)
+  bool _inputGrammarDumped = false;
+
   ///  Input模式语法:当前表+全目录(与喊口令一致)
   List<String>? _inputGrammar() {
     final callG = <String>{
       ...?_onlyTableWords(),
       ..._allDirWords,
     };
+    //  一次性透视(排查heads消失:词表内容+相关设置全见)
+    if (!_inputGrammarDumped) {
+      _inputGrammarDumped = true;
+      final sorted = callG.toList()..sort();
+      debugPrint('INPUT语法全表(${sorted.length}): '
+          '${sorted.join(' · ')}');
+      debugPrint('设置: 辅音增强=${Settings.consonantBoost} '
+          '噪声抑制=${Settings.noiseSuppression.toStringAsFixed(2)} '
+          'PSfix门槛=${Settings.psfixThreshold.toStringAsFixed(2)} '
+          '口令门槛=${Settings.callThreshold.toStringAsFixed(2)}');
+    }
     return [...callG, '[unk]'];
   }
 
