@@ -1030,12 +1030,14 @@ class VoiceFlow extends ChangeNotifier {
     //  只读加载(用户原则:表是口令员建的,系统调表只管取用
     //  ——不做任何判决/自动合并/改写。曾有的自动合并兜底
     //  会在加载失败时改写PSfix/PSfix_Only,问题无人知晓)
-    final t1 = await _loadAuxTable('$_dirOf/PSfix_Only');
+    //  识别走非Only表(用户规则:非Only=识别接口,按记号排序;
+    //  Only表=口令员编辑接口)——PSfix优先,PSfix_Only兜底
+    final t1 = await _loadAuxTable('$_dirOf/PSfix');
     if (t1 != null && t1.rows.isNotEmpty) {
       _psfixTable = t1;
       return t1;
     }
-    final t2 = await _loadAuxTable('$_dirOf/PSfix');
+    final t2 = await _loadAuxTable('$_dirOf/PSfix_Only');
     if (t2 != null && t2.rows.isNotEmpty) {
       _psfixTable = t2;
       return t2;
