@@ -378,13 +378,11 @@ class __SettingSliderRowState extends fm.State<_SettingSliderRow> {
                       fontSize: 16,
                       fontWeight: fm.FontWeight.bold)),
               fm.Spacer(),
-              //  拖动中=方向效果(右松左紧),松手恢复数值
-              fm.Text(_dragEffect ?? widget.display(_v),
+              //  数值始终显示(用户:口令员随时观察数值大小
+              //  决定是否继续移动,不被效果文字占用)
+              fm.Text(widget.display(_v),
                   style: fm.TextStyle(
-                      fontSize: 14,
-                      color: _dragEffect != null
-                          ? fm.Colors.blue
-                          : fm.Colors.black54)),
+                      fontSize: 14, color: fm.Colors.black54)),
             ]),
             fm.Slider(
               value: _v.clamp(widget.min, widget.max),
@@ -403,11 +401,17 @@ class __SettingSliderRowState extends fm.State<_SettingSliderRow> {
               onChangeEnd: (_) =>
                   setState(() => _dragEffect = null),
             ),
+            //  效果另辟显示地(用户):拖动中此行改显蓝字
+            //  方向效果,松手恢复两行说明
             fm.Padding(
                 padding: fm.EdgeInsets.only(bottom: 4),
-                child: fm.Text(widget.hint,
+                child: fm.Text(
+                    _dragEffect ?? widget.hint,
                     style: fm.TextStyle(
-                        fontSize: 12, color: fm.Colors.black54))),
+                        fontSize: _dragEffect != null ? 14 : 12,
+                        color: _dragEffect != null
+                            ? fm.Colors.blue
+                            : fm.Colors.black54))),
           ],
         ));
   }
