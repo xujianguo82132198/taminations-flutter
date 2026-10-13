@@ -2683,6 +2683,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     final tableNames = CallerTable.listTableNames(prefs);
     final nameController = fm.TextEditingController();
     final passwordController = fm.TextEditingController();
+    var pwdError = false;
     final passwordFocus = fm.FocusNode();
     var selected = '';   //  选中的表名(空表示未选)
     var currentDir = '';   //  目录层导航:''=口令员目录层,否则该目录内
@@ -2715,9 +2716,27 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 });
               }
               //  口令确认:回车或"确定"触发
+              //  真验证(用户:曾只存不查,任何字母都能过):
+              //  首次输入=设定口令(老口令员不被锁死),之后严格比对
               Future<void> doConfirm() async {
                 final pwd = passwordController.text;
                 if (pwd.isBlank) return;
+                final caller = selected.isNotBlank
+                    ? selected : nameController.text.trim();
+                final pwdKey = '口令员口令 $caller';
+                final stored = prefs.getString(pwdKey);
+                if (stored == null) {
+                  await prefs.setString(pwdKey, pwd);
+                  debugPrint('口令设定: $caller(首次)');
+                } else if (stored != pwd) {
+                  debugPrint('口令不符: $caller');
+                  setState(() {
+                    pwdError = true;
+                  });
+                  passwordController.clear();
+                  passwordFocus.requestFocus();
+                  return;
+                }
                 flow.callerPassword = pwd;
                 if (passwordMode == '打开') {
                   flow.callerName = selected.isNotBlank
@@ -2744,8 +2763,18 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   obscureText: true,
                   decoration: fm.InputDecoration(
                       labelText: '口令',
-                      labelStyle: fm.TextStyle(fontSize: 20)),
+                      labelStyle: fm.TextStyle(fontSize: 20),
+                      errorText: pwdError ? '口令不符,请重输' : null,
+                      errorStyle: fm.TextStyle(
+                          fontSize: 16, color: fm.Colors.red)),
                   style: fm.TextStyle(fontSize: 24),
+                  onChanged: (_) {
+                    if (pwdError) {
+                      setState(() {
+                        pwdError = false;
+                      });
+                    }
+                  },
                   onSubmitted: (_) => doConfirm(),
                 ),
                 actions: [
