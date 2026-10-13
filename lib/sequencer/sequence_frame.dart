@@ -1877,8 +1877,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
   bool _wasInputActive = false;
 
-  ///  输入法指引行(用户设计:编号+尾部大写加粗+各行浅色底)
-  fm.Widget _inputGuideLine(String lead, String caps, fm.Color bg) {
+  ///  输入法指引行(用户设计:编号+尾部大写加粗+各行浅色底;
+  ///  可选内嵌图标——行3的圆钮图标用真图标不用字符,字符
+  ///  在设备字体渲染成虚框)
+  fm.Widget _inputGuideLine(String lead, String caps, fm.Color bg,
+      {fm.IconData? icon}) {
     return fm.Container(
       width: double.infinity,
       color: bg,
@@ -1887,6 +1890,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         fm.TextSpan(children: [
           fm.TextSpan(
               text: lead, style: const fm.TextStyle(fontSize: 13)),
+          if (icon != null)
+            fm.WidgetSpan(
+                alignment: fm.PlaceholderAlignment.middle,
+                child: fm.Icon(icon,
+                    size: 15, color: fm.Colors.black87)),
+          if (icon != null)
+            const fm.TextSpan(
+                text: ' for ',
+                style: fm.TextStyle(fontSize: 13)),
           fm.TextSpan(
               text: caps,
               style: const fm.TextStyle(
@@ -2235,9 +2247,10 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                   const fm.Color(0xffe8f5e9),
                                 ),
                                 _inputGuideLine(
-                                  '3. Tap \u25cf for ',
+                                  '3. Tap ',
                                   'VOICE INPUT',
                                   const fm.Color(0xfffff8e1),
+                                  icon: fm.Icons.record_voice_over,
                                 ),
                               ],
                             )
