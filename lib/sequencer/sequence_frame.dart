@@ -2131,7 +2131,19 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   },
                   decoration: fm.InputDecoration(
                       hintText: 'Enter calls',
-
+                      //  聆听下横线(用户设计):按住圆钮=当前待定
+                      //  内容可被再喊更换(蓝下横线标出);抬起=
+                      //  下横线消失,示已确认不再更换;再按续接
+                      enabledBorder: flow.pttInputActive
+                          ? fm.UnderlineInputBorder(
+                              borderSide: fm.BorderSide(
+                                  color: Color.BLUE, width: 3))
+                          : fm.InputBorder.none,
+                      focusedBorder: flow.pttInputActive
+                          ? fm.UnderlineInputBorder(
+                              borderSide: fm.BorderSide(
+                                  color: Color.BLUE, width: 3))
+                          : fm.InputBorder.none,
                       errorStyle: fm.TextStyle(fontSize: 13,
                           color: model.errorString.contains('Note') ? fm.Colors.blue : fm.Colors.red),
                       errorMaxLines: 2,
