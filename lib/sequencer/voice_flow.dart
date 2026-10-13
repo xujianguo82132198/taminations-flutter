@@ -1036,7 +1036,8 @@ class VoiceFlow extends ChangeNotifier {
       //  操作指导(用户要求):口令员知道下一步做什么
       inputMissNotice = '没听中:"$text"'
           '\n①重喊一遍,开头辅音咬重(ex-/sp-/sw-)'
-          '\n②屡不中→Only表重录该口令的指纹';
+          '\n②拆音节分拍喊(ix·tend / do·sa·do)'
+          '\n③屡不中→Only表重录该口令的指纹';
       _notify();
       return;
     }
