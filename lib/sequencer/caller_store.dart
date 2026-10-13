@@ -1374,6 +1374,73 @@ class CallerTable extends ChangeNotifier {
 
   ///  结构化误差:先比对前缀/后缀/左右(应精确一致),
   ///  口令核心用编辑距离模糊比对——比整句模糊又快又准
+  //  ---- Power加权系数识别(用户设计) ----
+  ///  33×33加权表:行=词长(1..33),列=字符位,每行和=1。
+  ///  前重后轻(q=0.78几何衰减归一):开头辅音决策权最高
+  ///  (s/sw/sp一族靠首位分辨),词尾(-ing/-er)最轻。
+  ///  值由本次敲定;如 Power[4][0]=0.345 即4字母词首字符权重
+  static final List<List<double>> power = List.generate(
+      34,
+      (m) {
+        if (m == 0) return const <double>[];
+        var sum = 0.0;
+        final w = List<double>.filled(m, 0.0);
+        for (var n = 0; n < m; n++) {
+          var v = 1.0;
+          for (var k = 0; k < n; k++) {
+            v *= 0.78;
+          }
+          w[n] = v;
+          sum += v;
+        }
+        return [for (final v in w) v / sum];
+      });
+
+  ///  过门槛数值(用户:命中位系数累计≥此值才选中;
+  ///  满分=行和=1,初设0.55,按日志分布校准)
+  static const double powerGate = 0.55;
+
+  ///  词级得分:听到的词 vs 表内词(按表词长取行,逐位比对,
+  ///  命中位累计权重;位置错开不命中——Power(m,n)按位判)
+  static double powerScore(String heard, String target) {
+    final h = heard.toLowerCase();
+    final t = target.toLowerCase();
+    if (t.isEmpty || t.length > 33) return 0;
+    final row = power[t.length];
+    var s = 0.0;
+    for (var n = 0; n < t.length; n++) {
+      if (n < h.length && h[n] == t[n]) s += row[n];
+    }
+    return s;
+  }
+
+  ///  句级得分:表词逐个在听句词袋里找最佳词配,按词长
+  ///  加权平均("pass ocean" vs "pass the ocean"≈0.75,
+  ///  "the" vs "trade"≈0.31——填充词挂到长口令被闸死)
+  static double powerScoreSentence(String heard, String target) {
+    final hw = heard.toLowerCase()
+        .split(RegExp(r' +'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    final tw = target.toLowerCase()
+        .split(RegExp(r' +'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (hw.isEmpty || tw.isEmpty) return 0;
+    var s = 0.0;
+    var len = 0;
+    for (final t in tw) {
+      var best = 0.0;
+      for (final h in hw) {
+        final p = powerScore(h, t);
+        if (p > best) best = p;
+      }
+      s += best * t.length;
+      len += t.length;
+    }
+    return len == 0 ? 0 : s / len;
+  }
+
   static double structuredError(String a, String b) {
     var wa = _normalize(a).split(' ')
         .where((s) => s.isNotEmpty).toList();
@@ -1498,6 +1565,18 @@ class CallerTable extends ChangeNotifier {
         final e1 = structuredError(token, sentence);
         final e2 = sentenceError(token, sentence);
         var e = e1 < e2 ? e1 : e2;
+        //  Power闸(用户加权法):命中位系数累计<门槛=形态
+        //  不符,该记号判死——"the"挂"trade"类误中就此绝迹
+        final pw = powerScoreSentence(sentence, token);
+        if (pw < powerGate) {
+          debugPrint('Power闸拒: "$sentence" vs "$token" '
+              'pw=${pw.toStringAsFixed(2)}'
+              '(err曾=${e.toStringAsFixed(2)})');
+          e = 1.0;
+        } else {
+          debugPrint('Power过: "$sentence" vs "$token" '
+              'pw=${pw.toStringAsFixed(2)}');
+        }
         //  主语硬界限:主语不同(有无/不同主语)=不同口令,
         //  整句相似不得越过(heads pass thru ≠ pass thru)
         if (!sameCommandPrefix(token, sentence)) e = 1.0;
