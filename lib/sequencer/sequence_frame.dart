@@ -2439,12 +2439,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 //  麦克风钮:仅打开了非Only映射表才可操作
                 //  (识别在该表内选择,表已含级别)
                 fm.TextButton(
-                  //  麦克风连续识别重开(圆钮经验已移植:逐候选
-                  //  变体查表;gap冲刷/人声守卫本就全局生效)
+                  //  麦克风连续输入法已取消(用户:最终形态=
+                  // 口令曲录音棚,play驱动+外部录音机录制)。
+                  // 点击仅负责关闭遗留监听,不再开启
                   onPressed: flow.callerTable == null || flow.onlyMode
                       ? null : () async {
-                    //  采样中/音乐节拍取样中不响应
-                    if (flow.pttActive || flow.pttInputActive) return;
+                    if (speechProvider.isListening) {
+                      flow.stopListening();
+                    }
                     if (flow.phase == 'awaiting' ||
                         flow.phase == 'detecting')
                       return;
