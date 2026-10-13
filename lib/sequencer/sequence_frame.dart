@@ -1886,12 +1886,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       child: fm.Text.rich(
         fm.TextSpan(children: [
           fm.TextSpan(
-              text: lead, style: const fm.TextStyle(fontSize: 14)),
+              text: lead, style: const fm.TextStyle(fontSize: 13)),
           fm.TextSpan(
               text: caps,
               style: const fm.TextStyle(
-                  fontSize: 14, fontWeight: fm.FontWeight.bold)),
+                  fontSize: 13, fontWeight: fm.FontWeight.bold)),
         ]),
+        maxLines: 1,
+        overflow: fm.TextOverflow.ellipsis,
       ),
     );
   }
@@ -2277,9 +2279,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   flow.endInputSample();
                 },
                 child: fm.Container(
-                  width: 44,
-                  height: 44,
-                  margin: fm.EdgeInsets.only(right: 4),
+                  width: 40,
+                  height: 40,
+                  margin: fm.EdgeInsets.only(right: 2),
                   decoration: fm.BoxDecoration(
                     shape: fm.BoxShape.circle,
                     color: flow.pttInputActive
@@ -2308,7 +2310,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   ? const fm.Color(0xffffee58)
                   : null,
               child: fm.IconButton(
-                icon: fm.Icon(fm.Icons.clear, size: 24),
+                visualDensity: fm.VisualDensity.compact,
+                padding: fm.EdgeInsets.zero,
+                constraints: const fm.BoxConstraints(
+                    minWidth: 32, minHeight: 32),
+                icon: fm.Icon(fm.Icons.clear, size: 22),
                 onPressed: () {
                   //  先清一切回写源再清框(callSelection曾把
                   //  旧口令写回框=按X不清的元凶)
@@ -2339,8 +2345,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               if (TamUtils.canListen)
                 fm.TextButton(
                   style: fm.TextButton.styleFrom(
-                      padding: fm.EdgeInsets.symmetric(horizontal: 2),
-                      minimumSize: fm.Size(36, 36)),
+                      padding: fm.EdgeInsets.zero,
+                      minimumSize: fm.Size(30, 30)),
                   //  已打开表时禁止操作(变灰);关闭表后恢复
                   onPressed: flow.isActive ? null : () async {
                     if (!await _loginAndOpenTable()) return;
