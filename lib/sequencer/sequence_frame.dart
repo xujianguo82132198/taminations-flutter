@@ -1881,16 +1881,6 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     //  语音Input模式:实时把累加结果显示到输入框
     //  (不冲掉口令员已确认并回车过的内容——那些已在
     //   accumulated里,inputBoxText = accumulated+pending)
-    //  未中操作指导(用户要求):一次性提示条
-    final miss = flow.inputMissNotice;
-    if (miss != null) {
-      flow.inputMissNotice = null;
-      fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-          backgroundColor: Color.BLUE,
-          duration: const Duration(seconds: 4),
-          content: fm.Text(miss,
-              style: const fm.TextStyle(fontSize: 18))));
-    }
     if (flow.pttInputActive) {
       //  Input模式:输入框全程=累加+待替换(空则清零)
       //  曾仅isNotBlank时写,清零被旧内容盖回

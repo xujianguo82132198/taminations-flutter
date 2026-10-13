@@ -1018,8 +1018,7 @@ class VoiceFlow extends ChangeNotifier {
   ///  Input处理队列(串行:PSfix异步加载期间多句不乱序)
   Future<void> _inputQueue = Future.value();
 
-  ///  未中提示(用户:给口令员操作指导)——界面读后即清
-  String? inputMissNotice;
+
 
   ///  处理一个"语句"(0.3秒断句=一句话,文本为原始听法)
   Future<void> _processInputSentence(String raw,
@@ -1097,12 +1096,9 @@ class VoiceFlow extends ChangeNotifier {
     if (matched == null) {
       debugPrint('语音Input: "$text" 查表未中,不进框'
           '(psfix=${psfix?.rows.length ?? 'null'}行)');
-      //  操作指导(用户要求):口令员知道下一步做什么
-      inputMissNotice = '没听中:"$text"'
-          '\n①重喊一遍,开头辅音咬重(ex-/sp-/sw-)'
-          '\n②拆音节分拍喊(ix·tend / do·sa·do)'
-          '\n③屡不中→Only表重录该口令的指纹';
-      _notify();
+      //  指导留在日志(用户:蓝条挡按钮区误事,已取消)
+      debugPrint('未中指导: 重喊咬重开头辅音/拆音节分拍'
+          '(ix·tend)/屡不中Only表重录指纹');
       return;
     }
     //  同一按住期内新喊一句=冲掉前一句(重喊纠正),
