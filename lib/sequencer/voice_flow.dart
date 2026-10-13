@@ -944,9 +944,13 @@ class VoiceFlow extends ChangeNotifier {
       addTable(callerTable);
       addTable(_psfixTable);
       if (phrases.isEmpty) return [..._allDirWords, '[unk]'];
-      debugPrint('短语语法(${phrases.length}条): '
-          '词表模式已旁路');
-      return [...phrases, '[unk]'];
+      //  混合语法(修SwingThru退步:纯短语模式逼解码器整句
+      //  二选一,sw-含混时被硬套成别的短语,词级n-best消失;
+      //  加回全部单词条目——整句可直中,含混可退词级)
+      final hybrid = <String>{...phrases, ..._allDirWords};
+      debugPrint('混合语法(${phrases.length}短语+'
+          '${_allDirWords.length}词): ');
+      return [...hybrid, '[unk]'];
     }
     final callG = <String>{
       ...?_onlyTableWords(),
