@@ -1313,7 +1313,10 @@ class _CallerTablePanelState extends fm.State<CallerTablePanel> {
             //  第一行:表名(口令员名/条数,居中)+ 极小化
             fm.Container(
               width: double.infinity,
-              color: Color.FLOOR,
+              //  表头随拍闪(用户:节拍生效期间大面积同步闪烁)
+              color: flow.musicDancing && flow.beatPulse
+                  ? const fm.Color(0xffffee58)
+                  : Color.FLOOR,
               padding: fm.EdgeInsets.only(left: 12, top: 2, bottom: 2),
               child: fm.Row(children: [
                 fm.Expanded(
@@ -2334,7 +2337,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               ),
             //  X钮:清空输入框——始终可见,不受键盘显隐影响
             //  (用户:打开表后提示文字盖住了X钮)
-            fm.IconButton(
+            //  X钮区随拍闪(节拍生效期间)
+            fm.Container(
+              color: flow.musicDancing && flow.beatPulse
+                  ? const fm.Color(0xffffee58)
+                  : null,
+              child: fm.IconButton(
                 icon: fm.Icon(fm.Icons.clear, size: 24),
                 onPressed: () {
                   //  先清一切回写源再清框(callSelection曾把
@@ -2356,6 +2364,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                   debugPrint('X: 已清,框内='
                       '"${textFieldController.text}"');
                 }),
+            ),
             //  Mic icon for touch devices to do voice input
             //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
             //  该口令员的映射表,之后才开始语音识别

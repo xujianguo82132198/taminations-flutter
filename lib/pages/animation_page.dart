@@ -371,21 +371,53 @@ class _AnimationFrameState extends fm.State<AnimationFrame>
                 //  作为布局行紧贴播放控制条上方 —— 位置随画面
                 //  缩放始终相对一致,不用绝对坐标
                 if (isSequencer)
-                  fm.Container(
-                      //  与舞池/控制条同色,消除单独行背景
-                      color: Color.FLOOR,
-                      padding: fm.EdgeInsets.symmetric(horizontal: 6),
-                      child: fm.Row(children: [
-                        if (TamUtils.canListen) MusicDanceButton(),
-                        fm.Spacer(),
-                        BpmModeText(),
-                      ])),
+                  const MusicBeatBar(),
 
                 //  Buttons to control the animation
             _AnimationButtons()
               ]); }
       )
     );
+  }
+}
+
+///  音乐节拍行(节拍钮+bpm显示):节拍生效期间整行底色
+///  随拍闪烁(用户:尽可能大的屏幕面积同步闪,激发心里
+///  节奏与音乐同步)
+class MusicBeatBar extends fm.StatefulWidget {
+  const MusicBeatBar();
+  @override
+  _MusicBeatBarState createState() => _MusicBeatBarState();
+}
+
+class _MusicBeatBarState extends fm.State<MusicBeatBar> {
+  final flow = VoiceFlow.instance;
+  @override
+  void initState() {
+    super.initState();
+    flow.addListener(_on);
+  }
+  @override
+  void dispose() {
+    flow.removeListener(_on);
+    super.dispose();
+  }
+  void _on() {
+    if (mounted) setState(() {});
+  }
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    return fm.Container(
+        //  节拍生效:上拍琥珀/下拍原底;其余时间原底
+        color: flow.musicDancing && flow.beatPulse
+            ? const fm.Color(0xffffee58)
+            : Color.FLOOR,
+        padding: fm.EdgeInsets.symmetric(horizontal: 6),
+        child: fm.Row(children: [
+          if (TamUtils.canListen) MusicDanceButton(),
+          fm.Spacer(),
+          BpmModeText(),
+        ]));
   }
 }
 

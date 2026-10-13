@@ -76,6 +76,31 @@ class VoiceFlow extends ChangeNotifier {
   //  ---- 音乐节拍(独立于语音流程,常显按钮控制) ----
   ///  节拍正在生效(舞者按音乐节拍跳)
   bool musicDancing = false;
+  ///  节拍脉冲(用户:大屏面积随音乐节拍闪烁,激发口令员
+  /// 心里节奏与音乐同步)——musicDancing期间按60/bpm起搏,
+  /// 表头/检测钮/bpm区/X钮区底色随此翻转
+  bool beatPulse = false;
+  Timer? _beatTimer;
+
+  void _startBeatPulse() {
+    _beatTimer?.cancel();
+    if (cachedBpm <= 0) return;
+    beatPulse = true;
+    _beatTimer = Timer.periodic(
+        Duration(milliseconds: (60000 / cachedBpm).round()), (t) {
+      beatPulse = !beatPulse;
+      _notify();
+    });
+  }
+
+  void _stopBeatPulse() {
+    _beatTimer?.cancel();
+    _beatTimer = null;
+    if (beatPulse) {
+      beatPulse = false;
+      _notify();
+    }
+  }
   ///  已取样的节拍缓存:再次按下直接采用,不必重新取样
   int cachedBpm = 0;
 
@@ -2208,6 +2233,7 @@ class VoiceFlow extends ChangeNotifier {
     musicMonitor.startPlaybackWatch();
     playbackWasActive = false;
     musicDancing = true;
+    _startBeatPulse();
     //  恢复基础阶段(语音未登录则 idle)
     if (phase == 'awaiting' || phase == 'detecting')
       phase = callerTable != null ? 'calling' : 'idle';
@@ -2222,6 +2248,7 @@ class VoiceFlow extends ChangeNotifier {
     musicMonitor.stopMicMonitor();
     musicMonitor.stopPlaybackWatch();
     musicDancing = false;
+    _stopBeatPulse();
     musicEnabled = false;
     if (phase == 'awaiting' || phase == 'detecting')
       phase = callerTable != null ? 'calling' : 'idle';

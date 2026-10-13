@@ -127,14 +127,15 @@ class _MusicDanceButtonState extends fm.State<MusicDanceButton>
                     ? fm.Colors.blue
                     : const fm.Color(0xff0d47a1));
           } else if (dancing) {
+            //  节拍脉冲(用户:检测钮也随拍闪,与检测中快闪
+            //  分明——检测中=快闪仅此钮,节拍生效=全屏随拍)
             decoration = fm.ShapeDecoration(
                 shape: fm.RoundedRectangleBorder(
                     side: fm.BorderSide(color: Color.BLUE),
                     borderRadius: fm.BorderRadius.circular(8)),
-                gradient: fm.LinearGradient(
-                    begin: fm.Alignment.topCenter,
-                    end: fm.Alignment.bottomCenter,
-                    colors: [fm.Colors.blue, fm.Colors.blue.shade800]));
+                color: flow.beatPulse
+                    ? const fm.Color(0xffffee58)  //  上拍琥珀
+                    : fm.Colors.blue);
           } else {
             decoration = fm.ShapeDecoration(
                 shape: fm.RoundedRectangleBorder(
