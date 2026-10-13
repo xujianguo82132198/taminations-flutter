@@ -1604,7 +1604,12 @@ class CallerTable extends ChangeNotifier {
           if (d < drift) drift = d;
         }
         if (drift.isFinite) {
-          err += drift;
+          //  多归一免疫(用户:指纹本来就该不同于标准口令,
+          //  直击指纹=映射本意,零附加费);其余乘性复合
+          //  (误差×误差:err+=drift×err,不再全额加)
+          if (err > 0.15) {
+            err += drift * err;
+          }
           if (drift > bestDriftSeen) bestDriftSeen = drift;
         }
       }
@@ -1740,7 +1745,10 @@ class CallerTable extends ChangeNotifier {
         final d = d1 < d2 ? d1 : d2;
         if (d < drift) drift = d;
       }
-      if (drift.isFinite) bestErr += drift;
+      //  同款免疫+乘性(与lookupSequential一致)
+      if (drift.isFinite && bestErr > 0.15) {
+        bestErr += drift * bestErr;
+      }
     }
     return (hit: best, error: bestErr);
   }
