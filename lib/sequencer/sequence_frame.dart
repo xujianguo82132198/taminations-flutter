@@ -1877,6 +1877,123 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
   bool _wasInputActive = false;
 
+  ///  输入行右侧钮组(用户布局:X左独跨两行;右列上=打开表,
+  ///  下=圆钮——无表时圆钮灰显待命)
+  fm.Widget _inputRowButtons(SequencerModel model) {
+    final circleReady =
+        flow.callerTable != null && !flow.onlyMode;
+    return fm.Row(
+      mainAxisSize: fm.MainAxisSize.min,
+      crossAxisAlignment: fm.CrossAxisAlignment.center,
+      children: [
+        //  X钮(左,竖跨两行;节拍闪烁底)
+        fm.Container(
+          color: flow.musicDancing && flow.beatPulse
+              ? const fm.Color(0xffffee58)
+              : null,
+          alignment: fm.Alignment.center,
+          height: 68,
+          child: fm.IconButton(
+            visualDensity: fm.VisualDensity.compact,
+            padding: fm.EdgeInsets.zero,
+            constraints: const fm.BoxConstraints(
+                minWidth: 30, minHeight: 30),
+            icon: fm.Icon(fm.Icons.clear, size: 22),
+            onPressed: () {
+              flow.callSelection = null;
+              flow.clearAllDisplays();
+              flow.inputConsumed();
+              textFieldController.value =
+                  const fm.TextEditingValue(text: '');
+              textFieldController.clear();
+              if (model.errorString.isNotEmpty) {
+                model.errorString = '';
+                model.notifyListeners();
+              }
+              fm.ScaffoldMessenger.of(context)
+                  .removeCurrentSnackBar();
+              _isVoiceCall = false;
+              debugPrint('X: 已清,框内='
+                  '"${textFieldController.text}"');
+            },
+          ),
+        ),
+        fm.Column(
+          mainAxisSize: fm.MainAxisSize.min,
+          children: [
+            //  打开表钮(上)
+            if (TamUtils.canListen)
+              fm.TextButton(
+                style: fm.TextButton.styleFrom(
+                    padding: fm.EdgeInsets.zero,
+                    minimumSize: fm.Size(34, 30)),
+                onPressed: flow.isActive ? null : () async {
+                  if (!await _loginAndOpenTable()) return;
+                  flow.startTableMode();
+                },
+                child: fm.Icon(
+                  fm.Icons.folder_open,
+                  color: flow.isActive ? Color.GRAY : Color.BLACK,
+                  size: 26,
+                ),
+              ),
+            //  圆钮(下):有表黑待命/按下蓝/无表灰
+            fm.Listener(
+              behavior: fm.HitTestBehavior.opaque,
+              onPointerDown: (_) {
+                debugPrint('INPUT_BTN: pointer down');
+                if (!circleReady) return;
+                focusNode.requestFocus();
+                setState(() {
+                  virtualKeyboardSetVisible(true);
+                });
+                flow.startInputSample(
+                    seedText: textFieldController.text);
+              },
+              onPointerUp: (_) {
+                flow.endInputSample();
+                if (flow.pttInputActive) return;
+                focusNode.requestFocus();
+              },
+              onPointerCancel: (_) {
+                flow.endInputSample();
+              },
+              child: fm.Container(
+                width: 36,
+                height: 32,
+                margin: const fm.EdgeInsets.only(top: 1),
+                decoration: fm.BoxDecoration(
+                  shape: fm.BoxShape.rectangle,
+                  borderRadius: fm.BorderRadius.circular(18),
+                  color: flow.pttInputActive
+                      ? Color.BLUE
+                      : (circleReady ? Color.WHITE
+                          : const fm.Color(0xffe0e0e0)),
+                  border: fm.Border.all(
+                      color: flow.pttInputActive
+                          ? Color.BLUE
+                          : (circleReady
+                              ? Color.BLACK
+                              : const fm.Color(0xff9e9e9e)),
+                      width: 2),
+                ),
+                child: fm.Icon(
+                  fm.Icons.record_voice_over,
+                  size: 20,
+                  color: flow.pttInputActive
+                      ? Color.WHITE
+                      : (circleReady
+                          ? Color.BLACK
+                          : const fm.Color(0xff9e9e9e)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   ///  输入法指引行(用户设计:编号+尾部大写加粗+各行浅色底;
   ///  可选内嵌图标——行3的圆钮图标用真图标不用字符,字符
   ///  在设备字体渲染成虚框)
@@ -2212,201 +2329,77 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             //  taps the input line
             else
               fm.Expanded(
-                  child:fm.Material(
-                    color: Color.FLOOR,  //  麦克风行底色=Calls钮底色
-                    child: fm.InkWell(
-                      key: fm.ValueKey('Tap to start Sequence'),
-                      onTap: () {
-                        flow.clearAllDisplays();
-                        setState(() {
-                          virtualKeyboard.isVisible = true;
-                          focusNode.requestFocus();
-                        });
-                      },
-                      //  文字与右侧按钮留出间距,不贴不盖
-                      child: fm.Padding(
-                        padding: fm.EdgeInsets.only(right: 10),
-                      //  提示按表状态区分:
-                      //  无表=三行操作指引;Only表=圆钮采表;非Only表=麦克风喊口令
-                      child: flow.callerTable == null
-                          ? fm.Column(
-                              crossAxisAlignment:
-                                  fm.CrossAxisAlignment.start,
-                              mainAxisSize: fm.MainAxisSize.min,
-                              children: [
-                                //  三行输入法指引(用户:编号+
-                                //  大写加粗+各行浅色底区分)
-                                _inputGuideLine(
-                                  '1. Tap here for ',
-                                  'KEY INPUT',
-                                  const fm.Color(0xffe3f2fd),
+                child: fm.Stack(children: [
+                  //  指引/提示整宽(用户:背景颜色要到头)——
+                  //  文字右侧留88避钮,钮浮在背景上
+                  fm.Positioned.fill(
+                    child: fm.Material(
+                      color: Color.FLOOR,
+                      child: fm.InkWell(
+                        key: fm.ValueKey('Tap to start Sequence'),
+                        onTap: () {
+                          flow.clearAllDisplays();
+                          setState(() {
+                            virtualKeyboard.isVisible = true;
+                            focusNode.requestFocus();
+                          });
+                        },
+                        child: fm.Padding(
+                          padding: const fm.EdgeInsets.only(right: 88),
+                          child: flow.callerTable == null
+                              ? fm.Column(
+                                  crossAxisAlignment: fm
+                                      .CrossAxisAlignment.start,
+                                  mainAxisSize:
+                                      fm.MainAxisSize.min,
+                                  children: [
+                                    _inputGuideLine(
+                                      '1. Tap here for ',
+                                      'KEY INPUT',
+                                      const fm.Color(0xffe3f2fd),
+                                    ),
+                                    _inputGuideLine(
+                                      '2. Tap Calls for ',
+                                      'SELECTION INPUT',
+                                      const fm.Color(0xffe8f5e9),
+                                    ),
+                                    _inputGuideLine(
+                                      '3. Tap ',
+                                      'VOICE INPUT',
+                                      const fm.Color(0xfffff8e1),
+                                      icon: fm.Icons
+                                          .record_voice_over,
+                                    ),
+                                  ],
+                                )
+                              : fm.Center(
+                                  child: fm.Text(
+                                    flow.onlyMode
+                                        ? '圆钮按下,读口令,读完抬起'
+                                        : '按下<圆钮>做语音Input,回车执行',
+                                    maxLines: 1,
+                                    overflow:
+                                        fm.TextOverflow.ellipsis,
+                                    style: const fm.TextStyle(
+                                        fontSize: 20),
+                                  ),
                                 ),
-                                _inputGuideLine(
-                                  '2. Tap Calls for ',
-                                  'SELECTION INPUT',
-                                  const fm.Color(0xffe8f5e9),
-                                ),
-                                _inputGuideLine(
-                                  '3. Tap ',
-                                  'VOICE INPUT',
-                                  const fm.Color(0xfffff8e1),
-                                  icon: fm.Icons.record_voice_over,
-                                ),
-                              ],
-                            )
-                          : fm.Text(
-                              flow.onlyMode
-                                  ? '圆钮按下,读口令,读完抬起'
-                                  : '按下<圆钮>做语音Input,回车执行',
-                              maxLines: 1,
-                              overflow: fm.TextOverflow.ellipsis,
-                              style: const fm.TextStyle(fontSize: 20),
-                            ),
+                        ),
                       ),
                     ),
-                  )
+                  ),
+                  //  右侧钮组浮层(用户布局:X左独跨两行;
+                  //  右列上=打开表,下=圆钮)
+                  fm.Positioned(
+                    top: 0, bottom: 0, right: 0,
+                    child: _inputRowButtons(model),
+                  ),
+                ]),
               ),
 
-            //  语音Input圆钮(非Only模式):按下说话,松开收尾
-            //  结果累加入输入框,口令员自己按回车执行
-            if (flow.callerTable != null && !flow.onlyMode)
-              fm.Listener(
-                behavior: fm.HitTestBehavior.opaque,
-                onPointerDown: (_) {
-                  debugPrint('INPUT_BTN: pointer down');
-                  //  Selection输入法同款:焦点→键盘可见
-                  //  (不清框:框内现有文本成为本次底稿,跨期累加)
-                  focusNode.requestFocus();
-                  setState(() {
-                    virtualKeyboardSetVisible(true);
-                  });
-                  flow.startInputSample(
-                      seedText: textFieldController.text);
-                },
-                onPointerUp: (_) {
-                  flow.endInputSample();
-                  //  松手=结果已定:确保键盘在场供口令员回车
-                  focusNode.requestFocus();
-                },
-                onPointerCancel: (_) {
-                  flow.endInputSample();
-                },
-                child: fm.Container(
-                  width: 40,
-                  height: 40,
-                  margin: fm.EdgeInsets.only(right: 2),
-                  decoration: fm.BoxDecoration(
-                    shape: fm.BoxShape.circle,
-                    color: flow.pttInputActive
-                        ? Color.BLUE
-                        : Color.WHITE,
-                    border: fm.Border.all(
-                        color: flow.pttInputActive
-                            ? Color.BLUE
-                            : Color.BLACK,
-                        width: 2),
-                  ),
-                  child: fm.Icon(
-                    fm.Icons.record_voice_over,
-                    size: 24,
-                    color: flow.pttInputActive
-                        ? Color.WHITE
-                        : Color.BLACK,
-                  ),
-                ),
-              ),
-            //  X钮:清空输入框——始终可见,不受键盘显隐影响
-            //  (用户:打开表后提示文字盖住了X钮)
-            //  X钮区随拍闪(节拍生效期间)
-            fm.Container(
-              color: flow.musicDancing && flow.beatPulse
-                  ? const fm.Color(0xffffee58)
-                  : null,
-              child: fm.IconButton(
-                visualDensity: fm.VisualDensity.compact,
-                padding: fm.EdgeInsets.zero,
-                constraints: const fm.BoxConstraints(
-                    minWidth: 32, minHeight: 32),
-                icon: fm.Icon(fm.Icons.clear, size: 22),
-                onPressed: () {
-                  //  先清一切回写源再清框(callSelection曾把
-                  //  旧口令写回框=按X不清的元凶)
-                  flow.callSelection = null;
-                  flow.clearAllDisplays();
-                  flow.inputConsumed();
-                  //  IME加固:整值替换断编辑态+clear双保险
-                  textFieldController.value =
-                      const fm.TextEditingValue(text: '');
-                  textFieldController.clear();
-                  if (model.errorString.isNotEmpty) {
-                    model.errorString = '';
-                    model.notifyListeners();
-                  }
-                  fm.ScaffoldMessenger.of(context)
-                      .removeCurrentSnackBar();
-                  _isVoiceCall = false;
-                  debugPrint('X: 已清,框内='
-                      '"${textFieldController.text}"');
-                }),
-            ),
-            //  Mic icon for touch devices to do voice input
-            //  点击麦克风先要求输入口令员姓名和密码,确认后打开(或新建)
-            //  该口令员的映射表,之后才开始语音识别
-            //  Only 采表的识别确认/完成建表由黄色显示框承担:
-            //  点一下=确认,长按=完成建表(编辑行不再放这两个按钮)
-            //  打开表按钮:负责映射表的选择与打开/退出
-              if (TamUtils.canListen)
-                fm.TextButton(
-                  style: fm.TextButton.styleFrom(
-                      padding: fm.EdgeInsets.zero,
-                      minimumSize: fm.Size(30, 30)),
-                  //  已打开表时禁止操作(变灰);关闭表后恢复
-                  onPressed: flow.isActive ? null : () async {
-                    if (!await _loginAndOpenTable()) return;
-                    flow.startTableMode();
-                  }, child: fm.Icon(
-                  fm.Icons.folder_open,
-                  color: flow.isActive ? Color.GRAY : Color.BLACK,
-                  size: 28,
-                  )
-              ),
-              //  PTT 采样按钮:只负责按下朗读,抬起结束
-              //  按下说话,抬起结束并给出识别结果,
-              //  结果直接进入记录初始化(写入映射表第二列)
-              //  老圆钮只在Only采表模式出现(用户:两个圆钮
-              //  同屏太易按错;非Only画面只用输入行的新圆钮)
-              if (TamUtils.canListen && flow.onlyMode)
-                fm.Listener(
-                  onPointerDown: (_) {
-                    //  此按钮只负责"按下朗读,抬起结束"
-                    //  打开表由独立的"打开表"按钮负责
-                    if (!flow.isActive) return;
-                    if (flow.startSample()) _showPttHint();
-                  },
-                  onPointerUp: (_) {
-                    _hidePttHint();
-                    flow.endSample();
-                  },
-                  onPointerCancel: (_) {
-                    _hidePttHint();
-                    flow.endSample();
-                  },
-                  child: fm.Container(
-                    padding: fm.EdgeInsets.all(2),
-                    child: fm.Icon(
-                      //  未开表:灰色禁用;采样中蓝色(按住);平时黑色
-                      fm.Icons.record_voice_over,
-                      color: flow.callerTable == null
-                          ? Color.GRAY
-                          : (flow.pttActive
-                              ? fm.Colors.blue
-                              : Color.BLACK),
-                      size: 28),
-                  ),
-                ),
-              //  麦克风钮已删(用户:全系统清除,
-              //  语音入口=输入行新圆钮;长按退表功能
-              //  并入打开表钮的长按)
+            //  键盘可见态:钮组跟在输入框右侧
+            if (virtualKeyboard.isVisible || !TamUtils.isTouchDevice)
+              _inputRowButtons(model),
               ]
             )
           ]
