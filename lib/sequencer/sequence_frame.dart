@@ -2346,7 +2346,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         },
                         child: fm.Padding(
                           padding: const fm.EdgeInsets.only(right: 88),
-                          child: flow.callerTable == null
+                          //  行最小高度76(有表时单行提示曾把
+                          //  Stack压矮,68px钮组被裁,圆钮不见)
+                          child: fm.ConstrainedBox(
+                            constraints: const fm.BoxConstraints(
+                                minHeight: 76),
+                            child: flow.callerTable == null
                               ? fm.Column(
                                   crossAxisAlignment: fm
                                       .CrossAxisAlignment.start,
@@ -2384,6 +2389,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         fontSize: 20),
                                   ),
                                 ),
+                          ),
                         ),
                       ),
                     ),
