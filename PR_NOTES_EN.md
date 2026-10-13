@@ -42,6 +42,22 @@ bundled model `vosk-model-en-us-0.22-lgraph`, ~40 MB, unpacked to
 internal storage on first run). Attribution is shown in
 Settings → Speech Recognition.
 
+## Why we changed what we changed (original shortcomings addressed)
+
+Taminations is an excellent *dancer's* app; these changes turn it
+into a *caller's* workbench. Each addition answers a concrete gap:
+
+| Original behavior | Shortfall for a working caller | Our change |
+|---|---|---|
+| Calls entered by keyboard / picking only | Elderly callers cannot type quickly at a dance | Offline push-to-talk voice input (hold button, speak, Enter) |
+| One generic vocabulary for everyone | Elderly/accented voices misrecognized with no recourse | Caller-owned fingerprint tables ("many-to-one"): the system learns *your* pronunciation |
+| (our own earlier builds used cloud ASR) | Quota, cost, network dependency, privacy | 100% offline Vosk; no cloud, free unlimited |
+| Loose fuzzy matching on standard-call text | Wildly different sentences passed the gate ("the" matching "Trade") | Power weighting (position-based shape gate) + content-word floor; template = fingerprint only |
+| Input row: plain hint text, no states | Caller cannot tell whether the system is listening; hint text overlapped buttons | Three colored guide lines, yellow box + underline = listening/replaceable, X to clear |
+| Tables unprotected | Anyone could open/delete a caller's table | Password on open/delete/save-as (first entry sets it) |
+| Figures dance at fixed speed presets | Practice with real music impossible | Beat detection from live music, figures + large-area screen flash follow the beat (MP3 calling-track workflow) |
+| Settings page: inconsistent block formatting | Looked unfinished | Unified voice block, caller-tunable sliders with memory |
+
 ## Review suggestions
 
 - The voice work is additive: without a caller table open, the app
