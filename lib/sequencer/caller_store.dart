@@ -1397,8 +1397,9 @@ class CallerTable extends ChangeNotifier {
       });
 
   ///  过门槛数值(用户:命中位系数累计≥此值才选中;
-  ///  满分=行和=1,初设0.55,按日志分布校准)
-  static const double powerGate = 0.55;
+  ///  满分=行和=1;0.55→0.60按用户指示提高——日志分布:
+  ///  正确命中0.57~1.00,误中0.00~0.42,0.60分界更稳)
+  static const double powerGate = 0.60;
 
   ///  词级得分:听到的词 vs 表内词(按表词长取行,逐位比对,
   ///  命中位累计权重;位置错开不命中——Power(m,n)按位判)
@@ -1410,6 +1411,12 @@ class CallerTable extends ChangeNotifier {
     var s = 0.0;
     for (var n = 0; n < t.length; n++) {
       if (n < h.length && h[n] == t[n]) s += row[n];
+    }
+    //  长度归一(修Extend案:短词蹭长词——"extend"对"end"
+    //  前三位全中曾得满分,多出的尾巴不扣分被劫走):
+    //  得分×表词长/听词长,白蹭部分按比例折价
+    if (h.length > t.length) {
+      s *= t.length / h.length;
     }
     return s;
   }
