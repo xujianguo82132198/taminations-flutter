@@ -1877,6 +1877,25 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
 
   bool _wasInputActive = false;
 
+  ///  输入法指引行(用户设计:编号+尾部大写加粗+各行浅色底)
+  fm.Widget _inputGuideLine(String lead, String caps, fm.Color bg) {
+    return fm.Container(
+      width: double.infinity,
+      color: bg,
+      padding: const fm.EdgeInsets.symmetric(vertical: 1),
+      child: fm.Text.rich(
+        fm.TextSpan(children: [
+          fm.TextSpan(
+              text: lead, style: const fm.TextStyle(fontSize: 14)),
+          fm.TextSpan(
+              text: caps,
+              style: const fm.TextStyle(
+                  fontSize: 14, fontWeight: fm.FontWeight.bold)),
+        ]),
+      ),
+    );
+  }
+
   //  流程状态变化 → 刷新 UI,并驱动闪烁与动画即时变速
   void _onFlowChanged() {
     if (!mounted) return;
@@ -2196,105 +2215,30 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       //  提示按表状态区分:
                       //  无表=三行操作指引;Only表=圆钮采表;非Only表=麦克风喊口令
                       child: flow.callerTable == null
-                          ? fm.Text.rich(
-                              fm.TextSpan(children: [
-                                fm.TextSpan(
-                                    text: 'Tap here for KEY input;\n'),
-                                //  Calls钮=右侧按钮列的 Calls 文字钮,
-                                //  此处内嵌迷你同款样式
-                                //  与右侧按钮列 Calls 钮同款样式
-                                //  (灰边+白灰渐变+圆角+粗体)
-                                fm.WidgetSpan(
-                                    alignment:
-                                        fm.PlaceholderAlignment.middle,
-                                    child: fm.Row(
-                                        mainAxisSize:
-                                            fm.MainAxisSize.min,
-                                        children: [
-                                          fm.Text('Tap ',
-                                              textScaler: fm.TextScaler.noScaling,
-                                                  style: fm.TextStyle(
-                                                  fontSize: 14,
-                                                  height: 1.4)),
-                                          fm.Container(
-                                              padding: fm.EdgeInsets
-                                                  .symmetric(
-                                                      horizontal: 5,
-                                                      vertical: 1),
-                                              decoration:
-                                                  fm.ShapeDecoration(
-                                                      shape: fm
-                                                          .RoundedRectangleBorder(
-                                                              side: fm
-                                                                  .BorderSide(
-                                                                      color: Color
-                                                                          .GRAY
-                                                                              .darker()),
-                                                              borderRadius:
-                                                                  fm.BorderRadius.circular(10)),
-                                                      gradient: fm
-                                                          .LinearGradient(
-                                                              begin: fm
-                                                                  .Alignment
-                                                                  .topCenter,
-                                                              end: fm
-                                                                  .Alignment
-                                                                  .bottomCenter,
-                                                              colors: [
-                                                            Color(
-                                                                0xffffffff),
-                                                            Color(
-                                                                0xffa0a0a0)
-                                                          ])),
-                                              child: fm.Text('Calls',
-                                                  textScaler: fm.TextScaler.noScaling,
-                                                  style: fm.TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight: fm
-                                                          .FontWeight
-                                                          .bold))),
-                                          fm.Text(' for Selection input;',
-                                              textScaler: fm.TextScaler.noScaling,
-                                                  style: fm.TextStyle(
-                                                  fontSize: 14,
-                                                  height: 1.4)),
-                                        ])),
-                                fm.TextSpan(text: '\n'),
-                                fm.TextSpan(text: 'Tap '),
-                                //  open钮=打开表按钮的文件夹图标
-                                fm.WidgetSpan(
-                                    alignment:
-                                        fm.PlaceholderAlignment.middle,
-                                    child: fm.Icon(
-                                        fm.Icons.folder_open, size: 18)),
-                                fm.TextSpan(
-                                    text: ' to open Mapping Table for '),
-                                //  MIK钮=麦克风图标
-                                fm.WidgetSpan(
-                                    alignment:
-                                        fm.PlaceholderAlignment.middle,
-                                    child: fm.Icon(fm.Icons.mic, size: 18)),
-                                fm.TextSpan(text: ' input.'),
-                              ]),
-                              style: fm.TextStyle(
-                                  fontSize: 15, height: 1.4))
-                          : fm.Text.rich(
-                              flow.onlyMode
-                                  ? fm.TextSpan(text: '圆钮按下,读口令,读完抬起')
-                                  : fm.TextSpan(children: [
-                                      fm.TextSpan(
-                                          text: '按下<圆钮>做语音 '),
-                                      fm.TextSpan(
-                                          text: 'Input',
-                                          style: fm.TextStyle(
-                                              fontWeight:
-                                                  fm.FontWeight.bold)),
-                                      fm.TextSpan(
-                                          text: ';  按下<麦克风>做语音连续 Input'),
-                                    ]),
-                              maxLines: 1,
-                              overflow: fm.TextOverflow.ellipsis,
-                              style: fm.TextStyle(fontSize: 20)),
+                          ? fm.Column(
+                              crossAxisAlignment:
+                                  fm.CrossAxisAlignment.start,
+                              mainAxisSize: fm.MainAxisSize.min,
+                              children: [
+                                //  三行输入法指引(用户:编号+
+                                //  大写加粗+各行浅色底区分)
+                                _inputGuideLine(
+                                  '1. Tap here for ',
+                                  'KEY INPUT',
+                                  const fm.Color(0xffe3f2fd),
+                                ),
+                                _inputGuideLine(
+                                  '2. Tap Calls for ',
+                                  'SELECTION INPUT',
+                                  const fm.Color(0xffe8f5e9),
+                                ),
+                                _inputGuideLine(
+                                  '3. Tap \u25cf for ',
+                                  'VOICE INPUT',
+                                  const fm.Color(0xfffff8e1),
+                                ),
+                              ],
+                            ),
                       ),
                     ),
                   )
