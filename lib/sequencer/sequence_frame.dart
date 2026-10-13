@@ -2331,9 +2331,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               fm.Expanded(
                 child: fm.Stack(children: [
                   //  指引/提示整宽(用户:背景颜色要到头)——
-                  //  文字右侧留88避钮,钮浮在背景上
-                  fm.Positioned.fill(
-                    child: fm.Material(
+                  //  作为非定位子项撑起Stack高度(全Positioned
+                  //  曾致零高,整行消失);文字右侧留88避钮
+                  fm.Material(
                       color: Color.FLOOR,
                       child: fm.InkWell(
                         key: fm.ValueKey('Tap to start Sequence'),
@@ -2387,7 +2387,6 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         ),
                       ),
                     ),
-                  ),
                   //  右侧钮组浮层(用户布局:X左独跨两行;
                   //  右列上=打开表,下=圆钮)
                   fm.Positioned(
