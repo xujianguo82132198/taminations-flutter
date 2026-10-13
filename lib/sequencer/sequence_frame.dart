@@ -1875,22 +1875,33 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     _pttHint = null;
   }
 
+  bool _wasInputActive = false;
+
   //  流程状态变化 → 刷新 UI,并驱动闪烁与动画即时变速
   void _onFlowChanged() {
     if (!mounted) return;
     //  语音Input模式:实时把累加结果显示到输入框
     //  (不冲掉口令员已确认并回车过的内容——那些已在
     //   accumulated里,inputBoxText = accumulated+pending)
+    //  聆听态切换沿:断IME编辑态(其词下灰线是输入法的,
+    //  不随钮抬起消失——曾误当状态线;写入时清composing)
+    if (flow.pttInputActive != _wasInputActive) {
+      _wasInputActive = flow.pttInputActive;
+      textFieldController.value = fm.TextEditingValue(
+          text: textFieldController.text,
+          composing: const fm.TextRange(-1, -1));
+    }
     if (flow.pttInputActive) {
       //  Input模式:输入框全程=累加+待替换(空则清零)
       //  曾仅isNotBlank时写,清零被旧内容盖回
       final t = flow.inputBoxText;
       if (textFieldController.text != t) {
-        textFieldController.text = t;
+        //  整值写入(带空composing):词下的IME灰线不再挂
+        textFieldController.value = fm.TextEditingValue(
+            text: t,
+            selection: fm.TextSelection.collapsed(offset: t.length),
+            composing: const fm.TextRange(-1, -1));
       }
-      //  光标移到末尾,新结果始终可见
-      textFieldController.selection = fm.TextSelection.collapsed(
-          offset: textFieldController.text.length);
     }
     //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
     final selection = flow.callSelection;
