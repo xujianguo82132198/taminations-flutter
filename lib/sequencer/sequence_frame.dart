@@ -1889,7 +1889,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       _wasInputActive = flow.pttInputActive;
       textFieldController.value = fm.TextEditingValue(
           text: textFieldController.text,
-          composing: const fm.TextRange(-1, -1));
+          composing: const fm.TextRange(start: -1, end: -1));
     }
     if (flow.pttInputActive) {
       //  Input模式:输入框全程=累加+待替换(空则清零)
@@ -1900,7 +1900,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         textFieldController.value = fm.TextEditingValue(
             text: t,
             selection: fm.TextSelection.collapsed(offset: t.length),
-            composing: const fm.TextRange(-1, -1));
+            composing: const fm.TextRange(start: -1, end: -1));
       }
     }
     //  记录初始化:Calls 页选中的口令填入输入行,供继续键入修改
