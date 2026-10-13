@@ -2107,8 +2107,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         speech.clearResults();
       }
 
+      //  聆听状态可视(用户:圆钮被手指挡住看不见)——
+      //  按住圆钮期间输入框底色浅黄=系统正在聆听
       return fm.Container(
-        color: Color.WHITE,   //  输入区始终白色
+        color: flow.pttInputActive
+            ? const fm.Color(0xfffff59d)   //  浅黄=聆听中
+            : Color.WHITE,
         padding: fm.EdgeInsets.only(left: 3),
         child: fm.Column(
           mainAxisSize: fm.MainAxisSize.min,
