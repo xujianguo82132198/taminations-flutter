@@ -1401,22 +1401,18 @@ class CallerTable extends ChangeNotifier {
   ///  正确命中0.57~1.00,误中0.00~0.42,0.60分界更稳)
   static const double powerGate = 0.60;
 
-  ///  词级得分:听到的词 vs 表内词(按表词长取行,逐位比对,
-  ///  命中位累计权重;位置错开不命中——Power(m,n)按位判)
+  ///  词级得分:听到的词 vs 表内词(行=**听词**长度——识别
+  ///  函数给出什么词就按它的字符数取Power(m,n),用户规则:
+  ///  遇6字符词必调P[6],不能调P[2];逐位比对命中位累计,
+  ///  表词短于听词时多余位无对可中=天然不得分,蹭尾绝迹)
   static double powerScore(String heard, String target) {
     final h = heard.toLowerCase();
     final t = target.toLowerCase();
-    if (t.isEmpty || t.length > 33) return 0;
-    final row = power[t.length];
+    if (h.isEmpty || h.length > 33) return 0;
+    final row = power[h.length];
     var s = 0.0;
-    for (var n = 0; n < t.length; n++) {
-      if (n < h.length && h[n] == t[n]) s += row[n];
-    }
-    //  长度归一(修Extend案:短词蹭长词——"extend"对"end"
-    //  前三位全中曾得满分,多出的尾巴不扣分被劫走):
-    //  得分×表词长/听词长,白蹭部分按比例折价
-    if (h.length > t.length) {
-      s *= t.length / h.length;
+    for (var n = 0; n < h.length; n++) {
+      if (n < t.length && h[n] == t[n]) s += row[n];
     }
     return s;
   }
