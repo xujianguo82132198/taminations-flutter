@@ -2385,68 +2385,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       size: 28),
                   ),
                 ),
-              //  语音识别钮:无表时点击=选级别自动打开该级别
-              //  映射表(不带 Only);开表后点击=开关流式检索
-              if (TamUtils.canListen)
-                //  麦克风钮:仅打开了非Only映射表才可操作
-                //  (识别在该表内选择,表已含级别)
-                fm.TextButton(
-                  //  麦克风连续输入法已取消(用户:最终形态=
-                  // 口令曲录音棚,play驱动+外部录音机录制)。
-                  // 点击仅负责关闭遗留监听,不再开启
-                  onPressed: flow.callerTable == null || flow.onlyMode
-                      ? null : () async {
-                    if (speechProvider.isListening) {
-                      flow.stopListening();
-                    }
-                    if (flow.phase == 'awaiting' ||
-                        flow.phase == 'detecting')
-                      return;
-                    if (flow.isActive) {
-                      if (speechProvider.isListening) {
-                        //  流式检索中:点击结束——只退出语音识别,
-                        //  表保持打开(再按可重启识别)
-                        flow.stopListening();
-                      } else {
-                        //  表管理模式:点击开始流式检索
-                        focusNode.unfocus();
-                        setState(() {
-                          virtualKeyboardSetVisible(false);
-                        });
-                        flow.setPanelMinimized(false);
-                        flow.startListening();
-                      }
-                      return;
-                    }
-                    //  表已开未激活:直接进入流式检索
-                    flow.start();
-                  },
-                  //  长按麦克风:退出当前表,回到映射表选择
-                  //  (可删除/重命名/另存/导入导出/换表)
-                  onLongPress:
-                      flow.callerTable == null || flow.onlyMode
-                          ? null : () async {
-                    if (flow.pttActive) return;
-                    flow.stop();
-                    speechProvider.cancel();
-                    await _loginAndOpenTable();
-                  },
-                  //  麦克风钮保持原样式(纯图标,无圆底):
-                  //  灰=不可用;红=流式识别中;蓝闪=节拍检测中;
-                  //  平时黑色
-                  child: fm.Icon(
-                  fm.Icons.mic,
-                  color: flow.callerTable == null || flow.onlyMode
-                      ? Color.GRAY
-                      : (flow.phase == 'detecting'
-                          ? (_blinkOn ? fm.Colors.blue : Color.BLACK)
-                          : ((speechProvider.isListening &&
-                                  !flow.pttActive &&
-                                  !flow.pttInputActive)
-                              ? Color.RED : Color.BLACK)),
-                  size: 32,
-                  )
-                  )
+              //  麦克风钮已删(用户:全系统清除,
+              //  语音入口=输入行新圆钮;长按退表功能
+              //  并入打开表钮的长按)
               ]
             )
           ]
