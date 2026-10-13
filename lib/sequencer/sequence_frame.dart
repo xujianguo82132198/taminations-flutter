@@ -2238,6 +2238,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                   const fm.Color(0xfffff8e1),
                                 ),
                               ],
+                            )
+                          : fm.Text(
+                              flow.onlyMode
+                                  ? '圆钮按下,读口令,读完抬起'
+                                  : '按下<圆钮>做语音Input,回车执行',
+                              maxLines: 1,
+                              overflow: fm.TextOverflow.ellipsis,
+                              style: const fm.TextStyle(fontSize: 20),
                             ),
                       ),
                     ),
