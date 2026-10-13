@@ -2006,20 +2006,20 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       child: fm.Text.rich(
         fm.TextSpan(children: [
           fm.TextSpan(
-              text: lead, style: const fm.TextStyle(fontSize: 13)),
+              text: lead, style: const fm.TextStyle(fontSize: 18)),
           if (icon != null)
             fm.WidgetSpan(
                 alignment: fm.PlaceholderAlignment.middle,
                 child: fm.Icon(icon,
-                    size: 15, color: fm.Colors.black87)),
+                    size: 20, color: fm.Colors.black87)),
           if (icon != null)
             const fm.TextSpan(
                 text: ' for ',
-                style: fm.TextStyle(fontSize: 13)),
+                style: fm.TextStyle(fontSize: 18)),
           fm.TextSpan(
               text: caps,
               style: const fm.TextStyle(
-                  fontSize: 13, fontWeight: fm.FontWeight.bold)),
+                  fontSize: 18, fontWeight: fm.FontWeight.bold)),
         ]),
         maxLines: 1,
         overflow: fm.TextOverflow.ellipsis,
