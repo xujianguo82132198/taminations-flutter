@@ -1430,6 +1430,13 @@ class CallerTable extends ChangeNotifier {
         .where((w) => w.isNotEmpty)
         .toList();
     if (hw.isEmpty || tw.isEmpty) return 0;
+    //  内容词下限(用户抓漏:单词强扛全句——"swing"对
+    //  "swing thru"曾靠一词满分混过平均):指纹中每个非填充
+    //  词都必须对上≥0.5,否则整条判死;填充词豁免
+    //  (the/a/and…缺失不致死,"pass ocean"对
+    //  "pass the ocean"仍可过)
+    const filler = {'the', 'a', 'an', 'and', 'of', 'to',
+      'in', 'on'};
     var s = 0.0;
     var len = 0;
     for (final t in tw) {
@@ -1438,6 +1445,7 @@ class CallerTable extends ChangeNotifier {
         final p = powerScore(h, t);
         if (p > best) best = p;
       }
+      if (!filler.contains(t) && best < 0.5) return 0;
       s += best * t.length;
       len += t.length;
     }
