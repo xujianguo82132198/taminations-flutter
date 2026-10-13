@@ -815,6 +815,10 @@ class VoiceFlow extends ChangeNotifier {
   String inputPending = '';
   ///  直通试验开关(true=取消查表,识别原文直进框)
   static const bool inputDirectExperiment = false;
+  ///  短语语法实验(用户:禁用解码器单词联想——语法从词表
+  ///  换成"表内短语表"(记号+标准口令读法),解码只出表内
+  ///  整句,不自由拼装,返回收敛=与记号多归一一致)
+  static const bool inputPhraseExperiment = true;
   ///  当前句子的分段累积
   final List<String> _inputSegParts = [];
 
@@ -835,6 +839,10 @@ class VoiceFlow extends ChangeNotifier {
     speech?.removeListener(_onInputResult);
     pttInputActive = true;
     _inputReleased = false;
+    //  PSfix预加载(短语语法需要;首按若未及,词表兜底)
+    if (_psfixTable == null) {
+      unawaited(_loadPSfix());
+    }
     speech?.cancel();
     speech?.setSampleGrammar(_inputGrammar());
     dictationPartial = '';
@@ -884,6 +892,37 @@ class VoiceFlow extends ChangeNotifier {
 
   ///  Input模式语法:当前表+全目录(与喊口令一致)
   List<String>? _inputGrammar() {
+    if (inputPhraseExperiment) {
+      //  短语表:记号+标准口令读法(小写,整句入语法)——
+      //  解码器只能在这些整句中选,联想拼装被禁
+      final phrases = <String>{};
+      void addTable(CallerTable? t) {
+        if (t == null) return;
+        for (final r in t.rows) {
+          final std = CallerTable.spokenForm(r.standardCall)
+              .trim()
+              .toLowerCase();
+          if (std.isNotEmpty && !std.contains('unk')) {
+            phrases.add(std);
+          }
+          for (final token in r.recognized.split('|')) {
+            final tk = token.trim().toLowerCase();
+            if (tk.isNotEmpty &&
+                !tk.contains('unk') &&
+                tk != std) {
+              phrases.add(tk);
+            }
+          }
+        }
+      }
+
+      addTable(callerTable);
+      addTable(_psfixTable);
+      if (phrases.isEmpty) return [..._allDirWords, '[unk]'];
+      debugPrint('短语语法(${phrases.length}条): '
+          '词表模式已旁路');
+      return [...phrases, '[unk]'];
+    }
     final callG = <String>{
       ...?_onlyTableWords(),
       ..._allDirWords,
