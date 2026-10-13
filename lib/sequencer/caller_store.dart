@@ -1557,7 +1557,6 @@ class CallerTable extends ChangeNotifier {
         'core=[${d.$3.join(' ')}] suffix=[${d.$4.join(' ')}]');
     CallerRow? best;
     var bestErr = double.infinity;
-    var bestDriftSeen = 0.0;
     for (final row in rows) {
       //  行内可存多笔记号(以 | 分隔):同一口令的多种听法
       //  都留在行里,与任意一笔比对,取最小误差
@@ -1587,32 +1586,10 @@ class CallerTable extends ChangeNotifier {
         if (!wordCountsPlausible(token, sentence)) e = 1.0;
         if (e < err) err = e;
       }
-      //  误差×误差防线(用户):多归一的指纹本身就不等于标准
-      //  口令(漂移误差₁),查表再允许模糊(误差₂),两层相乘
-      //  放大——天差地别的句子也被放行。行的允许误差按自身
-      //  漂移收紧:有效误差=匹配误差+指纹漂移
-      //  (漂移0.30的行,匹配须≤门槛-0.30才过)
-      if (err.isFinite) {
-        final spoken = spokenForm(row.standardCall);
-        var drift = double.infinity;
-        for (final token in row.recognized.split('|')) {
-          final t = token.trim();
-          if (t.isEmpty) continue;
-          final d1 = structuredError(t, spoken);
-          final d2 = sentenceError(t, spoken);
-          final d = d1 < d2 ? d1 : d2;
-          if (d < drift) drift = d;
-        }
-        if (drift.isFinite) {
-          //  多归一免疫(用户:指纹本来就该不同于标准口令,
-          //  直击指纹=映射本意,零附加费);其余乘性复合
-          //  (误差×误差:err+=drift×err,不再全额加)
-          if (err > 0.15) {
-            err += drift * err;
-          }
-          if (drift > bestDriftSeen) bestDriftSeen = drift;
-        }
-      }
+      //  模板=记号列(用户铁律:比对对象是"thru the top"这类
+      //  指纹,一条条与听句比;误差=与指纹的误差,过门槛即选。
+      //  标准口令列只是查询结果,绝不参与比对——曾把"记号vs
+      //  标准口令的偏差"当附加费罚匹配,多归一被误杀,已废)
       //  全表扫描取全局最小(不早停):噪声记号下误差沿
       //  排序并非单谷形,早停会漏掉真正的最低误差行。
       //  平手裁决:记号误差相同(如裸记号被误录到带主语的行),
@@ -1629,9 +1606,8 @@ class CallerTable extends ChangeNotifier {
       }
     }
     if (best != null) {
-      debugPrint('查表漂移: "${best.standardCall}" 有效err='
-          '${bestErr.toStringAsFixed(2)}'
-          '(表内最大指纹漂移${bestDriftSeen.toStringAsFixed(2)})');
+      debugPrint('查表: "${best.standardCall}" err(对指纹)='
+          '${bestErr.toStringAsFixed(2)}');
     }
     return (hit: best, candidate: best, error: bestErr);
   }
@@ -1732,24 +1708,7 @@ class CallerTable extends ChangeNotifier {
         best = row;
       }
     }
-    //  误差×误差防线(同lookupSequential):有效误差=
-    //  匹配误差+指纹漂移(指纹本身离标准口令的失真度)
-    if (best != null) {
-      final spoken = spokenForm(best!.standardCall);
-      var drift = double.infinity;
-      for (final token in best!.recognized.split('|')) {
-        final t = token.trim();
-        if (t.isEmpty) continue;
-        final d1 = structuredError(t, spoken);
-        final d2 = sentenceError(t, spoken);
-        final d = d1 < d2 ? d1 : d2;
-        if (d < drift) drift = d;
-      }
-      //  同款免疫+乘性(与lookupSequential一致)
-      if (drift.isFinite && bestErr > 0.15) {
-        bestErr += drift * bestErr;
-      }
-    }
+    //  模板=记号列(同lookupSequential铁律,标准口令不参与)
     return (hit: best, error: bestErr);
   }
 
