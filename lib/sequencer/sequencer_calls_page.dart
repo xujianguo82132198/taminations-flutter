@@ -18,6 +18,7 @@
 
 */
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart' as fm;
 import 'package:provider/provider.dart' as pp;
 
@@ -28,6 +29,8 @@ import '../common_flutter.dart';
 import '../pages/calls_page.dart';
 import '../pages/page.dart';
 import 'voice_flow.dart';
+import 'caller_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SequencerCallsPage extends fm.StatelessWidget {
 
@@ -58,6 +61,23 @@ class SequencerCallsModel extends fm.ChangeNotifier {
   };
   bool levelSelected(LevelData level) => _levelsSelected[level]!;
 
+  ///  PSfix选择(用户:级别区加PSfix,展示其标准口令列,
+  ///  供选择法挑前后缀口令;与级别勾选互斥)
+  bool psfixSelected = false;
+  List<String> psfixCalls = const [];
+
+  void setPsfix(bool v) {
+    if (psfixSelected == v) return;
+    psfixSelected = v;
+    if (v) {
+      for (final l in _levelsSelected.keys.toList()) {
+        _levelsSelected[l] = false;
+      }
+      callsSelected = [];
+    }
+    notifyListeners();
+  }
+
   void setSelected(LevelData level, bool value) {
     if (_levelsSelected[level] != value) {
       _levelsSelected[level] = value;
@@ -74,6 +94,39 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
 
   final callsModel = SequencerCallsModel();
   final flow = VoiceFlow.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPsfixFresh();
+  }
+
+  ///  每次进Calls画面现读PSfix表(用户:改表立刻生效不重启;
+  ///  退出即弃——表对象随页面销毁,不缓存)
+  Future<void> _loadPsfixFresh() async {
+    try {
+      final dir = flow.callerTable?.callerName.split('/').first;
+      if (dir == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      for (final name in ['$dir/PSfix', '$dir/PSfix_Only']) {
+        if (!prefs.containsKey('口令员表 $name')) continue;
+        final t = await CallerTable.open(name);
+        final calls = <String>{};
+        for (final r in t.rows) {
+          final c = r.standardCall.trim();
+          if (c.isNotEmpty) calls.add(c);
+        }
+        callsModel.psfixCalls = calls.toList()..sort();
+        debugPrint('PSfix选择表装填: '
+            '${callsModel.psfixCalls.length}条($name)');
+        if (mounted) setState(() {});
+        return;
+      }
+      callsModel.psfixCalls = const [];
+    } catch (e) {
+      debugPrint('PSfix选择表装填失败: $e');
+    }
+  }
 
   //  口令包含的子口令(变体)标题。
   //  注意不过滤 notForSequencer:该标记只影响序列器索引,
@@ -169,8 +222,32 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
                     mainAxisSpacing: 1,
                     mainAxisExtent: 16 * 1.3 * textScale
                 ),
-                itemCount: callsModel.callsSelected.length,
+                itemCount: callsModel.psfixSelected
+                    ? callsModel.psfixCalls.length
+                    : callsModel.callsSelected.length,
                 itemBuilder: (_,index) {
+                  //  PSfix态(用户:级别区选PSfix=列其标准口令,
+                  //  点击直选,供选择法挑前后缀口令)
+                  if (callsModel.psfixSelected) {
+                    final title = callsModel.psfixCalls[index];
+                    return fm.Container(
+                      child: fm.Material(
+                      color: const fm.Color(0xfffff8e1),
+                      child: fm.InkWell(
+                        onTap: () => _chooseCall(title),
+                        child: fm.Container(
+                          alignment: fm.Alignment.centerLeft,
+                          padding: fm.EdgeInsets.only(left: 6, right: 6),
+                          child: AutoSizeText(title,
+                              maxLines: 1,
+                              minFontSize: 11,
+                              overflow: fm.TextOverflow.ellipsis,
+                              style: fm.TextStyle(fontSize: 16)),
+                        ),
+                      ),
+                      ),
+                    );
+                  }
                   final entry = callsModel.callsSelected[index];
                   return fm.Container(
                     child: fm.Material(
@@ -209,12 +286,18 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
               _LevelCheckbox(LevelData.A2),
               _LevelCheckbox(LevelData.C3B)
             ]),
+            //  PSfix选择(用户:前后缀口令的选择入口,浅黄)
+            fm.Row(children: [
+              _PsfixCheckbox(),
+            ]),
             //  当前勾选等级的口令总数
             fm.Container(
               width: double.infinity,
               color: Color.WHITE,
               padding: fm.EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              child: fm.Text('总数: ${callsModel.callsSelected.length}',
+              child: fm.Text('总数: ${callsModel.psfixSelected
+                  ? callsModel.psfixCalls.length
+                  : callsModel.callsSelected.length}',
                   style: fm.TextStyle(fontSize: 22, fontWeight: fm.FontWeight.bold)),
             ),
           ]);
@@ -224,6 +307,46 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
 
 }
 
+
+///  PSfix选择钮(用户:级别区的PSfix入口——与级别互斥)
+class _PsfixCheckbox extends fm.StatefulWidget {
+  @override
+  _PsfixCheckboxState createState() => _PsfixCheckboxState();
+}
+
+class _PsfixCheckboxState extends fm.State<_PsfixCheckbox> {
+  @override
+  fm.Widget build(fm.BuildContext context) {
+    return pp.Consumer<SequencerCallsModel>(
+      builder: (context, callsModel, _) => fm.Expanded(
+        child: fm.Container(
+          color: const fm.Color(0xffffee58),
+          child: fm.InkWell(
+            onTap: () {
+              setState(() {
+                callsModel.setPsfix(!callsModel.psfixSelected);
+              });
+            },
+            child: fm.Row(children: [
+              fm.Checkbox(
+                  value: callsModel.psfixSelected,
+                  onChanged: (value) {
+                    setState(() {
+                      callsModel.setPsfix(value!);
+                    });
+                  }),
+              const fm.Expanded(
+                  child: AutoSizeText('PSfix',
+                      maxLines: 1,
+                      minFontSize: 8,
+                      style: fm.TextStyle(fontSize: 20))),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _LevelCheckbox extends fm.StatefulWidget {
   final LevelData level;
