@@ -106,7 +106,10 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
   Future<void> _loadPsfixFresh() async {
     try {
       final dir = flow.callerTable?.callerName.split('/').first;
-      if (dir == null) return;
+      if (dir == null) {
+        debugPrint('PSfix装填跳过:未开表');
+        return;
+      }
       final prefs = await SharedPreferences.getInstance();
       //  用户:用PSfix_Only(口令员编辑接口,按标准口令排序,
       //  好找);无则退回非Only
@@ -290,7 +293,7 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
             ]),
             //  PSfix选择(用户:前后缀口令的选择入口,浅黄)
             fm.Row(children: [
-              _PsfixCheckbox(),
+              _PsfixCheckbox(onEnable: _loadPsfixFresh),
             ]),
             //  当前勾选等级的口令总数
             fm.Container(
@@ -310,13 +313,29 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
 }
 
 
-///  PSfix选择钮(用户:级别区的PSfix入口——与级别互斥)
+///  PSfix选择钮(用户:级别区的PSfix入口——与级别互斥;
+/// 开启前现读表:页面常驻,initState只在启动跑一次,
+/// 曾致装填永不发生/总数0)
 class _PsfixCheckbox extends fm.StatefulWidget {
+  final Future<void> Function() onEnable;
+  _PsfixCheckbox({required this.onEnable});
+
   @override
   _PsfixCheckboxState createState() => _PsfixCheckboxState();
 }
 
 class _PsfixCheckboxState extends fm.State<_PsfixCheckbox> {
+  Future<void> _toggle(bool value) async {
+    if (value) {
+      await widget.onEnable();
+    }
+    if (!mounted) return;
+    setState(() {
+      pp.Provider.of<SequencerCallsModel>(context, listen: false)
+          .setPsfix(value);
+    });
+  }
+
   @override
   fm.Widget build(fm.BuildContext context) {
     return pp.Consumer<SequencerCallsModel>(
@@ -324,19 +343,11 @@ class _PsfixCheckboxState extends fm.State<_PsfixCheckbox> {
         child: fm.Container(
           color: const fm.Color(0xffffee58),
           child: fm.InkWell(
-            onTap: () {
-              setState(() {
-                callsModel.setPsfix(!callsModel.psfixSelected);
-              });
-            },
+            onTap: () => _toggle(!callsModel.psfixSelected),
             child: fm.Row(children: [
               fm.Checkbox(
                   value: callsModel.psfixSelected,
-                  onChanged: (value) {
-                    setState(() {
-                      callsModel.setPsfix(value!);
-                    });
-                  }),
+                  onChanged: (value) => _toggle(value!)),
               const fm.Expanded(
                   child: AutoSizeText('PSfix',
                       maxLines: 1,
