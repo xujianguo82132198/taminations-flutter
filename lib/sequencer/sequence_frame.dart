@@ -2071,7 +2071,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         }
         return;
       }
-      textFieldController.text = selection;
+      //  累加(用户:一律累加不取代——前缀+口令+后缀自由
+      //  组合,与语音输入一致;清空=X钮,删字=退格键)
+      final cur = textFieldController.text.trim();
+      textFieldController.text =
+          cur.isEmpty ? selection : '$cur $selection';
+      textFieldController.selection = fm.TextSelection.collapsed(
+          offset: textFieldController.text.length);
       //  Only 采表模式:只填文字,不弹键盘不抢焦点
       //  (操作者用语音+确认按钮,无需键盘)
       if (!flow.onlyMode) {
