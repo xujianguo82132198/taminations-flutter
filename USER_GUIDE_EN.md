@@ -1,6 +1,11 @@
-# Caller's Guide (English Edition)
+# The Caller's Recording Studio — Guide (English Edition)
 
 ## 1. The Goal: Producing an MP3 Calling Track
+
+Welcome to the Caller's Recording Studio: you bring the music
+and the voice; the studio keeps the figures dancing in sync
+with the beat and prompts each call; your recorder captures
+voice plus music — the finished calling track.
 
 The end product of this system is a finished calling track (MP3):
 background music plus your spoken calls. The system keeps the

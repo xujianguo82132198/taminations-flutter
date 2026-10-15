@@ -1,5 +1,12 @@
 # What is New — Caller Features
 
+## The name of this system: the Caller's Recording Studio
+
+You record finished calling tracks (MP3) in this studio:
+collect calls → detect the music beat → figures dance to it →
+read each call as prompted → your recorder captures it →
+repeat until satisfied. Every feature below is studio equipment.
+
 ## 1.6.113 (2026-10-14)
 
 **Voice calling (new)**
