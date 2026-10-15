@@ -341,7 +341,7 @@ class _PsfixCheckboxState extends fm.State<_PsfixCheckbox> {
     return pp.Consumer<SequencerCallsModel>(
       builder: (context, callsModel, _) => fm.Expanded(
         child: fm.Container(
-          color: const fm.Color(0xffffee58),
+          color: Color.WHITE,   //  与选择区一致,不做特殊色
           child: fm.InkWell(
             onTap: () => _toggle(!callsModel.psfixSelected),
             child: fm.Row(children: [
