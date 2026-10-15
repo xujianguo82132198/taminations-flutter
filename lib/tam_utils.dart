@@ -58,7 +58,10 @@ class TamUtils {
   static bool get isTouchDevice => platform().matches('(android|ios)'.r);
   static bool get isWindowDevice =>
       platform().matches('(windows|macos)'.r);
-  static bool get canListen => platform().matches('(android|ios)'.r);
+  //  语音仅在安卓可用(iOS原生桥未移植,试用版先关闭——
+  //  选择法/键入/表格/跳舞不受影响)
+  static bool get canListen =>
+      platform().matches('android'.r);
   static bool get canSpeak => platform().matches('(android|ios|web|macos)'.r);
 
 }
