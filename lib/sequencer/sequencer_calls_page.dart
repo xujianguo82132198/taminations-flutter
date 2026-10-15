@@ -105,29 +105,35 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
   ///  退出即弃——表对象随页面销毁,不缓存)
   Future<void> _loadPsfixFresh() async {
     try {
-      final dir = flow.callerTable?.callerName.split('/').first;
-      if (dir == null) {
-        debugPrint('PSfix装填跳过:未开表');
-        return;
-      }
+      //  未开表兜底(用户实测:重启后直接进Calls勾PSfix曾
+      //  装填跳过→总数0)——扫全部目录的PSfix_Only合并装填
       final prefs = await SharedPreferences.getInstance();
-      //  用户:用PSfix_Only(口令员编辑接口,按标准口令排序,
-      //  好找);无则退回非Only
-      for (final name in ['$dir/PSfix_Only', '$dir/PSfix']) {
+      final all = CallerTable.listTableNames(prefs);
+      final names = <String>[];
+      final dir = flow.callerTable?.callerName.split('/').first;
+      if (dir != null) {
+        //  开表:本目录优先(PSfix_Only→PSfix,用户:Only
+        //  按标准口令排序好找)
+        names.addAll(['$dir/PSfix_Only', '$dir/PSfix']);
+      }
+      //  兜底:所有目录的PSfix_Only
+      names.addAll(all
+          .where((n) => n.endsWith('/PSfix_Only'))
+          .where((n) => !names.contains(n)));
+      final calls = <String>{};
+      for (final name in names) {
         if (!prefs.containsKey('口令员表 $name')) continue;
         final t = await CallerTable.open(name);
-        final calls = <String>{};
         for (final r in t.rows) {
           final c = r.standardCall.trim();
           if (c.isNotEmpty) calls.add(c);
         }
-        callsModel.psfixCalls = calls.toList()..sort();
-        debugPrint('PSfix选择表装填: '
-            '${callsModel.psfixCalls.length}条($name)');
-        if (mounted) setState(() {});
-        return;
+        debugPrint('PSfix选择表装填: +$name');
+        break;   //  命中一张即用(本目录优先,否则首张)
       }
-      callsModel.psfixCalls = const [];
+      callsModel.psfixCalls = calls.toList()..sort();
+      debugPrint('PSfix选择表合计: ${callsModel.psfixCalls.length}条');
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint('PSfix选择表装填失败: $e');
     }
