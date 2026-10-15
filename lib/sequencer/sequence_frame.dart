@@ -3563,7 +3563,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       //  →PSfix_Only);清理=同口令归组/同记号去重/
                       //  每条保够3行录音位
                       _tableMgmtButton(ctx, selected.isNotBlank,
-                          '合并', () async {
+                          '排序另存', () async {
                         final mReg = RegExp(
                                 r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
                             .firstMatch(selected);
@@ -3589,7 +3589,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             context: context,
                             builder: (mctx) => fm.StatefulBuilder(
                                 builder: (mctx, mset) => fm.AlertDialog(
-                              title: fm.Text('合并映射表',
+                              title: fm.Text('排序另存',
                                   style: fm.TextStyle(fontSize: 20)),
                               content: fm.Column(
                                 mainAxisSize: fm.MainAxisSize.min,
@@ -3632,7 +3632,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                 fm.TextButton(
                                     onPressed: () =>
                                         fm.Navigator.of(mctx).pop(true),
-                                    child: fm.Text('合并')),
+                                    child: fm.Text('排序另存')),
                               ],
                             )));
                         final dstShort = dstCtrl.text.trim();
@@ -3664,57 +3664,6 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         }
                         await _refreshTableNames(prefs, tableNames);
                         setState(() { selected = dst; });
-                      }),
-                      _tableMgmtButton(ctx, selected.isNotBlank, '补全',
-                          () async {
-                        final ok = await fm.showDialog<bool>(
-                            context: context,
-                            builder: (dctx) => fm.AlertDialog(
-                              title: fm.Text('补全映射表'),
-                              content: fm.Text(
-                                  '把口令库中全部口令写入"$selected"的映射表?'
-                                  '\n(已存在的识别句不会重复)',
-                                  style: fm.TextStyle(fontSize: 20)),
-                              actions: [
-                                fm.TextButton(
-                                    onPressed: () =>
-                                        fm.Navigator.of(dctx).pop(false),
-                                    child: fm.Text('取消')),
-                                fm.TextButton(
-                                    onPressed: () =>
-                                        fm.Navigator.of(dctx).pop(true),
-                                    child: fm.Text('补全')),
-                              ],
-                            ));
-                        if (ok != true || !mounted) return;
-                        //  打开表并补全
-                        final t = await flow.openCallerTable(selected);
-                        final added = await t.populateAllCalls();
-                        _mgmtSnackBar('补全完成:新增 $added 条,'
-                            '共 ${t.rows.length} 条');
-                        setState(() {});
-                      }),
-                      //  PSfix合并(用户:Prefix_Only+Sufix_Only
-                      //  许多条目相同,合并统一省内存;识别只查
-                      //  PSfix_Only+口令表;多归一录入在此表进行)
-                      _tableMgmtButton(ctx, tableNames.any((n) {
-                        final last = n.split('/').last;
-                        return last == 'Prefix_Only' ||
-                            last == 'Sufix_Only';
-                      }), 'PSfix', () async {
-                        final prefs4 =
-                            await SharedPreferences.getInstance();
-                        final r = await CallerTable.mergeOnlyToPSfix(
-                            prefs4, currentDir);
-                        if (r.$1 == 0) {
-                          _mgmtSnackBar(
-                              '没有Prefix_Only/Sufix_Only可合并');
-                          return;
-                        }
-                        await _refreshTableNames(prefs4, tableNames);
-                        _mgmtSnackBar('PSfix_Only已生成:${r.$1}行 '
-                            '(纯并集未清理——清理由您观察后自定)');
-                        setState(() {});
                       }),
                     ],
                   ),
