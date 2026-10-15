@@ -1998,7 +1998,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   ///  可选内嵌图标——行3的圆钮图标用真图标不用字符,字符
   ///  在设备字体渲染成虚框)
   fm.Widget _inputGuideLine(String lead, String caps, fm.Color bg,
-      {fm.IconData? icon}) {
+      {fm.IconData? icon, String? iconTail}) {
     return fm.Container(
       width: double.infinity,
       color: bg,
@@ -2013,9 +2013,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 child: fm.Icon(icon,
                     size: 20, color: fm.Colors.black87)),
           if (icon != null)
-            const fm.TextSpan(
-                text: ' for ',
-                style: fm.TextStyle(fontSize: 18)),
+            fm.TextSpan(
+                text: iconTail ?? ' for ',
+                style: const fm.TextStyle(fontSize: 18)),
           fm.TextSpan(
               text: caps,
               style: const fm.TextStyle(
@@ -2372,8 +2372,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                       '3. Tap ',
                                       'VOICE INPUT',
                                       const fm.Color(0xfffff8e1),
-                                      icon: fm.Icons
-                                          .record_voice_over,
+                                      icon: fm.Icons.folder_open,
+                                      iconTail: ' Open file for ',
                                     ),
                                   ],
                                 )
@@ -2551,6 +2551,20 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       }
     }
     //  重新加载(PSfix可能刚创建)
+    //  斜杠bug遗产清理:根级"XuJianguo2PSfix"类垃圾键
+    //  (旧自动合并曾写出无斜杠键)——真目录存在时判定垃圾
+    final allNames0 = CallerTable.listTableNames(prefs);
+    final realDirs0 = allNames0
+        .where((n) => n.contains('/'))
+        .map((n) => n.split('/').first)
+        .toSet();
+    for (final n in allNames0.where((n) => !n.contains('/'))) {
+      final m = RegExp(r'^(.+)PSfix(_Only)?$').firstMatch(n);
+      if (m != null && realDirs0.contains(m.group(1))) {
+        await CallerTable.deleteTable(prefs, n);
+        debugPrint('垃圾表已清除: $n(斜杠bug遗产)');
+      }
+    }
     tableNames.clear();
     tableNames.addAll(CallerTable.listTableNames(prefs));
     //  诊断:存储区完整表清单(所见即所得的核账)
@@ -2721,8 +2735,12 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               Future<void> doConfirm() async {
                 final pwd = passwordController.text;
                 if (pwd.isBlank) return;
-                final caller = selected.isNotBlank
+                //  口令按口令员(目录)存(曾按整表名——每表一锁,
+                //  用户被自己的表锁在门外):一人一口令管全部表
+                final rawName = selected.isNotBlank
                     ? selected : nameController.text.trim();
+                final caller = rawName.contains('/')
+                    ? rawName.split('/').first : rawName;
                 final pwdKey = '口令员口令 $caller';
                 final stored = prefs.getString(pwdKey);
                 if (stored == null) {
@@ -2785,6 +2803,51 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       passwordShown = false;
                     });
                   }, child: fm.Text('返回')),
+                  //  忘记口令逃生门(用户曾被按表名误存的口令
+                  //  锁死):确认后清除该口令员的口令,下次输入
+                  //  即新口令——本地应用防误操作,不防贼
+                  fm.TextButton(
+                      onPressed: () async {
+                        final rawName = selected.isNotBlank
+                            ? selected
+                            : nameController.text.trim();
+                        final caller = rawName.contains('/')
+                            ? rawName.split('/').first : rawName;
+                        final ok = await fm.showDialog<bool>(
+                            context: context,
+                            builder: (fctx) => fm.AlertDialog(
+                              title: fm.Text('清除口令?'),
+                              content: fm.Text(
+                                  '将清除口令员"\$caller"的口令。\n'
+                                  '下一次输入将成为新口令。\n'
+                                  '确定清除?',
+                                  style: fm.TextStyle(fontSize: 18)),
+                              actions: [
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(fctx)
+                                            .pop(false),
+                                    child: fm.Text('取消')),
+                                fm.TextButton(
+                                    onPressed: () =>
+                                        fm.Navigator.of(fctx)
+                                            .pop(true),
+                                    child: fm.Text('清除')),
+                              ],
+                            ));
+                        if (ok != true) return;
+                        await prefs.remove('口令员口令 \$caller');
+                        debugPrint('口令已清除: \$caller');
+                        passwordController.clear();
+                        setState(() {
+                          pwdError = false;
+                        });
+                        _mgmtSnackBar(
+                            '"\$caller"口令已清除,下次输入即新口令');
+                      },
+                      child: fm.Text('忘记口令',
+                          style: fm.TextStyle(
+                              color: fm.Colors.red))),
                   fm.TextButton(onPressed: doConfirm,
                       child: fm.Text('确定')),
                 ],
