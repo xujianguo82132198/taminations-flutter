@@ -108,7 +108,9 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
       final dir = flow.callerTable?.callerName.split('/').first;
       if (dir == null) return;
       final prefs = await SharedPreferences.getInstance();
-      for (final name in ['$dir/PSfix', '$dir/PSfix_Only']) {
+      //  用户:用PSfix_Only(口令员编辑接口,按标准口令排序,
+      //  好找);无则退回非Only
+      for (final name in ['$dir/PSfix_Only', '$dir/PSfix']) {
         if (!prefs.containsKey('口令员表 $name')) continue;
         final t = await CallerTable.open(name);
         final calls = <String>{};
