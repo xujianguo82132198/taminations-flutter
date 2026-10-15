@@ -297,20 +297,25 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
               _LevelCheckbox(LevelData.A2),
               _LevelCheckbox(LevelData.C3B)
             ]),
-            //  PSfix选择(用户:前后缀口令的选择入口,浅黄)
+            //  PSfix选择+总数同排(用户:总数放PSfix右边,
+            //  不另起行浪费空间)
             fm.Row(children: [
-              _PsfixCheckbox(onEnable: _loadPsfixFresh),
+              fm.Expanded(
+                child: _PsfixCheckbox(onEnable: _loadPsfixFresh),
+              ),
+              fm.Container(
+                color: Color.WHITE,
+                padding: fm.EdgeInsets.symmetric(
+                    vertical: 8, horizontal: 16),
+                child: fm.Text(
+                    '总数: ${callsModel.psfixSelected
+                        ? callsModel.psfixCalls.length
+                        : callsModel.callsSelected.length}',
+                    style: fm.TextStyle(
+                        fontSize: 22,
+                        fontWeight: fm.FontWeight.bold)),
+              ),
             ]),
-            //  当前勾选等级的口令总数
-            fm.Container(
-              width: double.infinity,
-              color: Color.WHITE,
-              padding: fm.EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              child: fm.Text('总数: ${callsModel.psfixSelected
-                  ? callsModel.psfixCalls.length
-                  : callsModel.callsSelected.length}',
-                  style: fm.TextStyle(fontSize: 22, fontWeight: fm.FontWeight.bold)),
-            ),
           ]);
         } ),
     );
