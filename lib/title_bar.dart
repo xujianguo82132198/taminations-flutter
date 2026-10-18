@@ -25,6 +25,7 @@ import 'package:provider/provider.dart' as pp;
 
 import 'call_index.dart';
 import 'common_flutter.dart';
+import 'sequencer/voice_flow.dart';
 
 class TitleModel extends fm.ChangeNotifier {
   String _title = 'Taminations';
@@ -58,13 +59,22 @@ class TitleBar extends fm.StatelessWidget {
     return fm.SafeArea(
         bottom: false,
         top: true,
-        //  Container with gradient for background
-        child: fm.Container(
+        //  标题栏随节拍闪烁(用户:主题背景也要闪)——
+        //  监听 VoiceFlow 的 beatPulse,测得bpm后大面积同步
+        child: fm.ListenableBuilder(
+            listenable: VoiceFlow.instance,
+            builder: (context, _) {
+              final beat = VoiceFlow.instance.musicDancing &&
+                  VoiceFlow.instance.beatPulse;
+              //  Container with gradient for background
+              return fm.Container(
             decoration: fm.BoxDecoration(
                 gradient: fm.LinearGradient(
                     begin: fm.Alignment.topCenter,
                     end: fm.Alignment.bottomCenter,
-                    colors: [Color(0xff00c000), Color(0xff004000)]
+                    colors: beat
+                        ? [Color(0xffffff88), Color(0xffffee58)]
+                        : [Color(0xff00c000), Color(0xff004000)]
                 )
             ),
 
@@ -131,6 +141,8 @@ class TitleBar extends fm.StatelessWidget {
                       style: fm.TextStyle(color: Color.WHITE, fontSize: 20))),
               ]);},
             )
+            );
+            },
         )
     );
   }

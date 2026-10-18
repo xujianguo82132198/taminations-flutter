@@ -90,6 +90,131 @@ class SequencerCallsModel extends fm.ChangeNotifier {
 }
 
 
+///  基础名"非独立口令"的条目(概念页/文档页/<anything>模板/
+/// 同义家族名如 Arm Turns):由 test/base_known_test.dart 用
+/// 完整解析管道扫描生成——基础名报"not found"者不进子口令
+/// 首行(放了也执行不了)。升级上游定义后重跑该测试刷新本表
+const baseNotCall = {
+  'Alamo Style',
+  'All 4 Couples / All 8 concepts',
+  'Any Hand Concept',
+  'Any Tagging Call and Scatter',
+  'Anyone Hop',
+  '<anything> and Circle',
+  'Anything Concept',
+  '<anything> Reaction',
+  '<anything> the Windmill',
+  '<anything>er\'s Couple Up',
+  'Arm Turns',
+  'As Couples Concept',
+  'Backtrack',
+  'Big Block Concept',
+  'Bounce the Anyone',
+  'Busy <anything>',
+  'Catch 1, 2, 3, 4',
+  'Catch <anything>',
+  'Central Concept',
+  'Chase the fraction Tag',
+  'Checkerboard <anything>',
+  'Circle Left / Right',
+  'Circle Rule',
+  'Concentric Concept',
+  'Crazy Concept',
+  'Cross Concentric Concept',
+  'Delete',
+  'Diagonal Box Concept',
+  'Disconnected Concept',
+  'Divide the Ocean | Sea <direction> | <anything>',
+  'Drop In/Out/Right/Left',
+  'Echo Concept',
+  'Exchange the Triangles',
+  'Face Left / Right / In / Out',
+  'Facing Couples Rule',
+  'Fan Concept',
+  'Fascinate/Fascinating',
+  'Finally Concept',
+  'First Couple Go Left/Right, Next Couple Go Left/Right',
+  'First Half Concept',
+  'Fourthly',
+  'Fractional Tops',
+  'Funny Concept',
+  'Galaxy Formation',
+  'Generous',
+  'Grand Drop',
+  'Initially Concept',
+  'Interlocked 3 by 1 Triangle Formation',
+  'Interlocked Triangle Formation',
+  'Jay Concept',
+  'Left Arm Turn',
+  'Magic Column Formation / Concept',
+  'Mirror Concept',
+  'O Formation / Concept',
+  'Ocean Wave',
+  'Ocean Wave Rule',
+  'Oddly | Evenly Concept',
+  'Offset Concept',
+  'Once Removed Concept',
+  'Open Up',
+  'Parallelogram Concept',
+  'Passing Rule',
+  'Patch Anyone',
+  'Prefer',
+  'Press In / Out / Left / Right',
+  'Quadruple Formation Concept',
+  'Quick',
+  'Reflected Concept',
+  'Release <anything>',
+  'Relocate the formation',
+  'Reverse Checkpoint <anything> By <anything>',
+  'Reverse Crazy Concept',
+  'Reverse Cut/Flip the 3 by 1 Triangle',
+  'Reverse Cut/Flip the Diamond',
+  'Reverse Cut/Flip the Galaxy',
+  'Reverse Cut/Flip the Z',
+  'Reverse Echo',
+  'Reverse Order Concept',
+  'Right Arm Turn',
+  'Right / Left Hand Star',
+  'Same Position Rule',
+  'Secondly',
+  'See Saw',
+  'Siamese Concept',
+  'Single Concept',
+  'Skip',
+  'Slant',
+  'Solid Concept',
+  'Spin the Windmill',
+  'Split Phantom Boxes Concept',
+  'Split Phantom Columns / Lines / Waves Concept',
+  'Squared Set Convention',
+  'Stable Concept',
+  'n Steps At A Time',
+  'Stingy',
+  'Stretch Concept',
+  'Stretched Concept',
+  'Strip the Diamond / Hourglass',
+  'Strut',
+  'Swing and Circle',
+  'T-Bone Formation',
+  'Take {n}',
+  'Tandem Concept',
+  'Tandem-Based Triangle Formation',
+  'Thar Family',
+  'Thirdly',
+  'Trapezoid Formation',
+  'Triple Diamond Concept',
+  'Triple Formations',
+  'Two-Faced Concept',
+  'Twosome Concept',
+  'Unwrap',
+  'Veer Left / Right',
+  'Wave the anyone',
+  'Wrap To a Formation',
+  'Wrong Way Promenade',
+  'Z Concept',
+  'Zip Code',
+};
+
 class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
 
   final callsModel = SequencerCallsModel();
@@ -125,7 +250,9 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
         if (!prefs.containsKey('口令员表 $name')) continue;
         final t = await CallerTable.open(name);
         for (final r in t.rows) {
-          final c = r.standardCall.trim();
+          //  标准口令列同过清洗:表里存过 "…Gears from" 这类
+          //  带系统 "from" 尾巴的行,不洗则选上无法执行
+          final c = CallerTable.cleanCallTitle(r.standardCall);
           if (c.isNotEmpty) calls.add(c);
         }
         debugPrint('PSfix选择表装填: +$name');
@@ -140,22 +267,36 @@ class _SequencerCallsFrameState extends fm.State<SequencerCallsFrame> {
   }
 
   //  口令包含的子口令(变体)标题。
+  //  标题一律过 cleanCallTitle 清洗(去 "from"/括号注)——
+  //  系统动画列表的展开组头带 "from"(如 "…Gears from"),
+  //  不清洗就会选上一个无法执行的口令(用户:丢了口令)。
+  //  基础口令名先入第一行(用户:Square Thru 的子口令第一行
+  //  应是 Square Thru 本身——裸喊缺省 4 手,选择后还可键盘
+  //  补数字如 6;若变体已含它,去重不会重复)。
   //  注意不过滤 notForSequencer:该标记只影响序列器索引,
   //  像 Run 的变体(Boys Run / Girls Run / Centers Run / Ends Run)
   //  全部带此标记但口令员可以喊、也需可选;选中的标题进入
   //  输入行后由序列器解析执行
   List<String> subCallTitles(CallEntry entry) {
     final titles = <String>[];
+    //  基础名先入第一行,但概念/模板条目除外(黑名单)
+    if (!baseNotCall.contains(entry.title)) {
+      final base = CallerTable.cleanCallTitle(entry.title);
+      if (base.isNotBlank)
+        titles.add(base);
+    }
     for (var call in flattenAnimatedCallList(entry.calls)) {
-      if (!titles.contains(call.title))
-        titles.add(call.title);
+      final t = CallerTable.cleanCallTitle(call.title);
+      if (t.isNotBlank && !titles.contains(t))
+        titles.add(t);
     }
     return titles;
   }
 
-  //  选定某个(子)口令:填入序列器输入行并关闭本画面
+  //  选定某个(子)口令:填入序列器输入行并关闭本画面。
+  //  再洗一次:表里/列表来的串可能仍带 "from" 尾巴
   void _chooseCall(String title) {
-    flow.selectCallForInit(title);
+    flow.selectCallForInit(CallerTable.cleanCallTitle(title));
     pp.Provider.of<TamState>(context, listen: false)
         .change(detailPage: DetailPage.NONE);
   }

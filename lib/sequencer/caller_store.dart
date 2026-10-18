@@ -727,11 +727,17 @@ class CallerTable extends ChangeNotifier {
   }
 
   ///  清洗子口令标题:去掉括号中的 formation/位置描述、
-  ///  "from xxx" 等非口令文字,保留纯口令名
-  static String _cleanCallTitle(String title) {
+  ///  "from xxx" 等非口令文字,保留纯口令名。
+  ///  公开:Calls页子口令弹层/PSfix选择列表/输入行填入
+  ///  共用同一条清洗规则(用户:同一处理,别丢口令)
+  static String cleanCallTitle(String title) {
     var t = title.trim();
-    //  去掉以 "from " 开头的描述(如 "from Waves")
-    t = t.replaceFirst(RegExp(r'\s+from\s+.*$'), '');
+    //  去掉 "from ..." 描述(如 "from Waves")以及
+    //  结尾光秃秃的 "from"(系统动画列表展开组头带它,
+    //  如 "Spin Chain and Exchange the Gears from"——
+    //  曾漏网进入选择数据,选上也无法执行)
+    t = t.replaceFirst(
+        RegExp(r'\s+from(\s+.*)?$', caseSensitive: false), '');
     //  去掉圆括号注释(如 "(Boys Lead)" "(As Couples)" 等)
     t = t.replaceAll(RegExp(r'\([^)]*\)'), '');
     //  去掉方括号注释
@@ -767,7 +773,7 @@ class CallerTable extends ChangeNotifier {
       if (lv >= 0 && levelOrder.indexOf(entry.level) > lv) continue;
       if (lv < 0 && entry.level != levelDir) continue;
       for (final call in flattenAnimatedCallList(entry.calls)) {
-        final t = _cleanCallTitle(call.title);
+        final t = cleanCallTitle(call.title);
         if (t.isNotBlank && !titles.contains(t))
           titles.add(t);
       }
@@ -794,7 +800,7 @@ class CallerTable extends ChangeNotifier {
     for (final entry in callIndex) {
       final li = order.indexOf(entry.level);
       for (final call in flattenAnimatedCallList(entry.calls)) {
-        final key = _cleanCallTitle(call.title)
+        final key = cleanCallTitle(call.title)
             .toLowerCase().replaceAll(RegExp(r'[^a-z ]'), '')
             .replaceAll(RegExp(r' +'), ' ').trim();
         if (key.isNotEmpty &&
@@ -853,7 +859,7 @@ class CallerTable extends ChangeNotifier {
         final li = lvOrder.indexOf(entry.level);
         for (final call
             in flattenAnimatedCallList(entry.calls)) {
-          final key = _cleanCallTitle(call.title)
+          final key = cleanCallTitle(call.title)
               .toLowerCase().replaceAll(RegExp(r'[^a-z ]'), '')
               .replaceAll(RegExp(r' +'), ' ').trim();
           if (key.isNotEmpty &&
@@ -956,7 +962,7 @@ class CallerTable extends ChangeNotifier {
       final norm = _normalize(title);
       final exists = rows.any((r) => _normalize(r.recognized) == norm);
       if (!exists) {
-        final clean = _cleanCallTitle(title);
+        final clean = cleanCallTitle(title);
         if (clean.isNotBlank)
           rows.add(CallerRow(seq: 0, recognized: clean, standardCall: clean));
         added++;
@@ -1547,10 +1553,13 @@ class CallerTable extends ChangeNotifier {
     return v;
   }
 
-  ///  语音识别后的查表(沿序号早停,无门槛):
-  ///  表已按 A,B,C... 字典序排序,相似记录聚集,误差沿序号
-  ///  呈"先降后升"的谷形。当误差越来越低时继续沿序号寻访,
-  ///  当误差变大时停止寻访,取刚才那个为误差最低者。
+  ///  语音识别后的查表(全表扫描,无早停):
+  ///  逐行把听句与该行每笔记号比对,取全局最小误差行。
+  ///  曾用"沿序号早停"(假设字典序排序下误差呈单谷形),
+  ///  已废——记号列存的是**声音**,字母排序会把读音相近的
+  ///  记号排得相距很远,谷形假设不成立,早停会漏掉真正的
+  ///  最低误差行(用户指出)。现在每行必比,排序只影响人看,
+  ///  不影响查表结果。
   ///  不设误差门槛,选中的记录即执行(表覆盖完整由"补全"保证)。
   ///  返回:hit=选中的记录(空表为 null),
   ///  candidate=同一记录(供界面居中突出显示),error=其误差
@@ -1677,22 +1686,24 @@ class CallerTable extends ChangeNotifier {
   }
 
   ///  分段取样检索(用户定义的取样过程,段界查表专用):
-  ///  与每行的**记号**和**标准口令读法**双轨比对——采表时
-  ///  记号可能尚未录上,标准口令读法保证新表也能检索。
-  ///  返回最佳行与最小误差,门槛由调用方判定(先设0.5)
+  ///  只与每行的**记号**比对(曾与标准口令读法双轨兜底,
+  ///  已撤——用户:候选由人工挑选,机器不得拿标准口令
+  ///  比较后自己决定;记号未录的行不中,人工定位)。
+  ///  返回最佳行与最小误差,门槛由调用方判定
   ({CallerRow? hit, double error}) lookupForSample(String sentence) {
     if (rows.isEmpty) return (hit: null, error: 1.0);
     CallerRow? best;
     var bestErr = double.infinity;
     for (final row in rows) {
-      //  双轨目标:已录记号(多笔以|分隔) + 标准口令读法
+      //  只比记号(用户:已有从候选人工挑选功能,段界查表
+      //  不得再与标准口令读法比较自作决定——双轨兜底已撤,
+      //  全库与铁律一致:标准口令列只是查询结果,永不参与
+      //  比对。记号未录的行自然不中,由口令员人工定位)
       final targets = row.recognized
           .split('|')
           .map((t) => t.trim())
           .where((t) => t.isNotEmpty)
           .toList();
-      final spoken = spokenForm(row.standardCall);
-      if (!targets.contains(spoken)) targets.add(spoken);
       var err = double.infinity;
       for (final token in targets) {
         final e1 = structuredError(token, sentence);

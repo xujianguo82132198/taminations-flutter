@@ -19,10 +19,17 @@ Chinese and English. Everything remains GPLv3.
 4. **Music beat sync**: beat detection drives the dancing figures
    and large-area screen flashing, aimed at producing MP3 calling
    tracks (play sequence + read prompts + external recorder).
-5. **Table management UI**: create/import/merge tables (pure-union
-   merge), PSfix one-tap merge, standard-call search, password
-   protection, per-caller directories.
-6. **Docs**: USER_GUIDE_EN.md, WHATS_NEW_EN.md (plus Chinese
+5. **Table management UI**: per-caller directories (create /
+   rename / delete from the parent level), Only tables and token
+   tables per level, .ysb export/import through a built-in file
+   browser (storage-root start, large Up button, on-the-spot
+   folder creation), pure-union merge, standard-call search,
+   password protection.
+6. **Sub-call sheet**: first row is the bare call (verified
+   executable library-wide; 118 concept entries excluded), so a
+   picked call always dances; a keyboard number completes
+   variants (Square Thru + 6).
+7. **Docs**: USER_GUIDE_EN.md, WHATS_NEW_EN.md (plus Chinese
    counterparts).
 
 ## Where to look (main files)
@@ -33,7 +40,9 @@ Chinese and English. Everything remains GPLv3.
 | Dart speech provider (sessions, segmentation, n-best) | lib/sequencer/vosk_speech_to_text.dart |
 | Voice state machine (press-to-talk input, table lookup, gates) | lib/sequencer/voice_flow.dart |
 | Mapping-table engine (lookup, Power table, merge, drift report) | lib/sequencer/caller_store.dart |
-| Sequencer UI (input row, dialogs, beat flash, guide lines) | lib/sequencer/sequence_frame.dart |
+| Sequencer UI (input row, dialogs, directories, beat flash, guide lines) | lib/sequencer/sequence_frame.dart |
+| Built-in file browser (export/import, All-Files access) | lib/sequencer/phone_file_browser.dart |
+| Calls selection page (levels, PSfix list, sub-call sheet) | lib/sequencer/sequencer_calls_page.dart |
 | Settings block (noise/threshold sliders, attribution) | lib/pages/settings_page.dart |
 | Beat-flashing bar | lib/pages/animation_page.dart |
 
@@ -57,6 +66,9 @@ into a *caller's* workbench. Each addition answers a concrete gap:
 | Tables unprotected | Anyone could open/delete a caller's table | Password on open/delete/save-as (first entry sets it) |
 | Figures dance at fixed speed presets | Practice with real music impossible | Beat detection from live music, figures + large-area screen flash follow the beat (MP3 calling-track workflow) |
 | Settings page: inconsistent block formatting | Looked unfinished | Unified voice block, caller-tunable sliders with memory |
+| System SAF picker starts in Downloads, no Up button on MIUI | Elderly callers got lost, saved into strangers' folders | Built-in file browser: starts at storage root, full-width Up button, named system folders, folder creation with Enter |
+| Recording-time checks compared tokens against standard calls | Syllable fingerprints (ix·tend) were wrongly blocked | Prefix-5 baseline is the row's own token; duplicates left to cleanup — recording flows without interruptions |
+| Sub-call lists contained raw animation titles | "…Gears from" rows selected but could not execute | Titles cleaned (from-suffix/parentheticals) and the bare call verified first row |
 
 ## Review suggestions
 

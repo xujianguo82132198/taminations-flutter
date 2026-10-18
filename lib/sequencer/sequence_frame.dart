@@ -20,13 +20,14 @@
 
 
 import 'dart:async';
-import 'dart:convert' show jsonDecode;
+import 'dart:convert' show jsonDecode, jsonEncode;
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'dart:io' as io;
 
 import 'package:file_picker/file_picker.dart' as fp;
 import 'package:flutter_file_dialog/flutter_file_dialog.dart' as ffd;
+import 'phone_file_browser.dart' as pfb;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart' as fm;
 import 'package:flutter/services.dart' as fs;
@@ -743,46 +744,6 @@ class _OnlyDisplayBarState extends fm.State<OnlyDisplayBar> {
   }
   void _onChanged() {
     if (mounted) setState(() {});
-    //  记号碰撞体检:口令不同而语音识别(第2列)相同的行,
-    //  亮出行号提示重新识别(每次开表提示一次)
-    if (mounted &&
-        flow.tokenCollisionRows.isNotEmpty &&
-        !flow.collisionNoticeShown) {
-      flow.collisionNoticeShown = true;
-      Future.microtask(() => _showCollisionDialog());
-    }
-  }
-
-  //  碰撞行号清单(需重新识别)
-  Future<void> _showCollisionDialog() async {
-    await fm.showDialog(
-        context: context,
-        builder: (ctx) => fm.AlertDialog(
-              title: fm.Text('记号相同,需重新识别',
-                  style: fm.TextStyle(fontSize: 22, color: Color.RED)),
-              content: fm.SizedBox(
-                width: double.maxFinite,
-                height: 420,
-                child: fm.ListView(children: [
-                  fm.Text(
-                      '以下各行标准口令不同而语音识别(第2列)相同,'
-                      '喊口令时无法区分。请对相关行用圆钮重新采样:',
-                      style: fm.TextStyle(fontSize: 18)),
-                  for (final line in flow.tokenCollisionRows)
-                    fm.Padding(
-                        padding: fm.EdgeInsets.only(top: 6),
-                        child: fm.Text(line,
-                            style: fm.TextStyle(
-                                fontSize: 18, color: Color.RED))),
-                ]),
-              ),
-              actions: [
-                fm.TextButton(
-                    onPressed: () => fm.Navigator.of(ctx).pop(),
-                    child: fm.Text('知道了',
-                        style: fm.TextStyle(fontSize: 18))),
-              ],
-            ));
   }
 
   @override
@@ -1882,17 +1843,19 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
   fm.Widget _inputRowButtons(SequencerModel model) {
     final circleReady =
         flow.callerTable != null && !flow.onlyMode;
+    //  三钮水平常驻第一行右侧(用户:框可变窄,钮不进框;
+    //  键盘从底部弹出,第一行不被挡)
     return fm.Row(
       mainAxisSize: fm.MainAxisSize.min,
-      crossAxisAlignment: fm.CrossAxisAlignment.center,
       children: [
-        //  X钮(左,竖跨两行;节拍闪烁底)
+        //  X钮
         fm.Container(
           color: flow.musicDancing && flow.beatPulse
               ? const fm.Color(0xffffee58)
               : null,
           alignment: fm.Alignment.center,
-          height: 68,
+          width: 46,
+          height: 46,
           child: fm.IconButton(
             visualDensity: fm.VisualDensity.compact,
             padding: fm.EdgeInsets.zero,
@@ -1900,6 +1863,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                 minWidth: 30, minHeight: 30),
             icon: fm.Icon(fm.Icons.clear, size: 22),
             onPressed: () {
+              //  X=文字清零(用户操作规程:圆钮输入前先点X,
+              //  清文字/累加底稿/流水线显示;键盘不收起——
+              //  后续语音输入要按回车,键盘必须留在屏幕上)
               flow.callSelection = null;
               flow.clearAllDisplays();
               flow.inputConsumed();
@@ -1913,118 +1879,189 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
               fm.ScaffoldMessenger.of(context)
                   .removeCurrentSnackBar();
               _isVoiceCall = false;
-              debugPrint('X: 已清,框内='
-                  '"${textFieldController.text}"');
+              debugPrint('X: 已清零(文字+底稿,键盘保留)');
             },
           ),
         ),
-        fm.Column(
-          mainAxisSize: fm.MainAxisSize.min,
-          children: [
-            //  打开表钮(上)
-            if (TamUtils.canListen)
-              fm.TextButton(
-                style: fm.TextButton.styleFrom(
-                    padding: fm.EdgeInsets.zero,
-                    minimumSize: fm.Size(34, 30)),
-                onPressed: flow.isActive ? null : () async {
-                  if (!await _loginAndOpenTable()) return;
-                  flow.startTableMode();
-                },
-                child: fm.Icon(
-                  fm.Icons.folder_open,
-                  color: flow.isActive ? Color.GRAY : Color.BLACK,
-                  size: 26,
-                ),
+        //  Open钮(区域随拍闪烁,用户要求)
+        fm.Container(
+          width: 46,
+          height: 46,
+          color: flow.musicDancing && flow.beatPulse
+              ? const fm.Color(0xffffee58)
+              : null,
+          child: fm.TextButton(
+            style: fm.TextButton.styleFrom(
+                padding: fm.EdgeInsets.zero,
+                minimumSize: const fm.Size(46, 46)),
+            onPressed: flow.isActive
+                ? null
+                : () async {
+                    if (!await _loginAndOpenTable()) return;
+                    flow.startTableMode();
+                  },
+            child: fm.Icon(
+              fm.Icons.folder_open,
+              color: flow.isActive
+                  ? Color.GRAY
+                  : fm.Colors.black87,
+              size: 26,
+            ),
+          ),
+        ),
+        //  圆钮(真PTT):按下蓝/待命白/无表灰;区域随拍闪烁
+        fm.Listener(
+          behavior: fm.HitTestBehavior.opaque,
+          onPointerDown: (_) {
+            if (!circleReady) return;
+            focusNode.requestFocus();
+            setState(() {
+              virtualKeyboardSetVisible(true);
+            });
+            flow.startInputSample(
+                seedText: textFieldController.text);
+          },
+          onPointerUp: (_) {
+            flow.endInputSample();
+            if (flow.pttInputActive) return;
+            focusNode.requestFocus();
+          },
+          onPointerCancel: (_) {
+            flow.endInputSample();
+          },
+          child: fm.Container(
+            width: 46,
+            height: 46,
+            alignment: fm.Alignment.center,
+            color: flow.musicDancing && flow.beatPulse
+                ? const fm.Color(0xffffee58)
+                : null,
+            child: fm.Container(
+              width: 38,
+              height: 40,
+              decoration: fm.BoxDecoration(
+                shape: fm.BoxShape.rectangle,
+                borderRadius: fm.BorderRadius.circular(19),
+                color: flow.pttInputActive
+                    ? Color.BLUE
+                    : (circleReady
+                        ? Color.WHITE
+                        : const fm.Color(0xffe0e0e0)),
+                border: fm.Border.all(
+                    color: flow.pttInputActive
+                        ? Color.BLUE
+                        : (circleReady
+                            ? Color.BLACK
+                            : const fm.Color(0xff9e9e9e)),
+                    width: 2),
               ),
-            //  圆钮(下):有表黑待命/按下蓝/无表灰
-            fm.Listener(
-              behavior: fm.HitTestBehavior.opaque,
-              onPointerDown: (_) {
-                debugPrint('INPUT_BTN: pointer down');
-                if (!circleReady) return;
-                focusNode.requestFocus();
-                setState(() {
-                  virtualKeyboardSetVisible(true);
-                });
-                flow.startInputSample(
-                    seedText: textFieldController.text);
-              },
-              onPointerUp: (_) {
-                flow.endInputSample();
-                if (flow.pttInputActive) return;
-                focusNode.requestFocus();
-              },
-              onPointerCancel: (_) {
-                flow.endInputSample();
-              },
-              child: fm.Container(
-                width: 36,
-                height: 32,
-                margin: const fm.EdgeInsets.only(top: 1),
-                decoration: fm.BoxDecoration(
-                  shape: fm.BoxShape.rectangle,
-                  borderRadius: fm.BorderRadius.circular(18),
-                  color: flow.pttInputActive
-                      ? Color.BLUE
-                      : (circleReady ? Color.WHITE
-                          : const fm.Color(0xffe0e0e0)),
-                  border: fm.Border.all(
-                      color: flow.pttInputActive
-                          ? Color.BLUE
-                          : (circleReady
-                              ? Color.BLACK
-                              : const fm.Color(0xff9e9e9e)),
-                      width: 2),
-                ),
-                child: fm.Icon(
-                  fm.Icons.record_voice_over,
-                  size: 20,
-                  color: flow.pttInputActive
-                      ? Color.WHITE
-                      : (circleReady
-                          ? Color.BLACK
-                          : const fm.Color(0xff9e9e9e)),
-                ),
+              child: fm.Icon(
+                fm.Icons.record_voice_over,
+                size: 20,
+                color: flow.pttInputActive
+                    ? Color.WHITE
+                    : (circleReady
+                        ? Color.BLACK
+                        : const fm.Color(0xff9e9e9e)),
               ),
             ),
-          ],
+          ),
         ),
       ],
     );
   }
 
-  ///  输入法指引行(用户设计:编号+尾部大写加粗+各行浅色底;
-  ///  可选内嵌图标——行3的圆钮图标用真图标不用字符,字符
-  ///  在设备字体渲染成虚框)
-  fm.Widget _inputGuideLine(String lead, String caps, fm.Color bg,
-      {fm.IconData? icon, String? iconTail}) {
-    return fm.Container(
-      width: double.infinity,
-      color: bg,
-      padding: const fm.EdgeInsets.symmetric(vertical: 1),
-      child: fm.Text.rich(
-        fm.TextSpan(children: [
-          fm.TextSpan(
-              text: lead, style: const fm.TextStyle(fontSize: 18)),
-          if (icon != null)
-            fm.WidgetSpan(
-                alignment: fm.PlaceholderAlignment.middle,
-                child: fm.Icon(icon,
-                    size: 20, color: fm.Colors.black87)),
-          if (icon != null)
-            fm.TextSpan(
-                text: iconTail ?? ' for ',
-                style: const fm.TextStyle(fontSize: 18)),
-          fm.TextSpan(
-              text: caps,
+  ///  立体小按钮(<Calls>/<Open>):白底框上以阴影+浅边框衬出
+  fm.Widget _miniRaisedBtn(String label) => fm.Material(
+        elevation: 3,
+        borderRadius: fm.BorderRadius.circular(6),
+        color: fm.Colors.white,
+        shape: fm.RoundedRectangleBorder(
+          borderRadius: fm.BorderRadius.circular(6),
+          side: const fm.BorderSide(
+              color: fm.Color(0xff9e9e9e), width: 1),
+        ),
+        child: fm.Container(
+          padding: const fm.EdgeInsets.symmetric(
+              horizontal: 10, vertical: 3),
+          child: fm.Text(label,
               style: const fm.TextStyle(
                   fontSize: 18, fontWeight: fm.FontWeight.bold)),
-        ]),
-        maxLines: 1,
-        overflow: fm.TextOverflow.ellipsis,
+        ),
+      );
+
+  ///  第2行(仅初始画面,开表即隐):Tap Calls to SELECT Call
+  fm.Widget _callsRow() {
+    const bold = fm.TextStyle(
+        fontSize: 19, fontWeight: fm.FontWeight.bold);
+    return fm.Row(children: [
+      fm.Expanded(
+        child: fm.InkWell(
+          onTap: () {
+            try {
+              pp.Provider.of<TamState>(context,
+                      listen: false)
+                  .change(detailPage: DetailPage.CALLS);
+            } catch (_) {}
+          },
+          child: fm.Container(
+            height: 46,
+            alignment: fm.Alignment.centerLeft,
+            padding: const fm.EdgeInsets.only(left: 10),
+            decoration: fm.BoxDecoration(
+              color: fm.Colors.white,
+              borderRadius: fm.BorderRadius.circular(8),
+              border: fm.Border.all(
+                  color: const fm.Color(0xff757575)),
+            ),
+            child: const fm.Row(
+                mainAxisSize: fm.MainAxisSize.min,
+                children: [
+                  fm.Text('Tap ', style: bold),
+                  fm.Text('Calls',
+                      style: fm.TextStyle(
+                          fontSize: 19,
+                          fontWeight: fm.FontWeight.bold,
+                          color: fm.Color(0xff1565c0))),
+                  fm.Text(' to SELECT Call', style: bold),
+                ]),
+          ),
+        ),
       ),
-    );
+    ]);
+  }
+
+  ///  第3行(仅初始画面):Tap 📁 for VOICE INPUT——
+  ///  纯显示指引(用户:本行点按功能取消,与显示内容矛盾;
+  ///  文字指的是右侧真实的📁钮,开表请点那个钮)
+  fm.Widget _voiceRow() {
+    const bold = fm.TextStyle(
+        fontSize: 19,
+        fontWeight: fm.FontWeight.bold,
+        color: fm.Colors.black87);
+    return fm.Row(children: [
+      fm.Expanded(
+        child: fm.Container(
+          height: 46,
+          alignment: fm.Alignment.centerLeft,
+          padding: const fm.EdgeInsets.only(left: 10),
+          decoration: fm.BoxDecoration(
+            color: fm.Colors.white,
+            borderRadius: fm.BorderRadius.circular(8),
+            border: fm.Border.all(
+                color: const fm.Color(0xff757575)),
+          ),
+          child: const fm.Row(
+              mainAxisSize: fm.MainAxisSize.min,
+              children: [
+                fm.Text('Tap ', style: bold),
+                fm.Icon(fm.Icons.folder_open,
+                    size: 24, color: fm.Colors.black87),
+                fm.Text(' for VOICE INPUT', style: bold),
+              ]),
+        ),
+      ),
+    ]);
   }
 
   //  流程状态变化 → 刷新 UI,并驱动闪烁与动画即时变速
@@ -2036,10 +2073,20 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     //  聆听态切换沿:断IME编辑态(其词下灰线是输入法的,
     //  不随钮抬起消失——曾误当状态线;写入时清composing)
     if (flow.pttInputActive != _wasInputActive) {
+      final wasActive = _wasInputActive;
       _wasInputActive = flow.pttInputActive;
       textFieldController.value = fm.TextEditingValue(
           text: textFieldController.text,
           composing: const fm.TextRange(start: -1, end: -1));
+      //  圆钮抬起(识别文字已进输入框):键盘立起,回车
+      //  一键可达(用户:语音识别输入时键盘随时显示在下面)
+      if (wasActive &&
+          !flow.pttInputActive &&
+          !flow.onlyMode &&
+          textFieldController.text.isNotBlank) {
+        focusNode.requestFocus();
+        virtualKeyboardSetVisible(true);
+      }
     }
     if (flow.pttInputActive) {
       //  Input模式:输入框全程=累加+待替换(空则清零)
@@ -2268,12 +2315,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
       }
 
       //  聆听状态可视(用户:圆钮被手指挡住看不见)——
-      //  按住圆钮期间输入框底色浅黄=系统正在聆听
+      //  按住圆钮期间输入框底色浅黄=系统正在聆听。
+      //  框外底色浅灰(用户:框内白与框外差别要大),
+      //  白框加细边框进一步衬出边界
       return fm.Container(
         color: flow.pttInputActive
             ? const fm.Color(0xfffff59d)   //  浅黄=聆听中
-            : Color.WHITE,
-        padding: fm.EdgeInsets.only(left: 3),
+            : const fm.Color(0xffdcdcdc),  //  框外浅灰
+        padding: fm.EdgeInsets.only(left: 3, right: 3, top: 2),
         child: fm.Column(
           mainAxisSize: fm.MainAxisSize.min,
           children: [
@@ -2316,6 +2365,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       errorMaxLines: 2,
                       errorText: model.errorString.isEmpty ? null : model.errorString),
                   enableSuggestions: true,
+                  //  必须单行:maxLines>1时回车=换行而非提交,
+                  //  口令不执行小人不跳(用户实测展示前发现)
                   maxLines: 1,
                   style: fm.TextStyle(fontSize: 20),
                       //  Code to run when user presses Enter
@@ -2335,12 +2386,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             //  taps the input line
             else
               fm.Expanded(
-                child: fm.Stack(children: [
-                  //  指引/提示整宽(用户:背景颜色要到头)——
-                  //  作为非定位子项撑起Stack高度(全Positioned
-                  //  曾致零高,整行消失);文字右侧留88避钮
-                  fm.Material(
-                      color: Color.FLOOR,
+                //  输入行恢复原样(用户:提示移入独立显示框,
+                //  输入框回归纯键入;三钮水平排在右侧)
+                child: fm.Row(children: [
+                  fm.Expanded(
+                    child: fm.Material(
+                      //  输入框白底(用户:X图标在框外)
+                      color: Color.WHITE,
                       child: fm.InkWell(
                         key: fm.ValueKey('Tap to start Sequence'),
                         onTap: () {
@@ -2350,69 +2402,43 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             focusNode.requestFocus();
                           });
                         },
-                        child: fm.Padding(
-                          padding: const fm.EdgeInsets.only(right: 88),
-                          //  行最小高度76(有表时单行提示曾把
-                          //  Stack压矮,68px钮组被裁,圆钮不见)
-                          child: fm.ConstrainedBox(
-                            constraints: const fm.BoxConstraints(
-                                minHeight: 76),
-                            child: flow.callerTable == null
-                              ? fm.Column(
-                                  crossAxisAlignment: fm
-                                      .CrossAxisAlignment.start,
-                                  mainAxisSize:
-                                      fm.MainAxisSize.min,
-                                  children: [
-                                    _inputGuideLine(
-                                      '1. Tap here for ',
-                                      'KEY INPUT',
-                                      const fm.Color(0xffe3f2fd),
-                                    ),
-                                    _inputGuideLine(
-                                      '2. Tap Calls for ',
-                                      'SELECTION INPUT',
-                                      const fm.Color(0xffe8f5e9),
-                                    ),
-                                    _inputGuideLine(
-                                      '3. Tap ',
-                                      'VOICE INPUT',
-                                      const fm.Color(0xfffff8e1),
-                                      icon: fm.Icons.folder_open,
-                                      iconTail: ' Open file for ',
-                                    ),
-                                  ],
-                                )
-                              : fm.Center(
-                                  child: fm.Text(
-                                    flow.onlyMode
-                                        ? '圆钮按下,读口令,读完抬起'
-                                        : '按下<圆钮>做语音Input,回车执行',
-                                    maxLines: 1,
-                                    overflow:
-                                        fm.TextOverflow.ellipsis,
-                                    style: const fm.TextStyle(
-                                        fontSize: 20),
-                                  ),
-                                ),
+                        child: fm.Container(
+                          height: 44,
+                          alignment: fm.Alignment.centerLeft,
+                          padding: const fm.EdgeInsets.only(left: 8),
+                          child: fm.Text(
+                            flow.callerTable == null
+                                ? 'Tap here to enter calls'
+                                : (flow.onlyMode
+                                    ? '圆钮按下,读口令,读完抬起'
+                                    : '按下<圆钮>做语音Input,回车执行'),
+                            maxLines: 1,
+                            overflow: fm.TextOverflow.ellipsis,
+                            style: const fm.TextStyle(
+                                fontSize: 19,
+                                fontWeight: fm.FontWeight.bold,
+                                color: fm.Colors.black87),
                           ),
                         ),
                       ),
                     ),
-                  //  右侧钮组浮层(用户布局:X左独跨两行;
-                  //  右列上=打开表,下=圆钮)
-                  fm.Positioned(
-                    top: 0, bottom: 0, right: 0,
-                    child: _inputRowButtons(model),
                   ),
+                  _inputRowButtons(model),
                 ]),
               ),
 
-            //  键盘可见态:钮组跟在输入框右侧
+            //  键盘可见态:X钮跟在输入框右侧
             if (virtualKeyboard.isVisible || !TamUtils.isTouchDevice)
               _inputRowButtons(model),
               ]
-            )
+            ),
+            //  第2/3行仅初始画面(用户:开表即隐,
+            //  回初始再现);三钮已常驻第一行右侧
+            if (flow.callerTable == null) ...[
+              _callsRow(),
+              const fm.SizedBox(height: 2),
+              _voiceRow(),
+            ],
           ]
         )
       );
@@ -2465,8 +2491,32 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     return (value == null || value.isBlank) ? null : value;
   }
 
-  ///  目录层条目:📁口令员目录(去重)+无目录的平铺表
-  static List<String> _dirEntries(List<String> names) {
+  ///  目录登记册:空目录没有表,表名推导不出来,建目录时
+  ///  登记于此(用户:只建目录,不建表不问级别)
+  static const _dirRegistryKey = '口令员目录登记';
+
+  List<String> _registeredDirs(SharedPreferences prefs) {
+    try {
+      final raw = prefs.getString(_dirRegistryKey);
+      final l = raw == null ? null : jsonDecode(raw);
+      return l is List ? l.map((e) => e.toString()).toList() : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _registerDir(SharedPreferences prefs, String name) async {
+    final dirs = _registeredDirs(prefs);
+    if (!dirs.contains(name)) {
+      dirs.add(name);
+      await prefs.setString(_dirRegistryKey, jsonEncode(dirs));
+    }
+  }
+
+  ///  目录层条目:📁口令员目录(去重)+登记册空目录+
+  ///  无目录的平铺表
+  static List<String> _dirEntries(List<String> names,
+      [List<String> extraDirs = const []]) {
     final dirs = <String>[];
     final roots = <String>[];
     for (final n in names) {
@@ -2477,6 +2527,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         final d = '📁 ${n.substring(0, i)}';
         if (!dirs.contains(d)) dirs.add(d);
       }
+    }
+    //  登记册里的空目录并入(已推导出的不重复)
+    for (final d in extraDirs) {
+      final e = '📁 $d';
+      if (!dirs.contains(e)) dirs.add(e);
     }
     return [...dirs, ...roots];
   }
@@ -2580,6 +2635,135 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     }
   }
 
+  ///  改目录名(在根层选中目录后操作,用户:目录的删/改
+  ///  都在上层做):里面的表原样搬到新名下,内容一笔不动;
+  ///  口令跟随;登记册换名。返回新目录名,取消返回 null
+  Future<String?> _manageRenameDirectory(SharedPreferences prefs,
+      List<String> tableNames, String dirName) async {
+    final newDir = await _inputDialog('改目录名(内容不动)', '新目录名',
+        initial: dirName);
+    if (newDir == null || newDir.isBlank || newDir == dirName)
+      return null;
+    if (newDir.contains('/')) {
+      _mgmtNotice('目录名不能含 /');
+      return null;
+    }
+    final all = CallerTable.listTableNames(prefs);
+    if (all.any((n) => n.startsWith('$newDir/')) ||
+        _registeredDirs(prefs).contains(newDir)) {
+      _mgmtNotice('目录「$newDir」已存在');
+      return null;
+    }
+    //  逐表搬家:old/表 → new/表,数据不动
+    for (final n in all.where((x) => x.startsWith('$dirName/')).toList()) {
+      await CallerTable.renameTable(prefs, n,
+          '$newDir/${n.substring(dirName.length + 1)}');
+    }
+    //  口令跟随目录搬家(口令员口令键按目录存)
+    final oldPwd = prefs.getString('口令员口令 $dirName');
+    if (oldPwd != null) {
+      await prefs.setString('口令员口令 $newDir', oldPwd);
+      await prefs.remove('口令员口令 $dirName');
+    }
+    final dirs = _registeredDirs(prefs);
+    if (dirs.remove(dirName)) dirs.add(newDir);
+    await prefs.setString(_dirRegistryKey, jsonEncode(dirs));
+    //  正开着的表若在改名目录里,重开防串
+    final openName = flow.callerTable?.callerName ?? '';
+    await _refreshTableNames(prefs, tableNames);
+    if (openName.startsWith('$dirName/')) {
+      await flow.openCallerTable(
+          '$newDir/${openName.substring(dirName.length + 1)}');
+    }
+    _mgmtNotice('目录已改名为「$newDir」,里面的表原样未动');
+    return newDir;
+  }
+
+  ///  删整个目录(在根层选中目录后操作;用户:必须在上层删,
+  ///  不能在目录内删自己)。有表:验口令+强确认;空目录轻确认
+  Future<void> _manageDeleteDirectory(SharedPreferences prefs,
+      List<String> tableNames, String dirName) async {
+    final tables = tableNames
+        .where((n) => n.startsWith('$dirName/')).toList();
+    if (tables.isNotEmpty) {
+      final pwdOk = await _askPasswordForDir(prefs, dirName);
+      if (pwdOk != true) return;
+    }
+    final confirmed = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+            title: fm.Text('删除目录',
+                style: fm.TextStyle(fontSize: 22)),
+            content: fm.Text(
+                tables.isEmpty
+                    ? '删除空目录「$dirName」?'
+                    : '将删除目录「$dirName」'
+                        '及其中 ${tables.length} 张表'
+                        '(含全部声纹记号),不可恢复。确定?',
+                style: fm.TextStyle(fontSize: 20)),
+            actions: [
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(false),
+                  child: fm.Text('取消',
+                      style: fm.TextStyle(fontSize: 20))),
+              fm.TextButton(
+                  style: fm.TextButton.styleFrom(
+                      foregroundColor: Color.RED),
+                  onPressed: () => fm.Navigator.of(ctx).pop(true),
+                  child: fm.Text('删除',
+                      style: fm.TextStyle(fontSize: 20))),
+            ]));
+    if (confirmed != true) return;
+    for (final t in tables) {
+      await CallerTable.deleteTable(prefs, t);
+    }
+    final dirs = _registeredDirs(prefs);
+    dirs.remove(dirName);
+    await prefs.setString(_dirRegistryKey, jsonEncode(dirs));
+    await prefs.remove('口令员口令 $dirName');
+    //  正开着该目录的表:退出,防内存副本再保存时复活已删表
+    if ((flow.callerTable?.callerName ?? '')
+        .startsWith('$dirName/')) {
+      flow.exitTable();
+    }
+    await _refreshTableNames(prefs, tableNames);
+    _mgmtNotice('已删除目录「$dirName」'
+        '${tables.isNotEmpty ? '及其中 ${tables.length} 张表' : ''}');
+  }
+
+  ///  删目录前验口令(与打开/删表同一把,按目录存)。
+  ///  未设过口令=直接放行(与"首次输入即设定"一致);
+  ///  返回 true=通过/false=口令不符/null=取消
+  Future<bool?> _askPasswordForDir(SharedPreferences prefs, String dir) {
+    final stored = prefs.getString('口令员口令 $dir');
+    if (stored == null) return Future.value(true);
+    final ctl = fm.TextEditingController();
+    return fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+            title: fm.Text('删除目录 - 请输入口令',
+                style: fm.TextStyle(fontSize: 22)),
+            content: fm.TextField(
+                controller: ctl,
+                autofocus: true,
+                obscureText: true,
+                style: fm.TextStyle(fontSize: 24),
+                decoration: fm.InputDecoration(
+                    labelText: '口令',
+                    labelStyle: fm.TextStyle(fontSize: 20))),
+            actions: [
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(null),
+                  child: fm.Text('取消',
+                      style: fm.TextStyle(fontSize: 20))),
+              fm.TextButton(
+                  onPressed: () =>
+                      fm.Navigator.of(ctx).pop(ctl.text == stored),
+                  child: fm.Text('确定',
+                      style: fm.TextStyle(fontSize: 20))),
+            ]));
+  }
+
   //  删除映射表
   Future<void> _manageDeleteTable(SharedPreferences prefs,
       List<String> tableNames, String name) async {
@@ -2598,6 +2782,14 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
         ));
     if (confirmed == true) {
       await CallerTable.deleteTable(prefs, name);
+      //  删掉目录内最后一张表时,把目录登记下来——目录
+      //  只能靠登记册显示,不登记就会"连目录一起消失"
+      //  (用户:只删表,不删目录;老流程建的目录尤甚,
+      //  它们只在登记册外靠表名推导)
+      final dir = name.contains('/') ? name.split('/').first : '';
+      if (dir.isNotBlank) {
+        await _registerDir(prefs, dir);
+      }
       await _refreshTableNames(prefs, tableNames);
     }
   }
@@ -2609,10 +2801,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     if (newName == null || newName == oldName) return null;
     final ok = await CallerTable.renameTable(prefs, oldName, newName);
     if (ok) {
+      //  表被改名的旧目录登记保命:目录不因挪走/删掉
+      //  最后一张表而消失(用户:只删表,不删目录)
+      final oldDir =
+          oldName.contains('/') ? oldName.split('/').first : '';
+      if (oldDir.isNotBlank) await _registerDir(prefs, oldDir);
       await _refreshTableNames(prefs, tableNames);
       return newName;
     }
-    _mgmtSnackBar('重命名失败:新表名已存在');
+    _mgmtNotice('重命名失败:新表名已存在');
     return null;
   }
 
@@ -2625,71 +2822,249 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
     if (ok)
       await _refreshTableNames(prefs, tableNames);
     else
-      _mgmtSnackBar('另存失败:目标表名已存在');
+      _mgmtNotice('另存失败:目标表名已存在');
   }
 
-  //  导入 ysb 文件(经文件管理器选择位置),成功返回导入的表名
+  //  导入来源选择(二钮合一,用户要求):
+  //  true=手机文件管理器选 .ysb;false=口令员目录间拷表;null=取消
+  Future<bool?> _mgmtImportSource() {
+    if (!mounted) return Future.value(null);
+    return fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+            title: fm.Text('从哪里导入?',
+                style: fm.TextStyle(fontSize: 22)),
+            content: fm.Column(
+                mainAxisSize: fm.MainAxisSize.min,
+                children: [
+                  fm.SizedBox(
+                      width: double.maxFinite,
+                      child: fm.ElevatedButton(
+                          style: fm.ElevatedButton.styleFrom(
+                              padding: fm.EdgeInsets.symmetric(
+                                  vertical: 14)),
+                          onPressed: () =>
+                              fm.Navigator.of(ctx).pop(true),
+                          child: fm.Text('手机文件管理器(ysb 文件)',
+                              style: fm.TextStyle(fontSize: 20)))),
+                  fm.SizedBox(height: 12),
+                  fm.SizedBox(
+                      width: double.maxFinite,
+                      child: fm.ElevatedButton(
+                          style: fm.ElevatedButton.styleFrom(
+                              padding: fm.EdgeInsets.symmetric(
+                                  vertical: 14)),
+                          onPressed: () =>
+                              fm.Navigator.of(ctx).pop(false),
+                          child: fm.Text('其他口令员目录(整表拷贝)',
+                              style: fm.TextStyle(fontSize: 20)))),
+                ]),
+            actions: [
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(null),
+                  child: fm.Text('取消',
+                      style: fm.TextStyle(fontSize: 20)))
+            ]));
+  }
+
+  //  导入 ysb 文件(经文件管理器选择位置),成功返回导入的表名。
+  //  dir=口令员当前所在目录(用户规则:选中的文件拷进当前目录,
+  //  导入完回到当前目录画面即见;根层 dir='')
   Future<String?> _manageImportYsb(SharedPreferences prefs,
-      List<String> tableNames) async {
-    fp.FilePickerResult? picked;
-    try {
-      picked = await fp.FilePicker.pickFiles(
-          type: fp.FileType.custom,
-          allowedExtensions: ['ysb', 'YSB', 'Ysb']);
-    } catch (e) {
-      _mgmtSnackBar('打开文件选择器失败:$e');
-      return null;
+      List<String> tableNames, {String dir = ''}) async {
+    String? path;
+    final storageOk = await pfb.PhoneFileBrowser.storageCheck();
+    debugPrint('DIAG 导入: storageCheck=$storageOk');
+    if (storageOk) {
+      path = await pfb.PhoneFileBrowser.pickYsb(context);
+    } else {
+      await _maybeAskPhoneStorage();
+      fp.FilePickerResult? picked;
+      try {
+        picked = await fp.FilePicker.pickFiles(
+            type: fp.FileType.custom,
+            allowedExtensions: ['ysb', 'YSB', 'Ysb']);
+      } catch (e) {
+        _mgmtNotice('打开文件选择器失败:$e');
+        return null;
+      }
+      path = picked?.files.single.path;
     }
-    final path = picked?.files.single.path;
     if (path == null) return null;
     String content;
     try {
       content = await io.File(path).readAsString();
+      debugPrint('DIAG 导入: 读取成功 ${content.length}字节');
     } catch (e) {
-      _mgmtSnackBar('读取文件失败:$e');
+      debugPrint('DIAG 导入: 读取失败=$e');
+      _mgmtNotice('读取文件失败:$e');
       return null;
     }
-    final defaultName = io.File(path)
-        .uri.pathSegments.last.replaceFirst('(?i)\\.ysb\$'.r, '');
-    final targetName = await _inputDialog('导入为映射表', '表名',
+    //  建议表名=文件名(不带 .ysb,也不带目录)
+    //  注意:Dart 正则不支持 (?i) 内联旗标——原写法抛
+    //  "Invalid group"且 release 静默,导入流程无声死亡
+    //  (用户实测:选文件后表名框不再出现)。用构造参数忽略大小写
+    final defaultName = io.File(path).uri.pathSegments.last
+        .replaceFirst(RegExp(r'\.ysb$', caseSensitive: false), '');
+    debugPrint('DIAG 导入: 预填表名=$defaultName');
+    final shortName = await _inputDialog('导入为映射表', '表名',
         initial: defaultName);
-    if (targetName == null) return null;
+    debugPrint('DIAG 导入: 表名确认=$shortName');
+    if (shortName == null || shortName.isBlank) return null;
+    //  落位=当前目录/表名;口令员也可在表名里写"目录/表名"改投他处
+    final targetName = shortName.contains('/')
+        ? shortName
+        : (dir.isBlank ? shortName : '$dir/$shortName');
+    debugPrint('DIAG 导入: 目标表名=$targetName (当前目录=$dir)');
     final ok = await CallerTable.importYsb(prefs, targetName, content);
+    debugPrint('DIAG 导入: importYsb 结果=$ok');
     if (ok) {
       await _refreshTableNames(prefs, tableNames);
-      _mgmtSnackBar('已导入"$targetName"');
+      debugPrint('DIAG 导入: 刷新后表清单=${tableNames.join(' | ')}');
+      _mgmtNotice('已导入"$targetName"');
       return targetName;
     }
-    _mgmtSnackBar('导入失败:文件格式无效');
+    _mgmtNotice('导入失败:文件格式无效');
     return null;
   }
 
-  //  导出 ysb 文件:先写临时文件,再经系统"文件管理器"
-  //  (SAF 另存为对话框)由口令员选择保存位置。
-  //  file_picker 的 saveFile 不支持 Android,故用 flutter_file_dialog
+  //  导出 ysb 文件。
+  //  安卓且已授"所有文件访问":自建浏览器选目录直接写文件
+  //  (根目录起+返回上级钮);否则写临时文件走系统SAF另存为
   Future<void> _manageExportYsb(SharedPreferences prefs, String name) async {
-    final content = CallerTable.exportYsb(prefs, name);
+    var content = CallerTable.exportYsb(prefs, name);
     if (content == null) return;
+    //  导出模式(用户规则:分发给他人的表只带"标准口令"列,
+    //  "识别结果"列必须空着——声音指纹是私人的,由接收者
+    //  用自己的识别填充;完整导出仅作本人备份):
+    //  true=完整(含识别列) false=分发(识别列清空)
+    final full = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+            title: fm.Text('导出模式',
+                style: fm.TextStyle(fontSize: 22)),
+            content: fm.Text(
+                '完整导出=含您的识别列(本人备份用)\n'
+                '分发给他人=识别列清空,只带标准口令列'
+                '(接收者用自己的声音填充)',
+                style: fm.TextStyle(fontSize: 19)),
+            actions: [
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(null),
+                  child: fm.Text('取消',
+                      style: fm.TextStyle(fontSize: 20))),
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(false),
+                  child: fm.Text('分发给他人',
+                      style: fm.TextStyle(fontSize: 20))),
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(true),
+                  child: fm.Text('完整备份',
+                      style: fm.TextStyle(fontSize: 20))),
+            ]));
+    if (full == null) return;
+    if (!full) {
+      try {
+        final decoded = jsonDecode(content);
+        if (decoded is Map && decoded['rows'] is List) {
+          for (final r in decoded['rows']) {
+            if (r is Map) r['recognized'] = '';
+          }
+          content = jsonEncode(decoded);
+          debugPrint('分发导出:识别列已清空');
+        }
+      } catch (e) {
+        debugPrint('分发导出清空失败: $e');
+      }
+    }
+    //  导出文件名不带原目录(用户规则):目录内的表
+    //  XuJianguo2_2/PSfix_Only 导出为 PSfix_Only.ysb——
+    //  文件名干干净净,导入到哪个口令员目录由导入侧决定
+    final safeName = name.split('/').last;
+    if (await pfb.PhoneFileBrowser.storageCheck()) {
+      final target = await pfb.PhoneFileBrowser.saveYsb(
+          context, '$safeName.ysb');
+      if (target == null) return;
+      final (tDir, tName) = target;
+      final file = io.File('$tDir/$tName');
+      try {
+        await file.writeAsString(content!, flush: true);
+      } catch (e) {
+        _mgmtNotice('导出失败:$e');
+        return;
+      }
+      _mgmtNotice('已导出 $tDir/$tName');
+      return;
+    }
+    await _maybeAskPhoneStorage();
     try {
-      final tmp = io.File('${io.Directory.systemTemp.path}/$name.ysb');
-      await tmp.writeAsString(content, flush: true);
+      final tmp =
+          io.File('${io.Directory.systemTemp.path}/$safeName.ysb');
+      await tmp.writeAsString(content!, flush: true);
       final saved = await ffd.FlutterFileDialog.saveFile(
           params: ffd.SaveFileDialogParams(
               sourceFilePath: tmp.path,
-              fileName: '$name.ysb'));
+              fileName: '$safeName.ysb'));
       if (saved != null && saved.isNotBlank)
-        _mgmtSnackBar('已导出 $saved');
+        _mgmtNotice('已导出 $saved');
     } catch (e) {
-      _mgmtSnackBar('导出失败:$e');
+      _mgmtNotice('导出失败:$e');
     }
   }
 
-  void _mgmtSnackBar(String message) {
+  var _storageAsked = false;
+
+  ///  未授"所有文件访问"时提示一次(带去授权钮)。
+  ///  授权后导入导出改用自建浏览器:存储根目录起+醒目
+  ///  "返回上级"钮(用户:系统SAF页停在"下载内容"且无
+  ///  返回上级钮,口令员找不到自己的目录)
+  Future<void> _maybeAskPhoneStorage() async {
+    if (_storageAsked || !mounted) return;
+    _storageAsked = true;
+    final go = await fm.showDialog<bool>(
+        context: context,
+        builder: (ctx) => fm.AlertDialog(
+            title: fm.Text('提示', style: fm.TextStyle(fontSize: 22)),
+            content: fm.Text(
+                '授权"所有文件访问"后,导入导出会直接从'
+                '存储根目录开始,并有醒目的"返回上级"钮,'
+                '方便您找到自己的目录。\n现在去授权吗?'
+                '\n(暂不则继续用系统选择页)',
+                style: fm.TextStyle(fontSize: 19)),
+            actions: [
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(false),
+                  child: fm.Text('暂不',
+                      style: fm.TextStyle(fontSize: 20))),
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(true),
+                  child: fm.Text('去授权',
+                      style: fm.TextStyle(fontSize: 20))),
+            ]));
+    if (go == true)
+      await pfb.PhoneFileBrowser.storageAsk();
+  }
+
+  //  管理区提示:居中对话框,大字,点"确定"才消失。
+  //  原为底部蓝色 SnackBar:垫在表管理对话框后面被挡住,
+  //  又无法移动,数秒后自动消失,口令员来不及看清
+  //  (用户反馈),故管理区提示全部改为对话框。
+  Future<void> _mgmtNotice(String message) async {
     if (!mounted) return;
-    fm.ScaffoldMessenger.of(context).showSnackBar(fm.SnackBar(
-        backgroundColor: Color.BLUE,
-        duration: Duration(seconds: 3),
-        content: fm.Text(message, style: fm.TextStyle(fontSize: 18))));
+    await fm.showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => fm.AlertDialog(
+            title: fm.Text('提示', style: fm.TextStyle(fontSize: 22)),
+            content: fm.SingleChildScrollView(
+                child: fm.Text(message,
+                    style: fm.TextStyle(fontSize: 20))),
+            actions: [
+              fm.TextButton(
+                  onPressed: () => fm.Navigator.of(ctx).pop(),
+                  child: fm.Text('确定',
+                      style: fm.TextStyle(fontSize: 20)))
+            ]));
   }
 
   //  映射表选择画面(点麦克风后弹出):
@@ -2724,7 +3099,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
             final openName =
                 selected.isNotBlank ? selected : text;
             final canOpen = openName.isNotBlank &&
-                tableNames.contains(openName);
+                (tableNames.contains(openName) ||
+                    openName.startsWith('📁 '));
             //  口令阶段:标题与内容切换为口令输入
             if (passwordMode.isNotBlank) {
               if (!passwordShown) {
@@ -2848,7 +3224,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         setState(() {
                           pwdError = false;
                         });
-                        _mgmtSnackBar(
+                        _mgmtNotice(
                             '"\$caller"口令已清除,下次输入即新口令');
                       },
                       child: fm.Text('忘记口令',
@@ -2871,7 +3247,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                     controller: nameController,
                     autofocus: true,
                     decoration: fm.InputDecoration(
-                        hintText: '(输入新表名或从下方选择)',
+                        //  提示语按层级:根层=建目录(口令员名字),
+                        //  目录内=表名(用户:根层不能出现建表提示)
+                        hintText: currentDir.isBlank
+                            ? '(输入新目录名/选择目录)'
+                            : '(输入新表名或从下方选择)',
                         hintStyle: fm.TextStyle(fontSize: 18)),
                     style: fm.TextStyle(fontSize: 24),
                     onChanged: (_) => setState(() { selected = ''; }),
@@ -2895,7 +3275,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             //  选择目录——每个人的表都在自己目录内):
                             //  目录层=📁口令员列表,进入=该目录的表
                             itemCount: currentDir.isBlank
-                                ? _dirEntries(tableNames).length
+                                ? _dirEntries(tableNames,
+                                    _registeredDirs(prefs)).length
                                 : _dirTableEntries(
                                         tableNames, currentDir)
                                     .length,
@@ -2903,17 +3284,28 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               final String name;
                               final String display;
                               if (currentDir.isBlank) {
-                                final e =
-                                    _dirEntries(tableNames)[index];
+                                final e = _dirEntries(tableNames,
+                                    _registeredDirs(prefs))[index];
                                 if (e.startsWith('📁 ')) {
-                                  //  点目录=进入,不选中
+                                  //  点目录:首次=选中(高亮),再点=进入。
+                                  //  删除/改名目录必须在选中后经按钮做
+                                  //  (用户:删目录要在上层,不能在
+                                  //  目录内删自己)
                                   return fm.InkWell(
-                                    onTap: () => setState(() {
-                                      currentDir =
-                                          e.substring(2).trim();
-                                      selected = '';
-                                    }),
+                                    onTap: () {
+                                      if (selected == e) {
+                                        setState(() {
+                                          currentDir =
+                                              e.substring(2).trim();
+                                          selected = '';
+                                        });
+                                      } else {
+                                        setState(() { selected = e; });
+                                      }
+                                    },
                                     child: fm.Container(
+                                      color: selected == e
+                                          ? Color(0xffe0e0ff) : null,
                                       padding: fm.EdgeInsets.only(
                                           left: 12, top: 6, bottom: 6),
                                       child: fm.Row(children: [
@@ -2927,8 +3319,9 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                                 fontWeight: fm.FontWeight
                                                     .bold)),
                                         fm.Spacer(),
+                                        //  表数=该目录真实表数(空目录=0表)
                                         fm.Text(
-                                            '${_dirEntries(tableNames).where((x) => x != e && x.startsWith('📁 ${e.substring(2).trim()}/') || x == e).length}表',
+                                            '${tableNames.where((n) => n.startsWith('${e.substring(2).trim()}/')).length}表',
                                             style: fm.TextStyle(
                                                 fontSize: 14,
                                                 color: Color.GRAY)),
@@ -3003,23 +3396,84 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                     children: [
                       _tableMgmtButton(ctx, selected.isNotBlank, '删除',
                           () async {
-                        //  删除要求先输入口令(同框切换到口令阶段)
+                        //  根层选中目录:删整个目录(上层操作,
+                        //  用户:不能在目录内删自己)
+                        if (selected.startsWith('📁 ')) {
+                          final dir = selected.substring(2).trim();
+                          await _manageDeleteDirectory(
+                              prefs, tableNames, dir);
+                          setState(() { selected = ''; });
+                          return;
+                        }
+                        //  删除表要求先输入口令(同框切换到口令阶段)
                         passwordController.clear();
                         setState(() { passwordMode = '删除'; });
                       }),
-                      _tableMgmtButton(ctx, selected.isNotBlank, '重命名',
-                          () async {
+                      //  重命名:根层选中目录=改该目录名
+                      //  (里面的表原样搬,内容一笔不动);
+                      //  选中表=改表名。目录改名在上层做
+                      //(用户:删/改目录都在上层,不在目录内自己动自己)
+                      _tableMgmtButton(ctx, selected.isNotBlank,
+                          '重命名', () async {
+                        if (selected.startsWith('📁 ')) {
+                          final dir = selected.substring(2).trim();
+                          final newDir = await _manageRenameDirectory(
+                              prefs, tableNames, dir);
+                          if (newDir != null)
+                            setState(() { selected = '📁 $newDir'; });
+                          return;
+                        }
                         final newName = await _manageRenameTable(
                             prefs, tableNames, selected);
                         if (newName != null)
                           setState(() { selected = newName; });
                       }),
-                      _tableMgmtButton(ctx, selected.isNotBlank, '另存为',
+                      //  表操作仅目录内出现(用户:根层可选的
+                      //  是目录,对目录没有"另存为")
+                      if (currentDir.isNotBlank)
+                      _tableMgmtButton(
+                          ctx, selected.isNotBlank &&
+                              !selected.startsWith('📁 '),
+                          '另存为',
                           () async {
                         await _manageSaveTableAs(prefs, tableNames, selected);
                         setState(() {});
                       }),
-                      _tableMgmtButton(ctx, true, '建表', () async {
+                      //  建目录(仅根层):只登记空目录,不问级别,
+                      //  不建表(用户:建目录就建目录,级别是建表的事)
+                      if (currentDir.isBlank)
+                        _tableMgmtButton(ctx, true, '建目录', () async {
+                          final dname = nameController.text.trim();
+                          if (dname.isBlank) {
+                            _mgmtNotice('请先在上方输入您的名字');
+                            return;
+                          }
+                          if (dname.contains('/')) {
+                            _mgmtNotice('目录名不能含 /');
+                            return;
+                          }
+                          final dirs =
+                              _registeredDirs(prefs);
+                          if (_dirEntries(tableNames, dirs).any(
+                              (e) => e == '📁 $dname')) {
+                            _mgmtNotice('目录「$dname」已存在');
+                            return;
+                          }
+                          await _registerDir(prefs, dname);
+                          await _refreshTableNames(prefs, tableNames);
+                          setState(() {
+                            selected = '';
+                            nameController.clear();
+                          });
+                          _mgmtNotice('已建立目录「$dname」,'
+                              '点它进入后可建表或导入');
+                        }),
+
+                      //  建表(仅目录内才显示,这时才选级别/类型;
+                      //  根层公共区不出现——用户:根目录不能建表)
+                      if (currentDir.isNotBlank)
+                      _tableMgmtButton(ctx, true, '新建表',
+                          () async {
                         //  建 Only 工作表:选源表+类型。
                         //  状态(表名控制器/类型)必须在 StatefulBuilder
                         //  外面持有——builder 闭包每次 lset 重建都会
@@ -3050,9 +3504,16 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           return s;
                         }
                         final nameCtl = fm.TextEditingController();
-                        //  初始表名只有名字本身——不带类型后缀;
-                        //  后缀只在下拉选择了类型之后才出现
-                        nameCtl.text = stemOf(src);
+                        //  初始表名:已在目录内则预填当前目录
+                        //  (用户:多个级别的Only表和非Only表都放
+                        //  自己目录里,建表时只选级别,不必重输名字)
+                        nameCtl.text = currentDir.isNotBlank
+                            ? currentDir
+                            : stemOf(src);
+                        //  排序模式(用户:喊口令检索必须用
+                        //  记号排序的非Only表;Only表按标准口令
+                        //  排序,供建表/选择用)
+                        var onlySort = true;
                         final level = await fm.showDialog<String>(
                             context: context,
                             builder: (lctx) =>
@@ -3065,7 +3526,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                 lset(() {});
                               }
                               return fm.AlertDialog(
-                                title: fm.Text('建表(建Only工作表)'),
+                                title: fm.Text('建表'),
                                 content: fm.Column(
                                   mainAxisSize: fm.MainAxisSize.min,
                                   children: [
@@ -3073,7 +3534,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         controller: nameCtl,
                                         style: fm.TextStyle(fontSize: 22),
                                         decoration: fm.InputDecoration(
-                                            labelText: '口令员姓名(目录)',
+                                            labelText: '目录(已预填,不用改)',
                                             labelStyle:
                                                 fm.TextStyle(fontSize: 18))),
                                     fm.DropdownButton<String>(
@@ -3085,6 +3546,23 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                               value: l, child: fm.Text(l))],
                                         onChanged: (v) =>
                                             applyType(v ?? lv)),
+                                    fm.DropdownButton<String>(
+                                        value: onlySort ? 'only' : 'token',
+                                        isExpanded: true,
+                                        items: const [
+                                          fm.DropdownMenuItem(
+                                              value: 'only',
+                                              child: fm.Text(
+                                                  'Only表(标准口令排序)')),
+                                          fm.DropdownMenuItem(
+                                              value: 'token',
+                                              child: fm.Text(
+                                                  '记号表(记号排序,喊口令用)')),
+                                        ],
+                                        onChanged: (v) {
+                                          onlySort = v != 'token';
+                                          lset(() {});
+                                        }),
                                   ],
                                 ),
                                 actions: [
@@ -3095,7 +3573,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                   fm.TextButton(
                                       onPressed: () =>
                                           fm.Navigator.of(lctx).pop(
-                                              '${stemOf(nameCtl.text)}|$lv'),
+                                              '${stemOf(nameCtl.text)}|$lv|'
+                                              '${onlySort ? '1' : '0'}'),
                                       child: fm.Text('创建')),
                                 ],
                               );
@@ -3106,9 +3585,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         }
                         final parts = level.split('|');
                         debugPrint('建表: name=${parts[0]} '
-                            'type=${parts[1]}');
+                            'type=${parts[1]} only=${parts.length > 2 ? parts[2] : '1'}');
                                         final onlyName =
-                                            '${parts[0]}/${parts[1]}_Only';
+                                            parts.length > 2 && parts[2] == '0'
+                                            ? '${parts[0]}/${parts[1]}'
+                                            : '${parts[0]}/${parts[1]}_Only';
                                         final t = await CallerTable
                                             .open(onlyName);
                                         //  按选择引入不同数据:
@@ -3133,11 +3614,26 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         await _refreshTableNames(
                                             prefs2, tableNames);
                                         setState(() { selected = onlyName; });
-                                        _mgmtSnackBar('已创建 $onlyName '
+                                        _mgmtNotice('已创建 $onlyName '
                                             '${t.rows.length}条,请点打开');
                                       }),
-                      _tableMgmtButton(ctx, true, '引入', () async {
-                        //  目录间引入(用户定义:零输入+组选):
+                      //  二钮合一(用户要求):文件管理器选 .ysb 与
+                      //  口令员目录间拷表共用一个钮,按下先选来源,
+                      //  取消则什么都不做。仅目录内显示
+                      //  (用户:不能在公共区域引入表)
+                      if (currentDir.isNotBlank)
+                      _tableMgmtButton(ctx, true, '引入表', () async {
+                        final fromFile = await _mgmtImportSource();
+                        debugPrint('DIAG 引入表: 选择器结果=$fromFile');
+                        if (fromFile == null) return;
+                        if (fromFile) {
+                          final imported = await _manageImportYsb(
+                              prefs, tableNames, dir: currentDir);
+                          if (imported != null)
+                            setState(() { selected = imported; });
+                          return;
+                        }
+                        //  目录间拷表(用户定义:零输入+组选):
                         //  目标=本地目录自动记住;源目录两级导航;
                         //  表按全名大字显示(Only/非Only一目了然);
                         //  点Prefix连带Prefix_Only全选;另有全选钮;
@@ -3151,8 +3647,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           }
                         }
                         if (target.isBlank) {
-                          _mgmtSnackBar('请先进入(或打开)本地目录,'
-                              '引入的目标就是它');
+                          _mgmtNotice('请先进入(或打开)本地目录,'
+                              '拷表的目标就是它');
                           return;
                         }
                         final prefs3 =
@@ -3250,18 +3746,11 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                   picked.clear();
                                   srcDir = '';
                                 });
-                                fm.ScaffoldMessenger.of(context)
-                                    .showSnackBar(fm.SnackBar(
-                                        backgroundColor:
-                                            misses.isNotEmpty
-                                                ? Color.RED
-                                                : Color.BLUE,
-                                        content: fm.Text(
-                                            misses.isEmpty
-                                                ? '已引入 $imported 张到 $target'
-                                                : '引入${imported}张,漏读${misses.length}张:${misses.join('、')}',
-                                            style: fm.TextStyle(
-                                                fontSize: 18))));
+                                //  引入结果同样居中对话框(用户:底部
+                                //  提示被挡住看不清就消失)
+                                _mgmtNotice(misses.isEmpty
+                                    ? '已拷 $imported 张表到 $target'
+                                    : '拷${imported}张,漏读${misses.length}张:${misses.join('、')}');
                                 //  引入完成自动关闭(用户:删掉完成钮,
                                 //  曾误按它以为已引入)
                                 fm.Navigator.of(ictx).pop();
@@ -3269,8 +3758,8 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                               return fm.AlertDialog(
                                 title: fm.Text(
                                     srcDir.isBlank
-                                        ? '引入到「$target」:选源目录'
-                                        : '引入到「$target」← $srcDir',
+                                        ? '拷表到「$target」:选源目录'
+                                        : '拷表到「$target」← $srcDir',
                                     style:
                                         fm.TextStyle(fontSize: 19)),
                                 content: fm.SizedBox(
@@ -3278,7 +3767,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                     height: 360,
                                     child: srcDir.isBlank
                                         ? (dirs.isEmpty
-                                            ? fm.Text('没有其他目录可引入',
+                                            ? fm.Text('没有其他目录可拷表',
                                                 style: fm.TextStyle(
                                                     fontSize: 18))
                                             : fm.ListView(
@@ -3528,7 +4017,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                                         ? null
                                         : doImport,
                                       child: fm.Text(
-                                          '引入所选(${picked.length})',
+                                          '拷贝所选(${picked.length})',
                                           style: fm.TextStyle(
                                               fontSize: 18))),
                                   //  无"完成"钮(用户要求删:
@@ -3547,17 +4036,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           if (openName != null && openName.contains('/')) {
                             await flow.openCallerTable(openName);
                           }
-                          _mgmtSnackBar('共引入 $imported 张表到 $target');
+                          _mgmtNotice('共拷 $imported 张表到 $target');
                         }
                       }),
-                      _tableMgmtButton(ctx, selected.isBlank, '导入',
-                          () async {
-                        final imported = await _manageImportYsb(
-                            prefs, tableNames);
-                        if (imported != null)
-                          setState(() { selected = imported; });
-                      }),
-                      _tableMgmtButton(ctx, selected.isNotBlank, '导出',
+                      //  导出是表操作:仅目录内(根层无表可选)
+                      if (currentDir.isNotBlank)
+                      _tableMgmtButton(
+                          ctx, selected.isNotBlank &&
+                              !selected.startsWith('📁 '),
+                          '导出',
                           () async {
                         await _manageExportYsb(prefs, selected);
                       }),
@@ -3568,7 +4055,13 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                       //  推),结果名可改(如Prefix_Only+Sufix_Only
                       //  →PSfix_Only);清理=同口令归组/同记号去重/
                       //  每条保够3行录音位
-                      _tableMgmtButton(ctx, selected.isNotBlank,
+                      //  排序另存是表操作:仅目录内
+                      //  (用户:不能对目录排序)
+                      if (currentDir.isNotBlank)
+                      _tableMgmtButton(
+                          ctx,
+                          selected.isNotBlank &&
+                              !selected.startsWith('📁 '),
                           '排序另存', () async {
                         final mReg = RegExp(
                                 r'_(plus|a1|a2|c1|c2|c3a|c3b|ms)_Only$')
@@ -3650,7 +4143,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           //  自助两表合并:清理后另存
                           final r = await CallerTable.mergeTwoTables(
                               prefs, selected, second, dst);
-                          _mgmtSnackBar('已合并另存 ${dst.split('/').last}'
+                          _mgmtNotice('已合并另存 ${dst.split('/').last}'
                               '(共${r.$1}条,纯并集未清理——'
                               '清理由您观察后自定)');
                           //  统揽全部(用户):合并完直接进入打开流程
@@ -3665,7 +4158,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                           final count = await CallerTable.mergeAndSaveAs(
                               prefs, onlyTable, defSrc, dst,
                               sourceRequired: lvIdx > 0);
-                          _mgmtSnackBar(
+                          _mgmtNotice(
                               '已合并另存 ${dst.split('/').last}(共$count条)');
                         }
                         await _refreshTableNames(prefs, tableNames);
@@ -3689,6 +4182,15 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                             foregroundColor: Color.WHITE)
                         : null,
                     onPressed: canOpen ? () async {
+                      //  选中目录:打开=进入该目录(免口令,
+                      //  与"再点一次进入"等效)
+                      if (selected.startsWith('📁 ')) {
+                        setState(() {
+                          currentDir = selected.substring(2).trim();
+                          selected = '';
+                        });
+                        return;
+                      }
                       //  新建表:名字含级别后缀(无 _Only)自动追加
                       final name = selected.isNotBlank
                           ? selected : nameController.text.trim();
@@ -3700,7 +4202,7 @@ class _SequencerEditLineState extends fm.State<SequencerEditLine>
                         final onlyName = '${name}_Only';
                         nameController.text = onlyName;
                         //  显示提示
-                        _mgmtSnackBar('已自动追加 _Only: $onlyName');
+                        _mgmtNotice('已自动追加 _Only: $onlyName');
                       }
                       //  打开要求输入口令(同框切换到口令阶段)
                       passwordController.clear();

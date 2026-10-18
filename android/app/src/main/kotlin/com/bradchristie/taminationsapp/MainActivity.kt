@@ -1,12 +1,17 @@
 package com.bradchristie.taminationsapp
 
 import android.app.Instrumentation
+import android.content.Intent
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
@@ -129,6 +134,30 @@ class MainActivity : FlutterActivity() {
             "voskStop" -> { voskStop(); result.success(null) }
             "voskFinal" -> voskFinal(result)
             "voskFlush" -> voskFlush(result)
+            //  自建文件浏览器的存储权限(用户:SAF选择页停在
+            //  "下载内容"且无返回上级钮,口令员找不到自己的目录)
+            "storageCheck" -> {
+              //  Android 11+:所有文件访问;更老系统:公共存储可读即可
+              val ok = if (Build.VERSION.SDK_INT >= 30)
+                  Environment.isExternalStorageManager()
+              else
+                  Environment.getExternalStorageDirectory().canRead()
+              result.success(ok)
+            }
+            "storageAsk" -> {
+              //  跳系统"所有文件访问"授权页,口令员手动允许
+              if (Build.VERSION.SDK_INT >= 30) {
+                try {
+                  startActivity(Intent(
+                      Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                      Uri.parse("package:$packageName")))
+                } catch (e: Exception) {
+                  startActivity(Intent(
+                      Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                }
+                result.success(true)
+              } else result.success(false)
+            }
             else -> result.notImplemented()
           }
         }

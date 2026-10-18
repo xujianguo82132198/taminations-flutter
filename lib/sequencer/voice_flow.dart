@@ -280,7 +280,7 @@ class VoiceFlow extends ChangeNotifier {
   }
 
   ///  Only 模式采样结果处理:识别文字存入 dictationText
-  void _onSampleResult() {
+  void _onSampleResult() async {
     final s = speech;
     if (s == null || !pttActive) return;
     //  ---- 分段取样:段关闭即查表(最多3次),组合累加不冲掉 ----
@@ -330,48 +330,10 @@ class VoiceFlow extends ChangeNotifier {
       if (candidates.length >= 8) break;
     }
     if (text.isEmpty && candidates.isNotEmpty) text = candidates.first;
-    //  候选中恰有与本行标准口令一致者:直接选它为默认
-    //  (识别出字面正确口令时无需人工点选)。比对用结构化
-    //  分解:前缀(主语)可有可无,核心/左右/后缀须一致
-    //  ——光标在 "Square Thru 2" 而喊出 "heads square
-    //  thru two" 时也能自动选中
-    final curRow = currentDictationRow;
-    if (curRow != null) {
-      final spoken =
-          CallerTable.spokenForm(curRow.standardCall).toLowerCase();
-      final plain =
-          curRow.standardCall.toLowerCase()
-              .replaceAll(RegExp(r'[^a-z ]'), '')
-              .replaceAll(RegExp(r' +'), ' ').trim();
-      final rowDec = CallerTable.decomposeCall(curRow.standardCall);
-      final rowSig = '${rowDec.$2}|${rowDec.$3.join(' ')}'
-          '|${rowDec.$4.join(' ')}';
-      //  先找主语也一致(head≡heads)的候选;没有再接受
-      //  主语不同但核心/左右/后缀一致的(跟哪个主语接近
-      //  就采用哪个——人类就是这样做的)
-      for (final pass in [0, 1]) {
-        for (final c in candidates) {
-          final cl = c.toLowerCase();
-          if (cl == spoken || cl == plain) {
-            text = c;
-            debugPrint('exact-call candidate: "$c"');
-            break;
-          }
-          final cd = CallerTable.decomposeCall(cl);
-          final sig =
-              '${cd.$2}|${cd.$3.join(' ')}|${cd.$4.join(' ')}';
-          if (sig != rowSig) continue;
-          final prefixOk = CallerTable.samePrefix(cd.$1, rowDec.$1);
-          if (pass == 0 && !prefixOk) continue;
-          text = c;
-          debugPrint('exact-call candidate(pass$pass): "$c"');
-          break;
-        }
-        if (text.isNotEmpty) break;
-      }
-      //  主语一致的候选存在时,优先光标跳到该主语行
-      //  (跟哪个主语接近就调用哪个)
-    }
+    //  "候选与本行标准口令一致→自动选中"已撤(用户:已有
+    //  人工从候选挑选的功能,机器不得与标准口令比较后
+    //  自己得出决定——识别结果是什么就显示什么,选哪个
+    //  候选由口令员定)
     _sampleTimeout?.cancel();
     //  [unk]=语法没匹配上(读音与所有口令都太远):不写入,
     //  显示框提示没听清,采样状态复位以便再按重念
@@ -580,8 +542,6 @@ class VoiceFlow extends ChangeNotifier {
     dictationRawText = '';
     _segProcessedCount = 0;
     _segFirstWasPrefix = false;
-    tokenCollisionRows = [];
-    collisionNoticeShown = false;
     dictationSeqOverride = null;
     //  三表流水线复位
     tableFlags = '';
@@ -654,17 +614,8 @@ class VoiceFlow extends ChangeNotifier {
       if (n > 0)
         debugPrint('seedLibraryRows($libKind): $n rows (3归1)');
     }
-    //  记号碰撞体检(所有表,合并表更关键——喊口令直接查它):
-    //  口令不同而记号相同的行,亮出行号提示重新识别
-    final cols = table.findTokenCollisions();
-    tokenCollisionRows = [
-      for (final c in cols)
-        '第${c.$1}行「${c.$2}」↔ 第${c.$3}行「${c.$4}」'
-        '(记号:${c.$5})'
-    ];
-    collisionNoticeShown = false;
-    if (tokenCollisionRows.isNotEmpty)
-      debugPrint('token collisions: ${tokenCollisionRows.length}');
+    //  记号碰撞体检已撤销(用户:模糊比对把仅仅相近的
+    //  记号误判'相同',多余动作;查表有Power闸,重复交清理)
     //  漂移体检(重录优先级:失真最大的几条)
     final drifts = table.driftReport();
     if (drifts.isNotEmpty) {
@@ -1761,18 +1712,6 @@ class VoiceFlow extends ChangeNotifier {
     return r.isEmpty ? s : r;
   }
 
-  ///  采表确认:输入框文字写入当前待录行第2列,跳下一行
-  ///  前5字母校验(用户严格限制):录音记号与标准口令的
-  ///  前5个字母必须一致——确保指纹质量,再探讨递归识别
-  static bool _prefix5Match(String token, String call) {
-    String letters(String s) =>
-        s.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
-    final a = letters(token);
-    final b = letters(call);
-    if (a.length < 5 || b.length < 5) return true;  //  过短不卡
-    return a.substring(0, 5) == b.substring(0, 5);
-  }
-
   Future<bool> confirmDictation(String text,
       {bool force = false}) async {
     final t = callerTable;
@@ -1787,96 +1726,11 @@ class VoiceFlow extends ChangeNotifier {
       text = dictationRawText;
       debugPrint('confirmDictation: store raw "$text"');
     }
-    //  记号检查:
-    //  1) 同口令的两行记号雷同 = 两行完全相同(多对一重复建行
-    //     的自然结果)——不再拦,提示后再点一次黄框即删除旧行
-    //  2) 不同口令的记号雷同 = 真混淆(查表无法区分),保留
-    //     警示,再点一次黄框=仍要存入(人类决断)
+    //  录入判别已全部撤销(用户逐条裁定:与标准口令比、
+    //  记号撞车、本行原记号前5字母,全都不管——多余动作
+    //  影响输入;重复/撞车由"排序另存"的清理自动去重)。
+    //  现在录指纹零拦截:松圆钮即落行,一路直通
     final newToken = text.trim();
-    CallerRow? identicalRow;
-    for (final r in t.rows) {
-      if (r.seq == row.seq) continue;
-      final sameCall = r.standardCall.trim().toLowerCase() ==
-          row.standardCall.trim().toLowerCase();
-      for (final tk in r.recognized.split('|')) {
-        final t2 = tk.trim();
-        if (t2.isEmpty) continue;
-        if (sameCall) {
-          //  同口令:仅一字不差才算"两行完全相同"(提示删一行)。
-          //  近似而不同的读法=多归1的正常内容,不拦不删
-          //  (用户:没按"清理"钮不得删记录)
-          if (t2.toLowerCase() == newToken.toLowerCase()) {
-            debugPrint('identical rows: row ${r.seq} exact token');
-            identicalRow = r;
-            break;
-          }
-          continue;
-        }
-        //  跨口令记号雷同=真混淆(查表无法区分):警示,
-        //  再点一次黄框=仍要存入(人类决断,force旁路)
-        if (!force &&
-            CallerTable.sentenceError(t2, newToken) < 0.12) {
-          debugPrint('token conflict with row ${r.seq}: "$t2"');
-          //  带上撞车行的口令名,让口令员知道是和哪条混了
-          conflictPending = true;
-          //  错误信息四段:行号|撞车行口令|撞车行记号|操作提示
-          lastError =
-              'token_conflict:${r.seq}|${r.standardCall}|'
-              '$t2|记号雷同,再点一次黄框=仍要存入';
-          _notify();
-          Future.delayed(const Duration(seconds: 5), () {
-            if (lastError != null &&
-                lastError!.startsWith('token_conflict')) {
-              lastError = null;
-              _notify();
-            }
-          });
-          return false;
-        }
-      }
-      if (identicalRow != null) break;
-    }
-    //  两行完全相同:提示是否删除一行(再点一次=删旧行存新行)
-    if (identicalRow != null && !force) {
-      conflictPending = true;
-      lastError =
-          'token_conflict:${identicalRow.seq}|'
-          '${identicalRow.standardCall}|'
-          '${identicalRow.recognized.split('|').first}|'
-          '两行完全相同,再点一次黄框=删除此行';
-      _notify();
-      Future.delayed(const Duration(seconds: 5), () {
-        if (lastError != null &&
-            lastError!.startsWith('token_conflict')) {
-          lastError = null;
-          _notify();
-        }
-      });
-      return false;
-    }
-    if (force && identicalRow != null) {
-      await t.removeRow(identicalRow.seq);
-      debugPrint('identical rows: old row '
-          '${identicalRow.seq} removed');
-    }
-    //  前5字母校验(用户严格限制):不过则提示,再点一次=仍存
-    if (!_prefix5Match(newToken, row.standardCall) && !force) {
-      debugPrint('前5字母不符: "$newToken" vs '
-          '"${row.standardCall}"');
-      conflictPending = true;
-      lastError =
-          'token_conflict:0|${row.standardCall}|'
-          '$newToken|前5字母不符,再点一次=仍要存入';
-      _notify();
-      Future.delayed(const Duration(seconds: 5), () {
-        if (lastError != null &&
-            lastError!.startsWith('token_conflict')) {
-          lastError = null;
-          _notify();
-        }
-      });
-      return false;
-    }
     //  确认即替换:重新采同一条时删旧记号、记新记号
     await t.updateRow(row.seq,
         recognized: newToken, sort: false);
@@ -1967,11 +1821,6 @@ class VoiceFlow extends ChangeNotifier {
   ///  不填输入行,而是直接加为本表新记录
   bool awaitingAddRecord = false;
 
-  ///  记号碰撞提示行(口令不同而记号相同,需重新识别),
-  ///  开 Only 表时体检生成
-  List<String> tokenCollisionRows = [];
-  ///  本次开表是否已弹过碰撞提示
-  bool collisionNoticeShown = false;
 
   ///  清空当前表全部记号(第2列),保留标准口令
   Future<int> clearTableTokens() async {
