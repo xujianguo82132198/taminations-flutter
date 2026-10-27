@@ -28,6 +28,8 @@ import '../dance_model.dart';
 import '../extensions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'caller_store.dart';
+import '../animated_call.dart';
+import '../call_index.dart';
 import 'music_monitor.dart';
 import 'dual_speech_to_text.dart';
 import '../settings.dart';
@@ -804,7 +806,7 @@ class VoiceFlow extends ChangeNotifier {
   ///  当前句)。开始PTT采样。
   bool startInputSample({String seedText = ''}) {
     debugPrint('INPUT_S: start pressed, isActive=$isActive, phase=$phase');
-    if (!isActive) return false;
+    if (!isActive) return false;   //  需先开表(无表调试已废)
     if (phase == 'detecting' || phase == 'awaiting') return false;
     //  上次会话的收尾定时器若未触发,立刻取消——它会在本次
     //  会话中途拆监听/清旗标(快速重按时曾致final无人消费,
@@ -863,62 +865,58 @@ class VoiceFlow extends ChangeNotifier {
     _notify();
   }
 
-  ///  Input语法是否已dump过(每次会话一次,防刷屏)
-  bool _inputGrammarDumped = false;
+  ///  ── 词表任务(独立任务,级别/表内容变化时重跑一次)──
+  ///  汇集:口令库全部级别的口令+其子口令,加上当前PSfix表
+  ///  的"标准口令"列 → 整句短语送识别函数words
+  List<String>? _fullGrammarCache;
+  String? _fullGrammarStamp;
 
-  ///  Input模式语法:当前表+全目录(与喊口令一致)
-  List<String>? _inputGrammar() {
-    if (inputPhraseExperiment) {
-      //  短语表:记号+标准口令读法(小写,整句入语法)——
-      //  解码器只能在这些整句中选,联想拼装被禁
-      final phrases = <String>{};
-      void addTable(CallerTable? t) {
-        if (t == null) return;
-        for (final r in t.rows) {
-          final std = CallerTable.spokenForm(r.standardCall)
-              .trim()
-              .toLowerCase();
-          if (std.isNotEmpty && !std.contains('unk')) {
-            phrases.add(std);
-          }
-          for (final token in r.recognized.split('|')) {
-            final tk = token.trim().toLowerCase();
-            if (tk.isNotEmpty &&
-                !tk.contains('unk') &&
-                tk != std) {
-              phrases.add(tk);
-            }
-          }
+  List<String> _fullGrammar() {
+    final t = _psfixTable;
+    final stamp =
+        '${callIndex.length}|${t?.callerName}|${t?.rows.length}';
+    if (_fullGrammarCache != null &&
+        _fullGrammarStamp == stamp) {
+      return _fullGrammarCache!;
+    }
+    final phrases = <String>{};
+    void addPhrase(String raw) {
+      final f = CallerTable.spokenForm(
+              CallerTable.cleanCallTitle(raw))
+          .toLowerCase()
+          .trim();
+      if (f.isNotEmpty && !f.contains('unk')) phrases.add(f);
+    }
+
+    for (final entry in callIndex) {
+      addPhrase(entry.title);
+      try {
+        for (final call in flattenAnimatedCallList(entry.calls)) {
+          addPhrase(call.title);
         }
+      } catch (_) {}
+    }
+    if (t != null) {
+      for (final r in t.rows) {
+        final f = CallerTable.spokenForm(
+                CallerTable.cleanCallTitle(r.standardCall))
+            .toLowerCase()
+            .trim();
+        if (f.isNotEmpty && !f.contains('unk')) phrases.add(f);
       }
+    }
+    _fullGrammarCache = [...phrases, '[unk]'];
+    _fullGrammarStamp = stamp;
+    debugPrint('词表任务: ${phrases.length}条短语'
+        '(全库口令+子口令+PSfix标准列)');
+    return _fullGrammarCache!;
+  }
 
-      addTable(callerTable);
-      addTable(_psfixTable);
-      if (phrases.isEmpty) return [..._allDirWords, '[unk]'];
-      //  混合语法(修SwingThru退步:纯短语模式逼解码器整句
-      //  二选一,sw-含混时被硬套成别的短语,词级n-best消失;
-      //  加回全部单词条目——整句可直中,含混可退词级)
-      final hybrid = <String>{...phrases, ..._allDirWords};
-      debugPrint('混合语法(${phrases.length}短语+'
-          '${_allDirWords.length}词): ');
-      return [...hybrid, '[unk]'];
-    }
-    final callG = <String>{
-      ...?_onlyTableWords(),
-      ..._allDirWords,
-    };
-    //  一次性透视(排查heads消失:词表内容+相关设置全见)
-    if (!_inputGrammarDumped) {
-      _inputGrammarDumped = true;
-      final sorted = callG.toList()..sort();
-      debugPrint('INPUT语法全表(${sorted.length}): '
-          '${sorted.join(' · ')}');
-      debugPrint('设置: 辅音增强=${Settings.consonantBoost} '
-          '噪声抑制=${Settings.noiseSuppression.toStringAsFixed(2)} '
-          'PSfix门槛=${Settings.psfixThreshold.toStringAsFixed(2)} '
-          '口令门槛=${Settings.callThreshold.toStringAsFixed(2)}');
-    }
-    return [...callG, '[unk]'];
+  ///  Input语法 = 词表任务产物
+  List<String>? _inputGrammar() {
+    final g = _fullGrammar();
+    debugPrint('INPUT语法(词表任务版): ${g.length}条');
+    return g;
   }
 
   ///  Input模式:输入框内容 = 累加+待替换
@@ -1017,13 +1015,44 @@ class VoiceFlow extends ChangeNotifier {
       _notify();
       return;
     }
+    //  短语关联过滤(用户:建立单词间关系,杜绝无关组合):
+    //  候选必须在2503条短语中找到相近匹配,才送去查表;
+    //  否则直接丢弃——"flip bend the top"这类乱拼进不了查表
+    final validCands = <String>[];
+    final grammarSet = _fullGrammar().toSet();
+    for (final c0 in cands) {
+      //  剥开头的填充词(用户:the 太频繁)——口令库中
+      //  没有以 the/a/an 开头的口令,剥掉后不影响正确候选
+      var cand = c0.toLowerCase().trim();
+      while (cand.startsWith('the ') ||
+             cand.startsWith('a ') && cand.length > 2) {
+        cand = cand.substring(cand.indexOf(' ') + 1).trim();
+      }
+      //  精确匹配短语
+      if (grammarSet.contains(cand)) {
+        validCands.add(cand);
+        continue;
+      }
+      //  模糊匹配:候选与某条短语的词级误差 < 0.5
+      var near = false;
+      for (final phrase in grammarSet) {
+        if (CallerTable.sentenceError(phrase, cand) < 0.5) {
+          near = true;
+          break;
+        }
+      }
+      if (near) validCands.add(cand);
+    }
+    debugPrint('短语过滤: ${cands.length}个候选 → ' +
+        '有效${validCands.length}个');
+
     //  逐候选:先PSfix再口令表,第一个查中的算数
     String? matched;
     String? hitCand;
     //  PSfix按需加载(圆钮Input路径曾从不加载→psfix=null,
     //  主语词全灭;麦克风路径有加载,两路共用_psfixTable)
     final psfix = _psfixTable ?? await _loadPSfix();
-    for (final cand in cands) {
+    for (final cand in validCands) {
       if (psfix != null && psfix.rows.isNotEmpty) {
         final r = psfix.lookupSequential(cand);
         if (r.hit != null &&
@@ -1051,9 +1080,6 @@ class VoiceFlow extends ChangeNotifier {
     if (matched == null) {
       debugPrint('语音Input: "$text" 查表未中,不进框'
           '(psfix=${psfix?.rows.length ?? 'null'}行)');
-      //  指导留在日志(用户:蓝条挡按钮区误事,已取消)
-      debugPrint('未中指导: 重喊咬重开头辅音/拆音节分拍'
-          '(ix·tend)/屡不中Only表重录指纹');
       return;
     }
     //  同一按住期内新喊一句=冲掉前一句(重喊纠正),
